@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build: ./dashboard
+    container_name: devfarm-dashboard
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - devfarm-data:/data
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - DEBUG=false
+    restart: unless-stopped
+    networks:
+      - devfarm
+
+networks:
+  devfarm:
+    name: devfarm
+    driver: bridge
+
+volumes:
+  devfarm-data:
+    name: devfarm-data

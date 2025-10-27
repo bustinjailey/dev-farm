@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dev Farm 🚜 - Development Environments</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .create-btn-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-create {
+            background: #48bb78;
+            color: white;
+            font-size: 18px;
+            padding: 18px 35px;
+        }
+
+        .environments {
+            display: grid;
+            gap: 15px;
+        }
+
+        .env-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .env-card:active {
+            transform: scale(0.98);
+        }
+
+        .env-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .env-name {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background: #48bb78;
+            color: white;
+        }
+
+        .status-stopped {
+            background: #f56565;
+            color: white;
+        }
+
+        .env-info {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            color: #666;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: #f7fafc;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .env-actions {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-open {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #f56565;
+            color: white;
+            font-size: 14px;
+            padding: 12px 20px;
+        }
+
+        .btn-delete {
+            background: #e53e3e;
+            color: white;
+            font-size: 14px;
+            padding: 12px 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .modal-header {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #333;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .env-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚜 Dev Farm</h1>
+            <p class="subtitle">Your on-demand development environments</p>
+        </header>
+
+        <div class="create-btn-container">
+            <button class="btn btn-create" onclick="showCreateModal()">
+                ➕ Create New Environment
+            </button>
+        </div>
+
+        <div class="environments" id="environments">
+            {% if environments %}
+                {% for env in environments %}
+                <div class="env-card">
+                    <div class="env-header">
+                        <div class="env-name">{{ env.name }}</div>
+                        <div class="status-badge status-{{ env.status }}">
+                            {{ env.status }}
+                        </div>
+                    </div>
+
+                    <div class="env-info">
+                        <div class="info-row">
+                            <span>📁 Project:</span>
+                            <span>{{ env.project }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span>🔌 Port:</span>
+                            <span>{{ env.port }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span>📅 Created:</span>
+                            <span>{{ env.created }}</span>
+                        </div>
+                    </div>
+
+                    {% if env.status == 'running' and env.stats %}
+                    <div class="stats">
+                        <div class="stat-box">
+                            <div class="stat-label">CPU</div>
+                            <div class="stat-value">{{ env.stats.cpu }}%</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Memory</div>
+                            <div class="stat-value">{{ env.stats.memory_mb }} MB</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="env-actions">
+                        {% if env.status == 'running' %}
+                        <button class="btn btn-open" onclick="window.open('{{ env.url }}', '_blank')">
+                            🚀 Open VS Code
+                        </button>
+                        <button class="btn btn-stop" onclick="stopEnvironment('{{ env.name }}')">
+                            ⏸️ Stop
+                        </button>
+                        {% else %}
+                        <button class="btn btn-open" onclick="startEnvironment('{{ env.name }}')">
+                            ▶️ Start
+                        </button>
+                        <button class="btn btn-stop" disabled style="opacity: 0.5;">
+                            ⏸️ Stop
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-delete" onclick="deleteEnvironment('{{ env.name }}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">🌱</div>
+                    <h2>No environments yet</h2>
+                    <p>Create your first development environment to get started!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Create Environment Modal -->
+    <div class="modal" id="createModal">
+        <div class="modal-content">
+            <div class="modal-header">Create Environment</div>
+            <form id="createForm">
+                <div class="form-group">
+                    <label class="form-label">Environment Name</label>
+                    <input type="text" class="form-input" id="envName" placeholder="my-project" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Project Type</label>
+                    <input type="text" class="form-input" id="envProject" placeholder="general" value="general">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="hideCreateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-create">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showCreateModal() {
+            document.getElementById('createModal').classList.add('active');
+        }
+
+        function hideCreateModal() {
+            document.getElementById('createModal').classList.remove('active');
+            document.getElementById('createForm').reset();
+        }
+
+        document.getElementById('createForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('envName').value;
+            const project = document.getElementById('envProject').value;
+
+            try {
+                const response = await fetch('/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name, project })
+                });
+
+                if (response.ok) {
+                    hideCreateModal();
+                    window.location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error creating environment: ' + error);
+            }
+        });
+
+        async function deleteEnvironment(name) {
+            if (!confirm(`Delete environment "${name}"? This cannot be undone.`)) return;
+
+            try {
+                const response = await fetch(`/delete/${name}`, { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error deleting environment: ' + error);
+            }
+        }
+
+        async function stopEnvironment(name) {
+            try {
+                const response = await fetch(`/stop/${name}`, { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error stopping environment: ' + error);
+            }
+        }
+
+        async function startEnvironment(name) {
+            try {
+                const response = await fetch(`/start/${name}`, { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error starting environment: ' + error);
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            window.location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>
