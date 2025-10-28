@@ -59,7 +59,21 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 └─────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
+## � Secret Management
+
+**Important:** Never commit secrets to git!
+
+All sensitive data (GitHub tokens, API keys) should be stored in a `.env` file that is automatically ignored by git.
+
+```bash
+# Quick setup
+cp .env.example .env
+nano .env  # Add your GitHub token and other secrets
+```
+
+See [docs/SECRETS.md](docs/SECRETS.md) for complete documentation on managing secrets securely.
+
+## �🚀 Quick Start
 
 ### Prerequisites
 
@@ -136,18 +150,46 @@ The `devfarm.sh` script provides easy management:
 # Create a new environment (via CLI)
 ./scripts/devfarm.sh create my-project python
 
+# Upgrade to latest version
+./scripts/upgrade.sh
+```
+
+### Upgrading Dev Farm
+
+To pull the latest code and rebuild containers:
+
+```bash
+cd /opt  # or your dev-farm directory
+./scripts/upgrade.sh
+```
+
+The upgrade script will:
+
+1. Load your GitHub token from `.env` or `PAT` file
+2. Pull latest code from GitHub
+3. Rebuild the code-server image
+4. Rebuild and restart the dashboard
+5. Preserve all existing environments
+
+**Note:** Existing environments will continue running. Create new environments to use the updated code-server image.
+
 # List all environments
+
 ./scripts/devfarm.sh list
 
 # Delete an environment
+
 ./scripts/devfarm.sh delete my-project
 
 # View logs
+
 ./scripts/devfarm.sh logs
 
 # Show help
+
 ./scripts/devfarm.sh help
-```
+
+````
 
 ## 🎛️ Configuration
 
@@ -180,7 +222,7 @@ Default settings are in `docker/config/settings.json`. Modify and rebuild:
 
 ```bash
 ./scripts/devfarm.sh build
-```
+````
 
 ## 📦 Environment Persistence
 

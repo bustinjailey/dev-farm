@@ -11,6 +11,8 @@ services:
       - devfarm-data:/data
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_USERNAME=${GITHUB_USERNAME:-bustinjailey}
+      - GITHUB_EMAIL=${GITHUB_EMAIL:-bustinjailey@users.noreply.github.com}
       - DEBUG=false
     restart: unless-stopped
     networks:

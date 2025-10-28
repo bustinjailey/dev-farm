@@ -10,7 +10,12 @@ ENV/
 
 # Docker
 .env
+.env.local
 *.log
+
+# Secrets
+PAT
+*.secret
 
 # IDE
 .vscode/
