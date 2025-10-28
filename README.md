@@ -156,6 +156,7 @@ The `devfarm.sh` script provides easy management:
 Each environment is **automatically authenticated** with GitHub using your personal access token from the `.env` file.
 
 Features:
+
 - **GitHub CLI** pre-authenticated
 - **Git** with credentials configured
 - **GitHub Copilot** ready to use (if you have a license)
