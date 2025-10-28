@@ -117,27 +117,34 @@ def save_github_token(token):
     os.environ['GITHUB_TOKEN'] = token
 
 def sync_registry_with_containers():
-    """Remove registry entries for containers that no longer exist"""
+    """Remove registry entries for containers that no longer exist or update their status"""
     if not client:
         return
     
     registry = load_registry()
-    existing_container_ids = set()
+    existing_containers = {}
     
     try:
         # Get all dev-farm containers
         containers = client.containers.list(all=True, filters={'label': 'dev-farm=true'})
-        existing_container_ids = {c.id for c in containers}
+        for c in containers:
+            existing_containers[c.id] = c.status
     except Exception:
         return  # If Docker isn't available, don't modify registry
     
-    # Remove registry entries for missing containers
+    # Remove registry entries for missing containers and update status
     registry_modified = False
     for env_name in list(registry.keys()):
         container_id = registry[env_name].get('container_id')
-        if container_id and container_id not in existing_container_ids:
-            del registry[env_name]
-            registry_modified = True
+        if container_id:
+            if container_id not in existing_containers:
+                # Container was deleted - remove from registry
+                del registry[env_name]
+                registry_modified = True
+            elif registry[env_name].get('status') != existing_containers[container_id]:
+                # Status changed - update registry
+                registry[env_name]['status'] = existing_containers[container_id]
+                registry_modified = True
     
     if registry_modified:
         save_registry(registry)
@@ -725,6 +732,32 @@ def get_orphans():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/environments/<env_name>/logs')
+def get_environment_logs(env_name):
+    """Get container logs for an environment"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    registry = load_registry()
+    
+    if env_name not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    try:
+        container = client.containers.get(registry[env_name]['container_id'])
+        logs = container.logs(tail=500, timestamps=True).decode('utf-8', errors='replace')
+        return jsonify({
+            'success': True,
+            'logs': logs,
+            'status': container.status
+        })
+    except docker.errors.NotFound:
+        # Container was deleted - sync registry
+        sync_registry_with_containers()
+        return jsonify({'error': 'Container not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/system/cleanup-orphans', methods=['POST'])
 def cleanup_orphans():
     """Stop and remove orphaned containers"""
@@ -972,5 +1005,23 @@ def system_update_status():
     with UPDATE_LOCK:
         return jsonify(UPDATE_PROGRESS)
 
+def background_registry_sync():
+    """Background task to keep registry in sync with containers"""
+    import threading
+    import time
+    
+    def sync_loop():
+        while True:
+            try:
+                time.sleep(30)  # Sync every 30 seconds
+                sync_registry_with_containers()
+            except Exception as e:
+                print(f"Background sync error: {e}")
+    
+    thread = threading.Thread(target=sync_loop, daemon=True)
+    thread.start()
+
 if __name__ == '__main__':
+    # Start background registry sync
+    background_registry_sync()
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('DEBUG', 'false').lower() == 'true')

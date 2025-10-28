@@ -247,6 +247,13 @@
       padding: 12px 20px;
     }
 
+    .btn-logs {
+      background: #4299e1;
+      color: white;
+      font-size: 14px;
+      padding: 12px 20px;
+    }
+
     .btn-delete {
       background: #e53e3e;
       color: white;
@@ -484,6 +491,9 @@
             ⏸️ Stop
           </button>
           {% endif %}
+          <button class="btn btn-logs" onclick="showLogs('{{ env.name }}')">
+            📋 Logs
+          </button>
           <button class="btn btn-delete" onclick="deleteEnvironment('{{ env.name }}')">
             🗑️ Delete
           </button>
@@ -621,8 +631,30 @@
     </div>
   </div>
 
+  <!-- Logs Modal -->
+  <div class="modal" id="logsModal">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">Container Logs</div>
+      <div style="margin-bottom: 15px;">
+        <strong id="logsEnvName"></strong>
+        <span id="logsStatus"
+          style="margin-left: 10px; padding: 4px 12px; border-radius: 12px; font-size: 0.85em;"></span>
+      </div>
+      <div
+        style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"
+        id="logsContent">
+        Loading logs...
+      </div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn btn-cancel" onclick="hideLogsModal()">Close</button>
+        <button class="btn" onclick="refreshLogs()" style="background: #4299e1; color: white;">🔄 Refresh</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let githubRepos = [];
+    let currentLogsEnv = null;
 
     async function loadGitHubRepos() {
       const repoList = document.getElementById('repoList');
@@ -1168,6 +1200,52 @@
         }
       } catch (e) {
         console.warn('Failed to refresh environments', e);
+      }
+    }
+
+    // Logs modal functions
+    async function showLogs(envName) {
+      currentLogsEnv = envName;
+      document.getElementById('logsEnvName').textContent = envName;
+      document.getElementById('logsModal').classList.add('active');
+      await refreshLogs();
+    }
+
+    function hideLogsModal() {
+      document.getElementById('logsModal').classList.remove('active');
+      currentLogsEnv = null;
+    }
+
+    async function refreshLogs() {
+      if (!currentLogsEnv) return;
+
+      const logsContent = document.getElementById('logsContent');
+      const logsStatus = document.getElementById('logsStatus');
+
+      try {
+        logsContent.textContent = 'Loading logs...';
+        logsStatus.textContent = '';
+
+        const response = await fetch(`/api/environments/${currentLogsEnv}/logs`);
+        const data = await response.json();
+
+        if (data.success) {
+          logsContent.textContent = data.logs || 'No logs available';
+          logsStatus.textContent = data.status;
+          logsStatus.className = `status-badge status-${data.status}`;
+          logsStatus.style.display = 'inline-block';
+        } else {
+          logsContent.textContent = `Error: ${data.error}`;
+          logsStatus.textContent = 'error';
+          logsStatus.className = 'status-badge status-exited';
+        }
+
+        // Auto-scroll to bottom
+        logsContent.scrollTop = logsContent.scrollHeight;
+      } catch (error) {
+        logsContent.textContent = `Failed to fetch logs: ${error.message}`;
+        logsStatus.textContent = 'error';
+        logsStatus.className = 'status-badge status-exited';
       }
     }
   </script>

@@ -300,29 +300,70 @@ EOFERR
             MOUNT_SUCCESS=false
             SFTP_SETUP_ATTEMPTED=false
             
-            # Attempt SSHFS mount
+            # Test SSH connectivity FIRST before attempting any mount
+            echo "Testing SSH connectivity to ${SSH_USER}@${SSH_HOST}..." | tee -a "$LOG_FILE"
+            SSH_TEST_SUCCESS=false
             if [ -n "${SSH_PASSWORD}" ]; then
-                # Use password authentication via sshpass (reads from SSHPASS env var)
                 export SSHPASS="${SSH_PASSWORD}"
-                MOUNT_OUTPUT=$(timeout 10 sshpass -e sshfs \
-                        ${SSHFS_OPTS} \
-                        remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                MOUNT_EXIT=$?
-                echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
-                if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                    MOUNT_SUCCESS=true
+                if timeout 10 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                    "${SSH_USER}@${SSH_HOST}" "echo SSH_OK" 2>&1 | grep -q "SSH_OK"; then
+                    SSH_TEST_SUCCESS=true
+                    echo "✓ SSH connectivity confirmed" | tee -a "$LOG_FILE"
+                else
+                    echo "✗ SSH connectivity test failed" | tee -a "$LOG_FILE"
                 fi
             else
-                # Use key-based authentication
-                MOUNT_OUTPUT=$(timeout 10 sshfs \
-                        ${SSHFS_OPTS} \
-                        remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                MOUNT_EXIT=$?
-                echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
-                if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                    MOUNT_SUCCESS=true
+                if timeout 10 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                    "${SSH_USER}@${SSH_HOST}" "echo SSH_OK" 2>&1 | grep -q "SSH_OK"; then
+                    SSH_TEST_SUCCESS=true
+                    echo "✓ SSH connectivity confirmed" | tee -a "$LOG_FILE"
+                else
+                    echo "✗ SSH connectivity test failed" | tee -a "$LOG_FILE"
+                fi
+            fi
+            
+            # Only attempt mount if SSH connectivity is confirmed
+            if [ "$SSH_TEST_SUCCESS" = false ]; then
+                echo "Skipping SSHFS mount due to SSH connectivity failure" | tee -a "$LOG_FILE"
+                cat > /home/coder/workspace/SSH_CONNECTION_ERROR.md <<EOFERR
+# SSH Connection Error
+
+Cannot connect to ${SSH_USER}@${SSH_HOST}:${SSH_PORT}
+
+Possible causes:
+- Host is unreachable or offline
+- SSH credentials are incorrect
+- SSH service is not running on remote host
+- Firewall blocking connection
+- Network connectivity issues
+
+Check your SSH settings and try again.
+EOFERR
+            else
+                # Attempt SSHFS mount
+                if [ -n "${SSH_PASSWORD}" ]; then
+                    # Use password authentication via sshpass (reads from SSHPASS env var)
+                    export SSHPASS="${SSH_PASSWORD}"
+                    MOUNT_OUTPUT=$(timeout 10 sshpass -e sshfs \
+                            ${SSHFS_OPTS} \
+                            remote-target:"${SSH_PATH}" \
+                            "$REMOTE_MOUNT_DIR" 2>&1 || true)
+                    MOUNT_EXIT=$?
+                    echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
+                    if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
+                        MOUNT_SUCCESS=true
+                    fi
+                else
+                    # Use key-based authentication
+                    MOUNT_OUTPUT=$(timeout 10 sshfs \
+                            ${SSHFS_OPTS} \
+                            remote-target:"${SSH_PATH}" \
+                            "$REMOTE_MOUNT_DIR" 2>&1 || true)
+                    MOUNT_EXIT=$?
+                    echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
+                    if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
+                        MOUNT_SUCCESS=true
+                    fi
                 fi
             fi
             
