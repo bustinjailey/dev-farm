@@ -373,9 +373,20 @@
           <span class="status-badge badge-warning">Checking...</span>
         </span>
       </div>
+      <div class="status-row" id="orphanRow" style="display: none;">
+        <span class="status-label">⚠️ Orphaned Containers</span>
+        <span class="status-value" id="orphanStatus">
+          <span class="status-badge badge-error">0 found</span>
+        </span>
+      </div>
       <div class="status-row" id="upgradeRow" style="display: none;">
         <button class="btn btn-upgrade" onclick="performUpgrade()" id="upgradeBtn">
           ⬆️ Upgrade Now
+        </button>
+      </div>
+      <div class="status-row" id="cleanupRow" style="display: none;">
+        <button class="btn btn-upgrade" onclick="cleanupOrphans()" id="cleanupBtn" style="background: #f59e0b;">
+          🧹 Clean Up Orphans
         </button>
       </div>
     </div>
@@ -738,8 +749,61 @@
           `;
           upgradeRow.style.display = 'none';
         }
+
+        // Check for orphaned containers
+        const orphansResp = await fetch('/api/system/orphans');
+        const orphansData = await orphansResp.json();
+        const orphanRow = document.getElementById('orphanRow');
+        const orphanStatus = document.getElementById('orphanStatus');
+        const cleanupRow = document.getElementById('cleanupRow');
+
+        if (orphansData.count > 0) {
+          orphanStatus.innerHTML = `
+            <span class="status-badge badge-error">${orphansData.count} found</span>
+          `;
+          orphanRow.style.display = 'flex';
+          cleanupRow.style.display = 'flex';
+        } else {
+          orphanRow.style.display = 'none';
+          cleanupRow.style.display = 'none';
+        }
       } catch (error) {
         console.error('Status check failed:', error);
+      }
+    }
+
+    async function cleanupOrphans() {
+      if (!confirm('Clean up all orphaned containers? This will stop and remove containers not tracked in the registry.')) {
+        return;
+      }
+
+      const btn = document.getElementById('cleanupBtn');
+      const originalText = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Cleaning...';
+
+      try {
+        const response = await fetch('/api/system/cleanup-orphans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          alert(`Cleaned up ${data.cleaned.length} orphaned container(s)`);
+          window.location.reload();
+        } else {
+          alert('Cleanup completed with errors. Check console for details.');
+          console.error('Cleanup errors:', data.errors);
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      } catch (error) {
+        alert('Cleanup failed: ' + error);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
       }
     }
 

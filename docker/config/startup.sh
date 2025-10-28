@@ -142,10 +142,14 @@ fi
 # Create a startup script to open Copilot Chat
 mkdir -p /home/coder/workspace/.vscode
 
-cat > /home/coder/workspace/.vscode/settings.json <<'EOFVSCODE'
+# Use WORKSPACE_NAME if provided for the window title
+WORKSPACE_DISPLAY_NAME="${WORKSPACE_NAME:-Workspace}"
+
+cat > /home/coder/workspace/.vscode/settings.json <<EOFVSCODE
 {
   "github.copilot.chat.welcomeMessage": "never",
-  "workbench.startupEditor": "none"
+  "workbench.startupEditor": "none",
+  "window.title": "${WORKSPACE_DISPLAY_NAME}"
 }
 EOFVSCODE
 
@@ -165,5 +169,5 @@ cat > /home/coder/.local/share/code-server/User/keybindings.json <<'EOFKEYS'
 EOFKEYS
 
 # Start code-server with focus on Copilot
-echo "Starting code-server with Copilot ready..."
+echo "Starting code-server with workspace name: ${WORKSPACE_NAME:-workspace}"
 exec /usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none /home/coder/workspace

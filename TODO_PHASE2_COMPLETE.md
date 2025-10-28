@@ -6,12 +6,14 @@
 
 **Problem**: Settings weren't being applied because code-server creates settings on first run, overwriting our pre-configured settings.
 
-**Solution**: 
+**Solution**:
+
 - Store settings as `.json.template` in Docker image
 - Copy template to actual settings path on each container startup
 - This ensures settings are always applied fresh
 
 **Changes**:
+
 - `Dockerfile.code-server`: Copy settings as template
 - `startup.sh`: Apply template on each startup
 - Settings now persist correctly!
@@ -24,39 +26,44 @@
 
 ```json
 {
-  "editor.fontSize": 16,              // Larger text
-  "terminal.integrated.fontSize": 14,  // Larger terminal
-  "editor.minimap.enabled": false,     // More screen space
-  "window.zoomLevel": 1,               // Overall zoom
-  "chat.editor.fontSize": 16,          // Larger chat
-  "chat.editor.lineHeight": 24,        // Better readability
-  "workbench.activityBar.location": "top",  // Top bar for mobile
+  "editor.fontSize": 16, // Larger text
+  "terminal.integrated.fontSize": 14, // Larger terminal
+  "editor.minimap.enabled": false, // More screen space
+  "window.zoomLevel": 1, // Overall zoom
+  "chat.editor.fontSize": 16, // Larger chat
+  "chat.editor.lineHeight": 24, // Better readability
+  "workbench.activityBar.location": "top", // Top bar for mobile
   "workbench.panel.defaultLocation": "right", // Chat on right
-  "workbench.editor.showTabs": "single"      // Less clutter
+  "workbench.editor.showTabs": "single" // Less clutter
 }
 ```
 
 **Keyboard Shortcuts**:
+
 - `Ctrl+Shift+Space`: Open Copilot Chat (easy mobile access)
 - `Ctrl+I`: Explain code with Copilot
 
 **Extensions Auto-Installed**:
+
 - `github.copilot` - Main Copilot extension
 - `github.copilot-chat` - Chat interface
 
 ### 3. ✅ GitHub Authentication in Dashboard
 
 **Added Features**:
+
 - **GitHub Status Display**: Shows if authenticated and username
 - **Real-time Status Check**: Validates token on page load
 - **Visual Indicators**: Green checkmark when connected, red X when not
 - **User Info**: Displays GitHub username when authenticated
 
 **API Endpoints**:
+
 - `GET /api/github/auth/status` - Check authentication status
 - `GET /api/github/auth/start` - Instructions for setup (manual token for now)
 
 **How It Works**:
+
 1. Dashboard checks `GITHUB_TOKEN` from environment
 2. Validates token against GitHub API
 3. Displays status with username
@@ -67,6 +74,7 @@
 ### 4. ✅ Self-Update Button in Dashboard
 
 **Features**:
+
 - **Update Detection**: Automatically checks for new commits
 - **Visual Indicator**: Shows number of commits behind
 - **One-Click Upgrade**: Button appears when updates available
@@ -74,10 +82,12 @@
 - **Auto-Reload**: Dashboard reloads after successful upgrade
 
 **API Endpoints**:
+
 - `GET /api/system/status` - Get git status and check for updates
 - `POST /api/system/upgrade` - Run upgrade script
 
 **How It Works**:
+
 1. Dashboard runs `git fetch` in background
 2. Compares local HEAD with remote
 3. If behind, shows "⬆️ Upgrade Now" button
@@ -86,6 +96,7 @@
 6. Dashboard reloads automatically
 
 **Status Checks**:
+
 - ✓ Up to date (shows commit hash)
 - ⚠ X updates available (shows count)
 - 🔄 Upgrading... (during upgrade)
@@ -96,6 +107,7 @@
 ### Files Modified
 
 1. **docker/config/settings.json**
+
    - Increased font sizes (16px editor, 14px terminal)
    - Disabled minimap for more space
    - Added chat font settings
@@ -104,6 +116,7 @@
    - Single tab mode for cleaner UI
 
 2. **docker/config/startup.sh**
+
    - Added settings template application
    - Install Copilot extensions automatically
    - Create workspace-specific settings
@@ -111,10 +124,12 @@
    - Better error handling
 
 3. **docker/Dockerfile.code-server**
+
    - Store settings as template instead of direct copy
    - Ensures settings applied on every container start
 
 4. **dashboard/app.py**
+
    - Added `secrets` import for future OAuth
    - Added `/api/github/auth/status` endpoint
    - Added `/api/github/auth/start` endpoint
@@ -123,6 +138,7 @@
    - Git operations for update checking
 
 5. **dashboard/templates/index.html**
+
    - Added system status section at top
    - GitHub authentication status display
    - Update availability indicator
@@ -140,6 +156,7 @@
 
 ```css
 .system-status        /* Container for status section */
+/* Container for status section */
 .status-row          /* Each status line */
 .status-label        /* Label text */
 .status-value        /* Value/badge container */
@@ -147,7 +164,7 @@
 .badge-success       /* Green badge (connected) */
 .badge-warning       /* Orange badge (needs attention) */
 .badge-error         /* Red badge (error) */
-.btn-upgrade         /* Upgrade button styling */
+.btn-upgrade; /* Upgrade button styling */
 ```
 
 ## 🎯 Usage Guide
@@ -157,11 +174,13 @@
 The dashboard now shows your GitHub connection status at the top:
 
 **When Connected**:
+
 ```
 🔐 GitHub    ✓ bustinjailey
 ```
 
 **When Not Connected**:
+
 ```
 🔐 GitHub    ✗ Not configured
 ```
@@ -173,11 +192,13 @@ All new environments will automatically use this authenticated session.
 The dashboard checks for updates automatically:
 
 **When Up to Date**:
+
 ```
 🔄 Updates    ✓ Up to date (abc1234)
 ```
 
 **When Updates Available**:
+
 ```
 🔄 Updates    ⚠ 3 updates available
 [⬆️ Upgrade Now]
@@ -196,6 +217,7 @@ When you create a new environment:
 5. **Quick Access**: `Ctrl+Shift+Space` opens Copilot Chat
 
 **Mobile Tips**:
+
 - Use landscape mode for best experience
 - Swipe from right to see Copilot panel
 - Tap status bar to toggle terminal
@@ -211,6 +233,7 @@ Settings are now **guaranteed** to apply because:
 4. Workspace settings also created automatically
 
 **Verify Settings Applied**:
+
 1. Open new environment
 2. Check theme is "Dark Modern" ✓
 3. Check font size is 16px ✓
@@ -231,6 +254,7 @@ Or use the new **self-update button** in the dashboard! 🎉
 ## 📋 Checklist
 
 ### Settings Fixed ✅
+
 - ✅ Settings stored as template
 - ✅ Template applied on startup
 - ✅ Theme persists correctly
@@ -239,6 +263,7 @@ Or use the new **self-update button** in the dashboard! 🎉
 - ✅ Trust mode working
 
 ### Mobile Copilot ✅
+
 - ✅ Larger font sizes (16px)
 - ✅ Larger terminal (14px)
 - ✅ No minimap (more space)
@@ -250,6 +275,7 @@ Or use the new **self-update button** in the dashboard! 🎉
 - ✅ Custom keyboard shortcuts
 
 ### GitHub Auth ✅
+
 - ✅ Status endpoint implemented
 - ✅ Dashboard shows connection status
 - ✅ Username displayed when connected
@@ -258,6 +284,7 @@ Or use the new **self-update button** in the dashboard! 🎉
 - ✅ Same token used for all envs
 
 ### Self-Update ✅
+
 - ✅ Update detection working
 - ✅ Commit count displayed
 - ✅ Upgrade button appears when needed
@@ -287,6 +314,7 @@ Beyond the TODO requirements:
 If settings don't appear in a new environment:
 
 1. Check the container logs:
+
    ```bash
    ssh root@eagle "pct exec 200 -- docker logs devfarm-<name>"
    ```
@@ -294,6 +322,7 @@ If settings don't appear in a new environment:
 2. Look for "Applying VS Code settings..." message
 
 3. Check if template exists:
+
    ```bash
    ssh root@eagle "pct exec 200 -- docker exec devfarm-<name> ls -la /home/coder/.local/share/code-server/User/"
    ```
@@ -306,11 +335,13 @@ If settings don't appear in a new environment:
 ### Copilot Not Showing
 
 1. Verify extensions installed:
+
    - Open Command Palette (`Ctrl+Shift+P`)
    - Type "Extensions: Show Installed Extensions"
    - Look for GitHub Copilot and Copilot Chat
 
 2. Check GitHub authentication:
+
    - Look at dashboard status
    - Should show green checkmark with username
 
@@ -322,11 +353,13 @@ If settings don't appear in a new environment:
 ### Update Button Not Appearing
 
 1. Check git remote is configured:
+
    ```bash
    ssh root@eagle "pct exec 200 -- bash -c 'cd /opt && git remote -v'"
    ```
 
 2. Check system status endpoint:
+
    ```bash
    curl http://192.168.1.126:5000/api/system/status
    ```
@@ -336,11 +369,13 @@ If settings don't appear in a new environment:
 ### Upgrade Fails
 
 1. Check upgrade script exists:
+
    ```bash
    ssh root@eagle "pct exec 200 -- ls -la /opt/scripts/upgrade.sh"
    ```
 
 2. Check permissions:
+
    ```bash
    ssh root@eagle "pct exec 200 -- chmod +x /opt/scripts/upgrade.sh"
    ```
@@ -360,6 +395,7 @@ All four TODO items are now **fully implemented and tested**:
 ✅ **Self-Update** - One-click upgrade with automatic update detection
 
 The system is now:
+
 - ✨ More mobile-friendly
 - 🔐 Shows authentication status
 - ⬆️ Self-updating with one click

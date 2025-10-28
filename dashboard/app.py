@@ -10,6 +10,7 @@ import json
 import subprocess
 from datetime import datetime
 import secrets
+import re
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -23,6 +24,21 @@ except Exception as e:
 
 REGISTRY_FILE = '/data/environments.json'
 BASE_PORT = 8100
+
+def kebabify(name):
+    """Convert any name to kebab-case (Docker-safe ID format)
+    Examples: 'My Cool Project' -> 'my-cool-project'
+              'Test_Env 123' -> 'test-env-123'
+    """
+    # Convert to lowercase
+    name = name.lower()
+    # Replace any non-alphanumeric character with hyphen
+    name = re.sub(r'[^a-z0-9]+', '-', name)
+    # Remove leading/trailing hyphens
+    name = name.strip('-')
+    # Collapse multiple hyphens
+    name = re.sub(r'-+', '-', name)
+    return name
 
 def load_registry():
     """Load the registry of dev environments"""
@@ -78,14 +94,15 @@ def index():
     environments = []
     
     if client:
-        for env_name, env_data in registry.items():
+        for env_id, env_data in registry.items():
             try:
                 container = client.containers.get(env_data['container_id'])
                 status = container.status
                 stats = get_container_stats(container) if status == 'running' else {}
                 
                 environments.append({
-                    'name': env_name,
+                    'name': env_data.get('display_name', env_id),  # Use display_name if available
+                    'id': env_id,
                     'port': env_data['port'],
                     'status': status,
                     'created': env_data.get('created', 'Unknown'),
@@ -109,11 +126,12 @@ def api_environments():
     environments = []
     
     if client:
-        for env_name, env_data in registry.items():
+        for env_id, env_data in registry.items():
             try:
                 container = client.containers.get(env_data['container_id'])
                 environments.append({
-                    'name': env_name,
+                    'name': env_data.get('display_name', env_id),
+                    'id': env_id,
                     'port': env_data['port'],
                     'status': container.status,
                     'url': f"http://{request.host.split(':')[0]}:{env_data['port']}"
@@ -127,7 +145,11 @@ def api_environments():
 def create_environment():
     """Create a new development environment"""
     data = request.get_json()
-    env_name = data.get('name', f'env-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    display_name = data.get('name', f'env-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    
+    # Kebabify the name for Docker container/volume IDs
+    env_id = kebabify(display_name)
+    
     project = data.get('project', 'general')
     mode = data.get('mode', 'workspace')  # workspace, ssh, or git
     
@@ -142,8 +164,9 @@ def create_environment():
     
     registry = load_registry()
     
-    if env_name in registry:
-        return jsonify({'error': 'Environment already exists'}), 400
+    # Check if environment ID already exists
+    if env_id in registry:
+        return jsonify({'error': f'Environment "{display_name}" (ID: {env_id}) already exists'}), 400
     
     port = get_next_port()
     
@@ -157,14 +180,15 @@ def create_environment():
             print("Warning: GITHUB_TOKEN not set. Environments will not have GitHub authentication.")
         
         # Create container with environment variables
-        print(f"Creating container {env_name} with port mapping: 8080/tcp -> {port}")
+        print(f"Creating container {env_id} ('{display_name}') with port mapping: 8080/tcp -> {port}")
         
         # Build environment variables
         env_vars = {
             'GITHUB_TOKEN': github_token,
             'GITHUB_USERNAME': github_username,
             'GITHUB_EMAIL': github_email,
-            'DEV_MODE': mode
+            'DEV_MODE': mode,
+            'WORKSPACE_NAME': display_name  # Pass display name for workspace tab
         }
         
         # Add mode-specific environment variables
@@ -177,23 +201,26 @@ def create_environment():
         
         container = client.containers.run(
             'dev-farm/code-server:latest',
-            name=f"devfarm-{env_name}",
+            name=f"devfarm-{env_id}",
             detach=True,
             ports={'8080/tcp': port},  # Map container's internal 8080 to host's external port
             volumes={
-                f'devfarm-{env_name}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
+                f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             },
             environment=env_vars,
             labels={
                 'dev-farm': 'true',
-                'dev-farm.name': env_name,
+                'dev-farm.id': env_id,
+                'dev-farm.name': display_name,
                 'dev-farm.project': project,
                 'dev-farm.mode': mode
             }
         )
         
-        # Register environment
-        registry[env_name] = {
+        # Register environment with both display name and ID
+        registry[env_id] = {
+            'display_name': display_name,
+            'env_id': env_id,
             'container_id': container.id,
             'port': port,
             'created': datetime.now().isoformat(),
@@ -206,7 +233,8 @@ def create_environment():
         
         return jsonify({
             'success': True,
-            'name': env_name,
+            'name': display_name,
+            'id': env_id,
             'port': port,
             'url': f"http://{request.host.split(':')[0]}:{port}"
         })
@@ -411,6 +439,92 @@ def system_status():
             'commits_behind': int(commits_behind) if commits_behind else 0,
             'docker_connected': client is not None,
             'environments': len(load_registry())
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/orphans')
+def get_orphans():
+    """Detect orphaned containers (containers not in registry)"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    try:
+        registry = load_registry()
+        tracked_container_ids = {env['container_id'] for env in registry.values()}
+        
+        # Get all dev-farm containers
+        containers = client.containers.list(all=True, filters={'label': 'dev-farm=true'})
+        
+        orphans = []
+        for container in containers:
+            if container.id not in tracked_container_ids:
+                orphans.append({
+                    'id': container.id[:12],
+                    'name': container.name,
+                    'status': container.status,
+                    'created': container.attrs['Created'],
+                    'ports': container.attrs['NetworkSettings']['Ports']
+                })
+        
+        return jsonify({
+            'count': len(orphans),
+            'orphans': orphans
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/cleanup-orphans', methods=['POST'])
+def cleanup_orphans():
+    """Stop and remove orphaned containers"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    data = request.get_json()
+    container_ids = data.get('container_ids', [])  # If empty, clean all orphans
+    
+    try:
+        registry = load_registry()
+        tracked_container_ids = {env['container_id'] for env in registry.values()}
+        
+        # Get all dev-farm containers
+        containers = client.containers.list(all=True, filters={'label': 'dev-farm=true'})
+        
+        cleaned = []
+        errors = []
+        
+        for container in containers:
+            # Skip if in registry (not an orphan)
+            if container.id in tracked_container_ids:
+                continue
+            
+            # If specific IDs provided, only clean those
+            if container_ids and container.id[:12] not in container_ids:
+                continue
+            
+            try:
+                # Stop if running
+                if container.status == 'running':
+                    container.stop(timeout=10)
+                
+                # Remove container
+                container.remove()
+                
+                cleaned.append({
+                    'id': container.id[:12],
+                    'name': container.name
+                })
+            except Exception as e:
+                errors.append({
+                    'id': container.id[:12],
+                    'name': container.name,
+                    'error': str(e)
+                })
+        
+        return jsonify({
+            'success': len(errors) == 0,
+            'cleaned': cleaned,
+            'errors': errors
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
