@@ -224,7 +224,7 @@ def index():
                     'git_url': env_data.get('git_url'),
                     'stats': stats,
                     'ready': ready,
-                    'url': f"http://{request.host.split(':')[0]}:{env_data['port']}"
+                    'url': f"http://{request.host.split(':')[0]}:{env_data['port']}?folder=/home/coder/workspace"
                 })
             except docker.errors.NotFound:
                 # Container no longer exists
@@ -252,7 +252,7 @@ def api_environments():
                     'port': env_data['port'],
                     'status': display_status,
                     'ready': ready,
-                    'url': f"http://{hostname}:{env_data['port']}"
+                    'url': f"http://{hostname}:{env_data['port']}?folder=/home/coder/workspace"
                 })
             except docker.errors.NotFound:
                 pass
@@ -374,7 +374,7 @@ def create_environment():
             'name': display_name,
             'id': env_id,
             'port': port,
-            'url': f"http://{request.host.split(':')[0]}:{port}"
+            'url': f"http://{request.host.split(':')[0]}:{port}?folder=/home/coder/workspace"
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
