@@ -173,7 +173,7 @@ if [ "${DEV_MODE}" = "git" ]; then
     fi
 elif [ "${DEV_MODE}" = "ssh" ]; then
     # SSH mode - mount remote filesystem as subdirectory to preserve local workspace settings
-    echo "Setting up SSHFS mount for remote filesystem..." | tee -a "$LOG_FILE"
+    echo "Setting up SSHFS mount for remote filesystem (background)..." | tee -a "$LOG_FILE"
 
     if [ -z "${SSH_HOST}" ]; then
         echo "Error: SSH_HOST not set. Cannot mount remote filesystem." | tee -a "$LOG_FILE"
@@ -191,24 +191,29 @@ To use SSH mode, you need to provide:
 You can update these settings in the dashboard.
 EOFERR
     else
-        mkdir -p /home/coder/.ssh
-        chmod 700 /home/coder/.ssh
+        # Start background mount process - don't block container startup
+        (
+            # Background mount function
+            echo "Background SSH mount starting..." | tee -a "$LOG_FILE"
+            
+            mkdir -p /home/coder/.ssh
+            chmod 700 /home/coder/.ssh
 
-        SSH_USER="${SSH_USER:-root}"
-        SSH_PATH="${SSH_PATH:-/home}"
-        SSH_PORT="${SSH_PORT:-22}"
+            SSH_USER="${SSH_USER:-root}"
+            SSH_PATH="${SSH_PATH:-/home}"
+            SSH_PORT="${SSH_PORT:-22}"
 
-        # Optional: private key provided via env (SSH_PRIVATE_KEY). If present, use it.
-        if [ -n "${SSH_PRIVATE_KEY}" ]; then
-            echo "Using SSH private key from environment" | tee -a "$LOG_FILE"
-            echo "${SSH_PRIVATE_KEY}" > /home/coder/.ssh/id_rsa
-            chmod 600 /home/coder/.ssh/id_rsa
-        fi
+            # Optional: private key provided via env (SSH_PRIVATE_KEY). If present, use it.
+            if [ -n "${SSH_PRIVATE_KEY}" ]; then
+                echo "Using SSH private key from environment" | tee -a "$LOG_FILE"
+                echo "${SSH_PRIVATE_KEY}" > /home/coder/.ssh/id_rsa
+                chmod 600 /home/coder/.ssh/id_rsa
+            fi
 
-        # Create SSH config entry
-        if [ -n "${SSH_PASSWORD}" ]; then
-            # For password auth, don't specify IdentityFile
-            cat > /home/coder/.ssh/config <<EOF
+            # Create SSH config entry
+            if [ -n "${SSH_PASSWORD}" ]; then
+                # For password auth, don't specify IdentityFile
+                cat > /home/coder/.ssh/config <<EOF
 Host remote-target
     HostName ${SSH_HOST}
     User ${SSH_USER}
@@ -219,9 +224,9 @@ Host remote-target
     ServerAliveCountMax 3
     PreferredAuthentications password
 EOF
-        else
-            # For key-based auth, specify identity file
-            cat > /home/coder/.ssh/config <<EOF
+            else
+                # For key-based auth, specify identity file
+                cat > /home/coder/.ssh/config <<EOF
 Host remote-target
     HostName ${SSH_HOST}
     User ${SSH_USER}
@@ -233,17 +238,17 @@ Host remote-target
     IdentityFile /home/coder/.ssh/id_rsa
     PreferredAuthentications publickey
 EOF
-        fi
-        chmod 600 /home/coder/.ssh/config
+            fi
+            chmod 600 /home/coder/.ssh/config
 
-        # Create mount point as subdirectory of workspace
-        REMOTE_MOUNT_DIR="/home/coder/workspace/remote"
-        mkdir -p "$REMOTE_MOUNT_DIR"
-        
-        # Ensure FUSE device exists
-        if [ ! -e /dev/fuse ]; then
-            echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount. Check container run privileges." | tee -a "$LOG_FILE"
-            cat > /home/coder/workspace/SSH_MOUNT_ERROR.md <<'EOFERR'
+            # Create mount point as subdirectory of workspace
+            REMOTE_MOUNT_DIR="/home/coder/workspace/remote"
+            mkdir -p "$REMOTE_MOUNT_DIR"
+            
+            # Ensure FUSE device exists
+            if [ ! -e /dev/fuse ]; then
+                echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount. Check container run privileges." | tee -a "$LOG_FILE"
+                cat > /home/coder/workspace/SSH_MOUNT_ERROR.md <<'EOFERR'
 # SSH Mount Error
 
 /dev/fuse device is not available in this container.
@@ -256,7 +261,8 @@ SSHFS requires FUSE support which needs:
 The container was not started with the necessary privileges for SSHFS.
 Please contact your administrator or recreate this environment.
 EOFERR
-        else
+                exit 1
+            fi
             # Attempt to mount remote path to subdirectory
             echo "Mounting ${SSH_USER}@${SSH_HOST}:${SSH_PATH} -> ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
             
@@ -570,7 +576,33 @@ For now, you can still use this environment to write code locally! 🚀
 EOF
                 fi
             fi
-        fi
+            
+            # Notify completion or failure
+            if [ "$MOUNT_SUCCESS" = true ]; then
+                echo "✅ Background SSH mount completed successfully" | tee -a "$LOG_FILE"
+                cat > /home/coder/workspace/MOUNT_STATUS.md <<EOF
+# ✅ SSH Mount Active
+
+The remote filesystem from **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** is now mounted at \`workspace/remote/\`.
+
+You can now browse and edit remote files!
+EOF
+            else
+                echo "❌ Background SSH mount failed" | tee -a "$LOG_FILE"
+            fi
+        ) &  # End of background subshell
+        
+        # Create initial status file while mount is in progress
+        cat > /home/coder/workspace/MOUNT_STATUS.md <<'EOF'
+# ⏳ SSH Mount In Progress
+
+The remote filesystem is being mounted in the background...
+
+This may take a few moments. Check this file again in a moment, or see STARTUP_LOG.txt for details.
+
+**VS Code is ready to use!** The mount process won't block your workspace.
+EOF
+        echo "SSH mount started in background. Container will start immediately." | tee -a "$LOG_FILE"
     fi
 else
     # Workspace mode (default) - just use the empty workspace
