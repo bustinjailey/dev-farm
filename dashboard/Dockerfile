@@ -2,8 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install git for version checking
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# Install git for version checking and configure safe directory
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* && \
+    git config --global --add safe.directory /opt
 
 # Install dependencies
 COPY requirements.txt .
