@@ -767,12 +767,22 @@ def system_update():
             cwd=REPO_PATH
         )
         
-        # Trigger restart using docker-compose up with force-recreate
-        # Start the restart process in background - container will restart after response is sent
+        # Create a restart script that will survive the container exit
+        restart_script = '/tmp/restart_dashboard.sh'
+        with open(restart_script, 'w') as f:
+            f.write('#!/bin/bash\n')
+            f.write('sleep 2\n')  # Give time for response to be sent
+            f.write(f'cd {REPO_PATH}\n')
+            f.write('docker compose up -d --force-recreate dashboard\n')
+        os.chmod(restart_script, 0o755)
+        
+        # Start the restart process fully detached using nohup and setsid
         subprocess.Popen(
-            ['docker', 'compose', 'up', '-d', '--force-recreate', 'dashboard'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            ['nohup', 'setsid', restart_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
             cwd=REPO_PATH
         )
         
