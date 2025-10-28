@@ -768,22 +768,22 @@ def system_update():
         )
         
         # Trigger restart using docker-compose up with force-recreate
-        # Wait for it to complete to ensure new container is up before old one exits
-        restart_result = subprocess.run(
-            ['docker', 'compose', 'up', '-d', '--force-recreate', '--wait', 'dashboard'],
-            capture_output=True,
-            text=True,
+        # Start the restart process in background - container will restart after response is sent
+        subprocess.Popen(
+            ['docker', 'compose', 'up', '-d', '--force-recreate', 'dashboard'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=REPO_PATH
         )
         
         result['stages'].append({
             'stage': 'restart_dashboard',
             'status': 'success',
-            'message': 'Dashboard restarted successfully'
+            'message': 'Dashboard restart initiated'
         })
         
         result['success'] = True
-        result['message'] = 'Update completed successfully. Dashboard has been restarted.'
+        result['message'] = 'Update completed successfully. Dashboard will restart momentarily.'
         
         return jsonify(result)
         

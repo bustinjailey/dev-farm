@@ -980,11 +980,11 @@
         }
 
         if (data.success) {
-          // Update completed successfully - the service is already restarted
-          // Just reload to show the latest version
+          // Update completed successfully - wait for restart to complete
+          // Health check ensures zero-downtime during restart
           setTimeout(() => {
             window.location.reload();
-          }, 1000);
+          }, 5000);
         } else {
           closeBtn.disabled = false;
         }
