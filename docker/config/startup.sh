@@ -34,50 +34,55 @@ else
     echo "No workspace settings template found; skipping."
 fi
 
+# Ensure minimal user-level settings for features that require user scope (workspace trust)
+/usr/bin/python3 - <<'PYEOF'
+import json, os
+user_settings_path = "/home/coder/.local/share/code-server/User/settings.json"
+os.makedirs(os.path.dirname(user_settings_path), exist_ok=True)
+existing = {}
+if os.path.exists(user_settings_path):
+    try:
+        with open(user_settings_path, 'r', encoding='utf-8') as f:
+            existing = json.load(f)
+    except Exception:
+        existing = {}
+# Enforce: disable workspace trust prompts globally (must be user scope)
+existing["security.workspace.trust.enabled"] = False
+existing["security.workspace.trust.startupPrompt"] = "never"
+existing["security.workspace.trust.emptyWindow"] = False
+with open(user_settings_path, 'w', encoding='utf-8') as f:
+    json.dump(existing, f, indent=2)
+print("User-level settings updated for trust and extension host overrides")
+PYEOF
+
+# Create a friendly WELCOME.md with one-click sign-in links (only if not present or forced)
+WELCOME_PATH="/home/coder/workspace/WELCOME.md"
+if [ ! -f "$WELCOME_PATH" ] || [ "${DEVFARM_FORCE_WELCOME}" = "true" ]; then
+    cat > "$WELCOME_PATH" <<'EOWELCOME'
+# 👋 Welcome to Dev Farm
+
+You’re ready to code! A few helpful shortcuts:
+
+- Sign in to GitHub: [Click here](command:github.signin)
+- Sign in to GitHub Copilot: [Click here](command:github.copilot.signIn)
+- Manage Accounts: [Open Accounts](command:workbench.action.manageAccounts)
+
+Notes:
+- Git and the GitHub CLI (gh) are already authenticated if you connected GitHub in the dashboard.
+- These links run VS Code commands in your browser session.
+
+Happy hacking!
+EOWELCOME
+    echo "WELCOME.md created at $WELCOME_PATH"
+fi
+
 # Log helper
 LOG_FILE="/home/coder/workspace/STARTUP_LOG.txt"
 {
     echo "==== Dev Farm startup $(date -Is) ===="
 } >> "$LOG_FILE" 2>/dev/null || true
 
-# Tiny helper to install an extension by id (with pre-check and logging)
-install_extension() {
-    local ext_id="$1"
-    if /usr/bin/code-server --list-extensions | grep -q "^${ext_id}$"; then
-        echo "Extension already installed: ${ext_id}" | tee -a "$LOG_FILE"
-        return 0
-    fi
-    echo "Installing extension: ${ext_id}" | tee -a "$LOG_FILE"
-    if /usr/bin/code-server --install-extension "${ext_id}" >> "$LOG_FILE" 2>&1; then
-        echo "Installed: ${ext_id}" | tee -a "$LOG_FILE"
-        return 0
-    else
-        echo "Failed to install by id: ${ext_id}" | tee -a "$LOG_FILE"
-        return 1
-    fi
-}
-
-# Always ensure a Remote-SSH experience is available (or the best possible fallback)
-echo "Ensuring Remote-SSH extension is installed..." | tee -a "$LOG_FILE"
-
-# Try official Remote - SSH (MS Marketplace – typically unsupported on code-server/Open VSX)
-install_extension ms-vscode-remote.remote-ssh || echo "Remote-SSH (MS) likely unsupported here." | tee -a "$LOG_FILE"
-
-# Fallback: community 'Open Remote - SSH' on Open VSX (works in web)
-if ! install_extension jeanp413.open-remote-ssh; then
-    echo "Attempting VSIX fallback for Open Remote - SSH..." | tee -a "$LOG_FILE"
-    mkdir -p /tmp/devfarm-ext && cd /tmp/devfarm-ext
-    # Download the latest VSIX from Open VSX (stable URL) and install from file
-    if curl -fsSL -o open-remote-ssh.vsix "https://open-vsx.org/api/jeanp413/open-remote-ssh/latest/file" >> "$LOG_FILE" 2>&1; then
-        if /usr/bin/code-server --install-extension /tmp/devfarm-ext/open-remote-ssh.vsix >> "$LOG_FILE" 2>&1; then
-            echo "Installed Open Remote - SSH via VSIX." | tee -a "$LOG_FILE"
-        else
-            echo "VSIX install failed for Open Remote - SSH." | tee -a "$LOG_FILE"
-        fi
-    else
-        echo "Failed to download VSIX for Open Remote - SSH." | tee -a "$LOG_FILE"
-    fi
-fi
+# (Removed Open Remote - SSH extension installation; switching to server-side SSHFS for SSH mode)
 
 # Setup GitHub authentication if token is provided
 if [ -n "${GITHUB_TOKEN}" ]; then
@@ -166,64 +171,83 @@ if [ "${DEV_MODE}" = "git" ]; then
         echo "Warning: GIT_URL not set for git mode. Creating empty workspace."
     fi
 elif [ "${DEV_MODE}" = "ssh" ]; then
-    # SSH mode - configure Remote-SSH extension (already installed globally)
-    echo "Setting up Remote-SSH mode..."
-    
-    # Create SSH config if host details are provided
-    if [ -n "${SSH_HOST}" ]; then
+    # SSH mode - mount remote filesystem via SSHFS so the workspace is truly remote
+    echo "Setting up SSHFS mount for remote workspace..." | tee -a "$LOG_FILE"
+
+    if [ -z "${SSH_HOST}" ]; then
+        echo "Error: SSH_HOST not set. Cannot mount remote filesystem." | tee -a "$LOG_FILE"
+    else
         mkdir -p /home/coder/.ssh
         chmod 700 /home/coder/.ssh
-        
+
         SSH_USER="${SSH_USER:-root}"
         SSH_PATH="${SSH_PATH:-/home}"
-        
+        SSH_PORT="${SSH_PORT:-22}"
+
+        # Optional: private key provided via env (SSH_PRIVATE_KEY). If present, use it.
+        if [ -n "${SSH_PRIVATE_KEY}" ]; then
+            echo "Using SSH private key from environment" | tee -a "$LOG_FILE"
+            echo "${SSH_PRIVATE_KEY}" > /home/coder/.ssh/id_rsa
+            chmod 600 /home/coder/.ssh/id_rsa
+        fi
+
         # Create SSH config entry
         cat > /home/coder/.ssh/config <<EOF
-Host ${SSH_HOST}
+Host remote-target
     HostName ${SSH_HOST}
     User ${SSH_USER}
+    Port ${SSH_PORT}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
+    ServerAliveInterval 15
+    ServerAliveCountMax 3
+    IdentityFile /home/coder/.ssh/id_rsa
 EOF
         chmod 600 /home/coder/.ssh/config
-        
-        echo "SSH configuration created for ${SSH_USER}@${SSH_HOST}"
-        echo "You can connect using the Remote-SSH extension"
-        
-        # Create a README in the workspace with instructions
-        cat > /home/coder/workspace/REMOTE_SSH_SETUP.md <<EOF
-# Remote SSH Mode
 
-This environment is configured for Remote SSH development.
+        # Ensure FUSE device exists
+        if [ ! -e /dev/fuse ]; then
+            echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount. Check container run privileges." | tee -a "$LOG_FILE"
+        else
+            # Attempt to mount remote path onto the workspace
+            echo "Mounting ${SSH_USER}@${SSH_HOST}:${SSH_PATH} -> /home/coder/workspace" | tee -a "$LOG_FILE"
+            # Unmount if previously mounted
+            if mountpoint -q /home/coder/workspace; then
+                fusermount3 -u /home/coder/workspace || true
+            fi
+            # Mount with user mapping and reconnect options
+            UID_VAL=$(id -u coder 2>/dev/null || id -u)
+            GID_VAL=$(id -g coder 2>/dev/null || id -g)
+            sshfs \
+                -p "${SSH_PORT}" \
+                -o allow_other \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                -o reconnect \
+                -o follow_symlinks \
+                -o uid=${UID_VAL} \
+                -o gid=${GID_VAL} \
+                remote-target:"${SSH_PATH}" \
+                /home/coder/workspace
 
-## Connection Details
-- Host: ${SSH_HOST}
-- User: ${SSH_USER}
-- Default Path: ${SSH_PATH}
+            if mountpoint -q /home/coder/workspace; then
+                echo "SSHFS mount successful." | tee -a "$LOG_FILE"
+            else
+                echo "SSHFS mount failed. Check SSH credentials and container privileges." | tee -a "$LOG_FILE"
+                cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
+# SSHFS Mount Failed
 
-## How to Connect
-1. Press \`Ctrl+Shift+P\` (or \`Cmd+Shift+P\` on Mac)
-2. Type "Remote-SSH: Connect to Host"
-3. Select: ${SSH_HOST}
-4. Once connected, open the folder: ${SSH_PATH}
+We attempted to mount ${SSH_USER}@${SSH_HOST}:${SSH_PATH} to /home/coder/workspace but it failed.
 
-Your SSH key authentication should be set up on the remote host.
+Common causes:
+- /dev/fuse not available in container (needs device mapping and SYS_ADMIN capability)
+- Invalid SSH credentials or key permissions
+- Network connectivity issues
+
+Logs are in STARTUP_LOG.txt.
 EOF
-    else
-        echo "Warning: SSH_HOST not set. Remote-SSH extension installed but not configured."
-        cat > /home/coder/workspace/REMOTE_SSH_SETUP.md <<EOF
-# Remote SSH Mode
-
-The Remote-SSH extension is installed.
-
-## How to Connect
-1. Configure your SSH host details
-2. Press \`Ctrl+Shift+P\` (or \`Cmd+Shift+P\` on Mac)
-3. Type "Remote-SSH: Connect to Host"
-4. Follow the prompts to add your SSH connection
-
-Make sure your SSH keys are properly configured.
-EOF
+            fi
+        fi
     fi
 else
     # Workspace mode (default) - just use the empty workspace
@@ -251,6 +275,17 @@ EOFKEYS
 echo "\nInstalled extensions after setup:" | tee -a "$LOG_FILE"
 /usr/bin/code-server --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
 
-# Start code-server with focus on Copilot
+# Start code-server and open WELCOME.md once on first run
 echo "Starting code-server with workspace name: ${WORKSPACE_NAME:-workspace}"
-exec /usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none /home/coder/workspace
+WELCOME_MARK_DIR="/home/coder/workspace/.devfarm"
+WELCOME_MARK_FILE="$WELCOME_MARK_DIR/.welcome_opened"
+mkdir -p "$WELCOME_MARK_DIR"
+
+OPEN_PATHS=("/home/coder/workspace")
+if [ -f "$WELCOME_PATH" ] && [ ! -f "$WELCOME_MARK_FILE" ]; then
+    echo "Opening WELCOME.md on first run"
+    OPEN_PATHS+=("$WELCOME_PATH")
+    touch "$WELCOME_MARK_FILE"
+fi
+
+exec /usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none "${OPEN_PATHS[@]}"

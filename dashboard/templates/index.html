@@ -916,6 +916,7 @@
       }
     }
 
+    let updatePoll = null;
     async function updateSystem() {
       const modal = document.getElementById('updateModal');
       modal.classList.add('active');
@@ -944,61 +945,70 @@
       msg3.textContent = '';
 
       try {
-        const response = await fetch('/api/system/update', { method: 'POST' });
-        const data = await response.json();
+        const startResp = await fetch('/api/system/update/start', { method: 'POST' });
+        const startData = await startResp.json();
+        if (!startResp.ok || !startData.started) {
+          icon1.textContent = '❌';
+          msg1.textContent = (startData && startData.message) ? startData.message : 'Failed to start update';
+          closeBtn.disabled = false;
+          return;
+        }
 
-        if (data.stages) {
-          for (const stage of data.stages) {
-            if (stage.stage === 'git_pull') {
-              if (stage.status === 'success') {
-                icon1.textContent = '✅';
-                msg1.textContent = stage.message || 'Code updated successfully';
-              } else if (stage.status === 'error') {
-                icon1.textContent = '❌';
-                msg1.textContent = stage.message || 'Failed to pull code';
-              }
-            } else if (stage.stage === 'rebuild_image') {
-              stage2.style.display = 'block';
-              if (stage.status === 'success') {
-                icon2.textContent = '✅';
-                msg2.textContent = stage.message || 'Image rebuilt';
-              } else if (stage.status === 'skipped') {
-                icon2.textContent = '⏭️';
-                msg2.textContent = stage.message || 'Skipped';
-              } else if (stage.status === 'error') {
-                icon2.textContent = '❌';
-                msg2.textContent = stage.message || 'Failed to rebuild';
-              }
-            } else if (stage.stage === 'restart_dashboard') {
-              stage3.style.display = 'block';
-              if (stage.status === 'success') {
-                icon3.textContent = '✅';
-                msg3.textContent = stage.message || 'Dashboard restarting...';
+        // Poll for progress
+        if (updatePoll) clearInterval(updatePoll);
+        updatePoll = setInterval(async () => {
+          try {
+            const statusResp = await fetch('/api/system/update/status');
+            const status = await statusResp.json();
+
+            // Apply stage updates
+            if (Array.isArray(status.stages)) {
+              // Ensure stage 2/3 sections appear once we have updates
+              const hasRebuild = status.stages.some(s => s.stage === 'rebuild_image');
+              const hasRestart = status.stages.some(s => s.stage === 'restart_dashboard');
+              if (hasRebuild) stage2.style.display = 'block';
+              if (hasRestart) stage3.style.display = 'block';
+
+              for (const s of status.stages) {
+                if (s.stage === 'git_pull') {
+                  if (s.status === 'success') { icon1.textContent = '✅'; msg1.textContent = s.message || 'Code updated successfully'; }
+                  else if (s.status === 'error') { icon1.textContent = '❌'; msg1.textContent = s.message || 'Failed to pull code'; }
+                  else { icon1.textContent = '⏳'; }
+                } else if (s.stage === 'rebuild_image') {
+                  if (s.status === 'success') { icon2.textContent = '✅'; msg2.textContent = s.message || 'Image rebuilt'; }
+                  else if (s.status === 'skipped') { icon2.textContent = '⏭️'; msg2.textContent = s.message || 'Skipped'; }
+                  else if (s.status === 'error') { icon2.textContent = '❌'; msg2.textContent = s.message || 'Failed to rebuild'; }
+                  else { icon2.textContent = '⏳'; }
+                } else if (s.stage === 'restart_dashboard') {
+                  if (s.status === 'success') { icon3.textContent = '✅'; msg3.textContent = s.message || 'Dashboard restarting...'; }
+                  else if (s.status === 'error') { icon3.textContent = '❌'; msg3.textContent = s.message || 'Failed to restart'; }
+                  else { icon3.textContent = '⏳'; }
+                }
               }
             }
-          }
-        }
 
-        if (data.success) {
-          // Update completed successfully - wait for restart to complete
-          // Health check ensures zero-downtime during restart
-          setTimeout(() => {
-            window.location.reload();
-          }, 5000);
-        } else {
-          closeBtn.disabled = false;
-        }
+            if (status.success === true) {
+              clearInterval(updatePoll);
+              // Allow a short pause, then reload to pick up the new dashboard
+              setTimeout(() => { window.location.reload(); }, 3000);
+            } else if (status.success === false) {
+              clearInterval(updatePoll);
+              closeBtn.disabled = false;
+            }
+          } catch (e) {
+            console.error('Update status poll failed:', e);
+          }
+        }, 1000);
       } catch (error) {
-        const icon1 = document.getElementById('updateIcon1');
-        const msg1 = document.getElementById('updateMsg1');
-        if (icon1) icon1.textContent = '❌';
-        if (msg1) msg1.textContent = 'Error: ' + error.message;
+        icon1.textContent = '❌';
+        msg1.textContent = 'Error: ' + error.message;
         closeBtn.disabled = false;
       }
     }
 
     function hideUpdateModal() {
       document.getElementById('updateModal').classList.remove('active');
+      if (updatePoll) { clearInterval(updatePoll); updatePoll = null; }
     }
 
     async function cleanupOrphans() {

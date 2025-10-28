@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
   nodejs \
   npm \
   sudo \
+  sshfs \
+  fuse3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Allow coder user to use sudo without password
@@ -49,11 +51,11 @@ COPY --chown=coder:coder docker/config/workspace-settings.json /home/coder/.devf
 COPY --chown=coder:coder docker/config/startup.sh /home/coder/startup.sh
 RUN chmod +x /home/coder/startup.sh
 
-# Pre-install reliable, web-compatible SSH helper from Open VSX to ensure it appears in Installed by default
-RUN mkdir -p /home/coder/.local/share/code-server/extensions \
-  && (curl -fsSL -A "Mozilla/5.0" -o /home/coder/open-remote-ssh.vsix https://open-vsx.org/api/jeanp413/open-remote-ssh/latest/file || true) \
-  && (/usr/bin/code-server --install-extension /home/coder/open-remote-ssh.vsix || true) \
-  && rm -f /home/coder/open-remote-ssh.vsix || true
+# Enable user_allow_other for FUSE and add coder to fuse group
+USER root
+RUN echo "user_allow_other" >> /etc/fuse.conf || true \
+  && usermod -aG fuse coder || true
+USER coder
 
 WORKDIR /workspace
 

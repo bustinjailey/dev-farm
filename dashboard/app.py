@@ -14,6 +14,7 @@ import re
 import time
 import requests
 import threading
+from threading import Lock
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -30,6 +31,39 @@ BASE_PORT = 8100
 GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
 REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt')
+
+# In-memory system update progress (polled by UI)
+UPDATE_PROGRESS = {
+    'running': False,
+    'success': None,
+    'stages': [],
+    'error': None
+}
+UPDATE_LOCK = Lock()
+
+def _reset_update_progress():
+    with UPDATE_LOCK:
+        UPDATE_PROGRESS.clear()
+        UPDATE_PROGRESS.update({
+            'running': True,
+            'success': None,
+            'stages': [],
+            'error': None
+        })
+
+def _append_stage(stage, status, message=None):
+    with UPDATE_LOCK:
+        UPDATE_PROGRESS['stages'].append({
+            'stage': stage,
+            'status': status,
+            'message': message
+        })
+
+def _set_update_result(success, error=None):
+    with UPDATE_LOCK:
+        UPDATE_PROGRESS['success'] = success
+        UPDATE_PROGRESS['error'] = error
+        UPDATE_PROGRESS['running'] = False
 
 def kebabify(name):
     """Convert any name to kebab-case (Docker-safe ID format)
@@ -228,7 +262,8 @@ def create_environment():
         elif mode == 'git':
             env_vars['GIT_URL'] = git_url
         
-        container = client.containers.run(
+        # Container run options
+        run_kwargs = dict(
             'dev-farm/code-server:latest',
             name=f"devfarm-{env_id}",
             detach=True,
@@ -245,6 +280,16 @@ def create_environment():
                 'dev-farm.mode': mode
             }
         )
+
+        # For ssh mode, enable FUSE for SSHFS mounts
+        if mode == 'ssh':
+            run_kwargs.update({
+                'cap_add': ['SYS_ADMIN'],
+                'devices': ['/dev/fuse:/dev/fuse'],
+                'security_opt': ['apparmor:unconfined']
+            })
+
+        container = client.containers.run(**run_kwargs)
         
         # Register environment with both display name and ID
         registry[env_id] = {
@@ -678,31 +723,28 @@ def cleanup_orphans():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/system/update', methods=['POST'])
-def system_update():
-    """Pull latest code from GitHub and restart services via external orchestrator"""
+def _run_system_update_thread():
     try:
-        result = {'stages': []}
-        
-        # Stage 1: Git pull
-        result['stages'].append({'stage': 'git_pull', 'status': 'starting'})
-        
+        _append_stage('git_pull', 'starting')
+
         github_token = load_github_token()
         if not github_token:
-            return jsonify({'error': 'GitHub token not configured. Please authenticate first.'}), 401
-        
-        # Verify the repo path exists and is a git repository
+            _append_stage('git_pull', 'error', 'GitHub token not configured. Please authenticate first.')
+            _set_update_result(False, 'GitHub token not configured')
+            return
+
         if not os.path.exists(REPO_PATH):
-            return jsonify({'error': f'Repository path {REPO_PATH} does not exist'}), 500
-        
+            _append_stage('git_pull', 'error', f'Repository path {REPO_PATH} does not exist')
+            _set_update_result(False, f'Repository path {REPO_PATH} does not exist')
+            return
+
         if not os.path.exists(os.path.join(REPO_PATH, '.git')):
-            return jsonify({'error': f'{REPO_PATH} is not a git repository'}), 500
-        
-        # Run git commands in the repo directory
+            _append_stage('git_pull', 'error', f'{REPO_PATH} is not a git repository')
+            _set_update_result(False, f'{REPO_PATH} is not a git repository')
+            return
+
         subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
         subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
-        
-        # Pull latest changes
         pull_result = subprocess.run(
             ['git', 'pull', 'origin', 'main'],
             check=True,
@@ -710,74 +752,47 @@ def system_update():
             text=True,
             cwd=REPO_PATH
         )
-        
-        result['stages'].append({
-            'stage': 'git_pull',
-            'status': 'success',
-            'message': pull_result.stdout.strip()
-        })
-        
-        # Stage 2: Rebuild code-server image if Dockerfile changed
-        result['stages'].append({'stage': 'rebuild_image', 'status': 'starting'})
-        
-        # Check if Dockerfile was modified
+        _append_stage('git_pull', 'success', pull_result.stdout.strip())
+
+        # Stage 2: Rebuild image if Dockerfile changed
+        _append_stage('rebuild_image', 'starting')
         diff_result = subprocess.run(
             ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
             capture_output=True,
             text=True,
             cwd=REPO_PATH
         )
-        
         files_changed = diff_result.stdout.split('\n')
-        dockerfile_changed = any('Dockerfile' in f for f in files_changed)
-        
+        dockerfile_changed = any('Dockerfile.code-server' in f or 'docker/Dockerfile' in f for f in files_changed)
+
         if dockerfile_changed:
-            # Use updater service to rebuild images
             try:
                 updater = client.containers.get('devfarm-updater')
                 exec_result = updater.exec_run(
                     cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t dev-farm/code-server:latest -f docker/Dockerfile.code-server .'],
                     demux=False
                 )
-                
                 if exec_result.exit_code == 0:
-                    result['stages'].append({
-                        'stage': 'rebuild_image',
-                        'status': 'success',
-                        'message': 'Image rebuilt successfully'
-                    })
+                    _append_stage('rebuild_image', 'success', 'Image rebuilt successfully')
                 else:
-                    result['stages'].append({
-                        'stage': 'rebuild_image',
-                        'status': 'error',
-                        'message': 'Failed to rebuild image'
-                    })
-                    return jsonify(result), 500
+                    _append_stage('rebuild_image', 'error', 'Failed to rebuild image')
+                    _set_update_result(False, 'Failed to rebuild image')
+                    return
             except docker.errors.NotFound:
-                result['stages'].append({
-                    'stage': 'rebuild_image',
-                    'status': 'error',
-                    'message': 'Updater service not found. Please restart the system.'
-                })
-                return jsonify(result), 500
+                _append_stage('rebuild_image', 'error', 'Updater service not found. Please restart the system.')
+                _set_update_result(False, 'Updater service not found')
+                return
         else:
-            result['stages'].append({
-                'stage': 'rebuild_image',
-                'status': 'skipped',
-                'message': 'No Dockerfile changes detected'
-            })
-        
-        # Stage 3: Rebuild and restart dashboard via updater service
-        result['stages'].append({'stage': 'restart_dashboard', 'status': 'starting'})
-        
+            _append_stage('rebuild_image', 'skipped', 'No Dockerfile changes detected')
+
+        # Stage 3: Restart dashboard
+        _append_stage('restart_dashboard', 'starting')
         try:
-            # Ensure updater service exists and is running
             try:
                 updater = client.containers.get('devfarm-updater')
                 if updater.status != 'running':
                     updater.start()
             except docker.errors.NotFound:
-                # Create updater service if it doesn't exist
                 updater = client.containers.run(
                     'docker:27-cli',
                     name='devfarm-updater',
@@ -790,25 +805,19 @@ def system_update():
                     restart_policy={'Name': 'unless-stopped'},
                     network_mode='bridge'
                 )
-                time.sleep(1)  # Give container time to start
-            
-            # First rebuild the dashboard image
+                time.sleep(1)
+
             exec_result = updater.exec_run(
                 cmd=['sh', '-c', f'cd {REPO_PATH} && docker compose build dashboard'],
                 demux=False
             )
-            
             if exec_result.exit_code != 0:
-                result['stages'].append({
-                    'stage': 'restart_dashboard',
-                    'status': 'error',
-                    'message': 'Failed to rebuild dashboard image'
-                })
-                return jsonify(result), 500
-            
-            # Schedule restart via updater service after response is sent
+                _append_stage('restart_dashboard', 'error', 'Failed to rebuild dashboard image')
+                _set_update_result(False, 'Failed to rebuild dashboard image')
+                return
+
             def delayed_restart():
-                time.sleep(2)  # Give time for HTTP response to complete
+                time.sleep(2)
                 try:
                     updater.exec_run(
                         cmd=['sh', '-c', f'cd {REPO_PATH} && docker compose up -d dashboard'],
@@ -816,45 +825,45 @@ def system_update():
                     )
                 except Exception as e:
                     print(f"Error during delayed restart: {e}")
-            
-            # Start restart in background thread
+
             threading.Thread(target=delayed_restart, daemon=True).start()
-            
-            result['stages'].append({
-                'stage': 'restart_dashboard',
-                'status': 'success',
-                'message': 'Dashboard restart initiated'
-            })
-            
+            _append_stage('restart_dashboard', 'success', 'Dashboard restart initiated')
         except Exception as e:
-            result['stages'].append({
-                'stage': 'restart_dashboard',
-                'status': 'error',
-                'message': f'Restart failed: {str(e)}'
-            })
-            return jsonify(result), 500
-        
-        result['success'] = True
-        result['message'] = 'Update completed successfully. Dashboard will restart momentarily.'
-        
-        return jsonify(result)
-        
+            _append_stage('restart_dashboard', 'error', f'Restart failed: {str(e)}')
+            _set_update_result(False, f'Restart failed: {str(e)}')
+            return
+
+        _set_update_result(True)
     except subprocess.CalledProcessError as e:
-        error_output = ''
+        msg = ''
         if e.stdout:
-            error_output = e.stdout if isinstance(e.stdout, str) else e.stdout.decode('utf-8')
+            msg = e.stdout if isinstance(e.stdout, str) else e.stdout.decode('utf-8')
         elif e.stderr:
-            error_output = e.stderr if isinstance(e.stderr, str) else e.stderr.decode('utf-8')
-        return jsonify({
-            'error': f'Command failed: {e.cmd}',
-            'output': error_output,
-            'stages': result.get('stages', [])
-        }), 500
+            msg = e.stderr if isinstance(e.stderr, str) else e.stderr.decode('utf-8')
+        _append_stage('error', 'error', msg)
+        _set_update_result(False, msg)
     except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'stages': result.get('stages', [])
-        }), 500
+        _append_stage('error', 'error', str(e))
+        _set_update_result(False, str(e))
+
+
+@app.route('/api/system/update/start', methods=['POST'])
+def system_update_start():
+    """Start system update in background and return immediately"""
+    with UPDATE_LOCK:
+        if UPDATE_PROGRESS.get('running'):
+            return jsonify({'started': False, 'message': 'Update already in progress'}), 409
+        _reset_update_progress()
+
+    threading.Thread(target=_run_system_update_thread, daemon=True).start()
+    return jsonify({'started': True})
+
+
+@app.route('/api/system/update/status')
+def system_update_status():
+    """Return current update progress"""
+    with UPDATE_LOCK:
+        return jsonify(UPDATE_PROGRESS)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('DEBUG', 'false').lower() == 'true')
