@@ -307,7 +307,7 @@ EOFERR
                 MOUNT_OUTPUT=$(timeout 10 sshpass -e sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1)
+                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
                 MOUNT_EXIT=$?
                 echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
                 if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
@@ -318,7 +318,7 @@ EOFERR
                 MOUNT_OUTPUT=$(timeout 10 sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1)
+                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
                 MOUNT_EXIT=$?
                 echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
                 if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
@@ -375,7 +375,7 @@ EOFERR
                             RETRY_OUTPUT=$(timeout 10 sshpass -e sshfs \
                                     ${SSHFS_OPTS} \
                                     remote-target:"${SSH_PATH}" \
-                                    "$REMOTE_MOUNT_DIR" 2>&1)
+                                    "$REMOTE_MOUNT_DIR" 2>&1 || true)
                             RETRY_EXIT=$?
                             echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
                             if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
@@ -385,7 +385,7 @@ EOFERR
                             RETRY_OUTPUT=$(timeout 10 sshfs \
                                     ${SSHFS_OPTS} \
                                     remote-target:"${SSH_PATH}" \
-                                    "$REMOTE_MOUNT_DIR" 2>&1)
+                                    "$REMOTE_MOUNT_DIR" 2>&1 || true)
                             RETRY_EXIT=$?
                             echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
                             if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
