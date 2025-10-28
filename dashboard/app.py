@@ -530,11 +530,63 @@ def system_upgrade():
 def system_status():
     """Get system status information"""
     try:
+        # Get current commit SHA
+        current_sha = ''
+        try:
+            result = subprocess.run(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH
+            )
+            if result.returncode == 0:
+                current_sha = result.stdout.strip()
+        except:
+            pass
+        
+        # Check for updates
+        updates_available = False
+        commits_behind = 0
+        latest_sha = ''
+        try:
+            # Fetch latest from remote
+            subprocess.run(
+                ['git', 'fetch', 'origin', 'main'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH
+            )
+            
+            # Get remote SHA
+            result = subprocess.run(
+                ['git', 'rev-parse', '--short', 'origin/main'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH
+            )
+            if result.returncode == 0:
+                latest_sha = result.stdout.strip()
+                
+            # Check if we're behind
+            result = subprocess.run(
+                ['git', 'rev-list', '--count', 'HEAD..origin/main'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH
+            )
+            if result.returncode == 0:
+                commits_behind = int(result.stdout.strip())
+                updates_available = commits_behind > 0
+        except:
+            pass
+        
         return jsonify({
             'docker_connected': client is not None,
             'environments': len(load_registry()),
-            'updates_available': False,  # Can't check updates from inside container
-            'commits_behind': 0
+            'updates_available': updates_available,
+            'commits_behind': commits_behind,
+            'current_sha': current_sha,
+            'latest_sha': latest_sha
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

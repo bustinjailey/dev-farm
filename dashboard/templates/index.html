@@ -781,13 +781,22 @@
           githubConnectBtn.style.display = 'inline-flex';
         }
 
-        // Check version (always show current version)
+        // Check version
+        const versionResp = await fetch('/api/system/status');
+        const versionData = await versionResp.json();
         const versionStatus = document.getElementById('versionStatus');
         const updateBtn = document.getElementById('updateBtn');
 
-        // For now, always show update button - we can add version checking later
-        versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest</span>`;
-        updateBtn.style.display = 'inline-flex';
+        if (versionData.updates_available) {
+          versionStatus.innerHTML = `<span class="status-badge badge-warning">Update available (${versionData.latest_sha})</span>`;
+          updateBtn.style.display = 'inline-flex';
+        } else if (versionData.current_sha) {
+          versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest (${versionData.current_sha})</span>`;
+          updateBtn.style.display = 'inline-flex';
+        } else {
+          versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest</span>`;
+          updateBtn.style.display = 'inline-flex';
+        }
 
         // Check for orphaned containers
         const orphansResp = await fetch('/api/system/orphans');
@@ -825,7 +834,7 @@
               <div class="empty-state-icon" style="font-size: 3em;">🔑</div>
               <p style="margin: 15px 0; color: #333; font-size: 1.1em;">Enter this code on GitHub:</p>
               <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 15px 0;">
-                <div style="font-size: 2em; font-weight: bold; color: #667eea; letter-spacing: 3px; user-select: all; cursor: text;" onclick="this.focus(); document.execCommand('selectAll', false, null);" tabindex="0">${data.user_code}</div>
+                <div id="oauthCode" style="font-size: 2em; font-weight: bold; color: #667eea; letter-spacing: 3px; user-select: all; cursor: text;" onclick="selectOAuthCode()" tabindex="0">${data.user_code}</div>
               </div>
               <a href="${data.verification_uri}" target="_blank" class="btn" style="text-decoration: none; margin: 15px 0; display: inline-flex;">
                 🚀 Open GitHub
@@ -845,16 +854,26 @@
       }
     }
 
+    function selectOAuthCode() {
+      const codeElement = document.getElementById('oauthCode');
+      if (codeElement) {
+        const range = document.createRange();
+        range.selectNodeContents(codeElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+
     let pollInterval = null;
     async function pollForOAuth() {
-      const pollStatus = document.getElementById('pollStatus');
-
       if (pollInterval) clearInterval(pollInterval);
 
       pollInterval = setInterval(async () => {
         try {
           const response = await fetch('/api/github/auth/poll', { method: 'POST' });
           const data = await response.json();
+          const pollStatus = document.getElementById('pollStatus');
 
           if (data.status === 'success') {
             clearInterval(pollInterval);
@@ -901,6 +920,7 @@
       const modal = document.getElementById('updateModal');
       modal.classList.add('active');
 
+      // Reset all stages
       const stage1 = document.getElementById('updateStage1');
       const stage2 = document.getElementById('updateStage2');
       const stage3 = document.getElementById('updateStage3');
@@ -917,6 +937,11 @@
       stage2.style.display = 'none';
       stage3.style.display = 'none';
       icon1.textContent = '⏳';
+      icon2.textContent = '⏳';
+      icon3.textContent = '⏳';
+      msg1.textContent = '';
+      msg2.textContent = '';
+      msg3.textContent = '';
 
       try {
         const response = await fetch('/api/system/update', { method: 'POST' });
@@ -962,8 +987,10 @@
           closeBtn.disabled = false;
         }
       } catch (error) {
-        icon1.textContent = '❌';
-        msg1.textContent = 'Error: ' + error.message;
+        const icon1 = document.getElementById('updateIcon1');
+        const msg1 = document.getElementById('updateMsg1');
+        if (icon1) icon1.textContent = '❌';
+        if (msg1) msg1.textContent = 'Error: ' + error.message;
         closeBtn.disabled = false;
       }
     }
