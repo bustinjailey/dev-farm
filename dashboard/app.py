@@ -14,7 +14,7 @@ import re
 import time
 import requests
 import threading
-from threading import Lock
+from threading import RLock
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -39,7 +39,7 @@ UPDATE_PROGRESS = {
     'stages': [],
     'error': None
 }
-UPDATE_LOCK = Lock()
+UPDATE_LOCK = RLock()
 
 def _reset_update_progress():
     with UPDATE_LOCK:
@@ -743,19 +743,42 @@ def _run_system_update_thread():
             _set_update_result(False, f'{REPO_PATH} is not a git repository')
             return
 
+        # Break out git operations into sub-steps with immediate feedback
+        _append_stage('git_fetch', 'starting', 'Fetching origin...')
         subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
+        _append_stage('git_fetch', 'success', 'Fetch complete')
+
+        _append_stage('git_checkout', 'starting', 'Checking out main...')
         subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
-        pull_result = subprocess.run(
+        _append_stage('git_checkout', 'success', 'On branch main')
+
+        # Stream git pull output line-by-line to the client via progress entries
+        _append_stage('git_pull', 'starting', 'Pulling latest commits...')
+        import subprocess as sp
+        proc = sp.Popen(
             ['git', 'pull', 'origin', 'main'],
-            check=True,
-            capture_output=True,
+            cwd=REPO_PATH,
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
             text=True,
-            cwd=REPO_PATH
+            bufsize=1
         )
-        _append_stage('git_pull', 'success', pull_result.stdout.strip())
+        try:
+            for line in iter(proc.stdout.readline, ''):
+                if line:
+                    _append_stage('git_pull', 'progress', line.strip())
+        finally:
+            proc.stdout.close()
+        rc = proc.wait()
+        if rc == 0:
+            _append_stage('git_pull', 'success', 'Pull complete')
+        else:
+            _append_stage('git_pull', 'error', f'git pull failed (exit {rc})')
+            _set_update_result(False, f'git pull failed (exit {rc})')
+            return
 
         # Stage 2: Rebuild image if Dockerfile changed
-        _append_stage('rebuild_image', 'starting')
+        _append_stage('rebuild_image', 'starting', 'Checking if Dockerfile changed...')
         diff_result = subprocess.run(
             ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
             capture_output=True,
