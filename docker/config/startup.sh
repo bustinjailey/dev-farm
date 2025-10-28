@@ -318,63 +318,62 @@ EOFERR
                 fi
                 
                 if [ "$SFTP_SETUP_ATTEMPTED" = true ]; then
-                
-                # Build the SFTP enablement command
-                SFTP_ENABLE_CMD='
-                    if ! grep -q "^Subsystem.*sftp" /etc/ssh/sshd_config 2>/dev/null; then
-                        echo "Subsystem sftp /usr/lib/openssh/sftp-server" | sudo tee -a /etc/ssh/sshd_config > /dev/null && \
-                        sudo systemctl restart sshd 2>/dev/null || sudo service sshd restart 2>/dev/null || sudo /etc/init.d/ssh restart 2>/dev/null
-                        if [ $? -eq 0 ]; then
-                            echo "SFTP enabled successfully"
-                            exit 0
+                    # Build the SFTP enablement command
+                    SFTP_ENABLE_CMD='
+                        if ! grep -q "^Subsystem.*sftp" /etc/ssh/sshd_config 2>/dev/null; then
+                            echo "Subsystem sftp /usr/lib/openssh/sftp-server" | sudo tee -a /etc/ssh/sshd_config > /dev/null && \
+                            sudo systemctl restart sshd 2>/dev/null || sudo service sshd restart 2>/dev/null || sudo /etc/init.d/ssh restart 2>/dev/null
+                            if [ $? -eq 0 ]; then
+                                echo "SFTP enabled successfully"
+                                exit 0
+                            else
+                                echo "Failed to restart SSH service"
+                                exit 1
+                            fi
                         else
-                            echo "Failed to restart SSH service"
-                            exit 1
+                            echo "SFTP already configured"
+                            exit 0
                         fi
-                    else
-                        echo "SFTP already configured"
-                        exit 0
-                    fi
-                '
-                
-                # Execute SFTP enablement on remote host
-                if [ -n "${SSH_PASSWORD}" ]; then
-                    export SSHPASS="${SSH_PASSWORD}"
-                    SFTP_RESULT=$(sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                        "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
-                    SFTP_EXIT=$?
-                else
-                    SFTP_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                        "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
-                    SFTP_EXIT=$?
-                fi
-                
-                echo "$SFTP_RESULT" | tee -a "$LOG_FILE"
-                
-                # If SFTP was enabled, retry the mount
-                if [ $SFTP_EXIT -eq 0 ]; then
-                    echo "Retrying SSHFS mount after enabling SFTP..." | tee -a "$LOG_FILE"
-                    sleep 2  # Give SSH service a moment to restart
+                    '
                     
+                    # Execute SFTP enablement on remote host
                     if [ -n "${SSH_PASSWORD}" ]; then
                         export SSHPASS="${SSH_PASSWORD}"
-                        if timeout 10 sshpass -e sshfs \
-                                ${SSHFS_OPTS} \
-                                remote-target:"${SSH_PATH}" \
-                                "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
-                            MOUNT_SUCCESS=true
+                        SFTP_RESULT=$(sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                            "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
+                        SFTP_EXIT=$?
+                    else
+                        SFTP_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                            "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
+                        SFTP_EXIT=$?
+                    fi
+                    
+                    echo "$SFTP_RESULT" | tee -a "$LOG_FILE"
+                    
+                    # If SFTP was enabled, retry the mount
+                    if [ $SFTP_EXIT -eq 0 ]; then
+                        echo "Retrying SSHFS mount after enabling SFTP..." | tee -a "$LOG_FILE"
+                        sleep 2  # Give SSH service a moment to restart
+                        
+                        if [ -n "${SSH_PASSWORD}" ]; then
+                            export SSHPASS="${SSH_PASSWORD}"
+                            if timeout 10 sshpass -e sshfs \
+                                    ${SSHFS_OPTS} \
+                                    remote-target:"${SSH_PATH}" \
+                                    "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                                MOUNT_SUCCESS=true
+                            fi
+                        else
+                            if timeout 10 sshfs \
+                                    ${SSHFS_OPTS} \
+                                    remote-target:"${SSH_PATH}" \
+                                    "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                                MOUNT_SUCCESS=true
+                            fi
                         fi
                     else
-                        if timeout 10 sshfs \
-                                ${SSHFS_OPTS} \
-                                remote-target:"${SSH_PATH}" \
-                                "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
-                            MOUNT_SUCCESS=true
-                        fi
+                        echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
                     fi
-                else
-                    echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
-                fi
                 fi  # End SFTP_SETUP_ATTEMPTED check
             fi  # End mount failure detection
             
