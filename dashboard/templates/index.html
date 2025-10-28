@@ -363,8 +363,10 @@
     <div class="system-status" id="systemStatus">
       <div class="status-row">
         <span class="status-label">🔐 GitHub</span>
-        <span class="status-value" id="githubStatus">
-          <span class="status-badge badge-warning">Checking...</span>
+        <span class="status-value">
+          <span id="githubStatus">
+            <span class="status-badge badge-warning">Checking...</span>
+          </span>
           <button class="btn" onclick="startGitHubOAuth()" id="githubConnectBtn"
             style="padding: 8px 16px; font-size: 13px; display: none;">
             🔗 Connect
@@ -373,8 +375,10 @@
       </div>
       <div class="status-row">
         <span class="status-label">� System Version</span>
-        <span class="status-value" id="versionStatus">
+        <span class="status-value">
+          <span id="versionStatus">
           <span class="status-badge badge-warning">Checking...</span>
+          </span>
           <button class="btn btn-upgrade" onclick="updateSystem()" id="updateBtn" style="display: none;">
             ⬆️ Update Now
           </button>
@@ -382,8 +386,10 @@
       </div>
       <div class="status-row" id="orphanRow" style="display: none;">
         <span class="status-label">⚠️ Orphaned Containers</span>
-        <span class="status-value" id="orphanStatus">
-          <span class="status-badge badge-error">0 found</span>
+        <span class="status-value">
+          <span id="orphanStatus">
+            <span class="status-badge badge-error">0 found</span>
+          </span>
           <button class="btn btn-upgrade" onclick="cleanupOrphans()" id="cleanupBtn"
             style="background: #f59e0b; display: none;">
             🧹 Clean Up
