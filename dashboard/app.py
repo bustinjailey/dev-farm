@@ -116,6 +116,32 @@ def save_github_token(token):
     # Update environment for current process
     os.environ['GITHUB_TOKEN'] = token
 
+def sync_registry_with_containers():
+    """Remove registry entries for containers that no longer exist"""
+    if not client:
+        return
+    
+    registry = load_registry()
+    existing_container_ids = set()
+    
+    try:
+        # Get all dev-farm containers
+        containers = client.containers.list(all=True, filters={'label': 'dev-farm=true'})
+        existing_container_ids = {c.id for c in containers}
+    except Exception:
+        return  # If Docker isn't available, don't modify registry
+    
+    # Remove registry entries for missing containers
+    registry_modified = False
+    for env_name in list(registry.keys()):
+        container_id = registry[env_name].get('container_id')
+        if container_id and container_id not in existing_container_ids:
+            del registry[env_name]
+            registry_modified = True
+    
+    if registry_modified:
+        save_registry(registry)
+
 def get_next_port():
     """Get the next available port"""
     registry = load_registry()
@@ -165,6 +191,7 @@ def is_env_ready(container_name):
 @app.route('/')
 def index():
     """Main dashboard page"""
+    sync_registry_with_containers()  # Clean up stale registry entries
     registry = load_registry()
     environments = []
     
@@ -247,6 +274,7 @@ def create_environment():
     if not client:
         return jsonify({'error': 'Docker not available'}), 500
     
+    sync_registry_with_containers()  # Clean up stale registry entries before checking
     registry = load_registry()
     
     # Check if environment ID already exists
