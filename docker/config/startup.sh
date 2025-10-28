@@ -277,24 +277,98 @@ EOFERR
             
             # Run SSHFS with timeout to prevent hanging on authentication failures
             MOUNT_SUCCESS=false
+            SFTP_SETUP_ATTEMPTED=false
+            
+            # Attempt SSHFS mount
             if [ -n "${SSH_PASSWORD}" ]; then
                 # Use password authentication via sshpass (reads from SSHPASS env var)
                 export SSHPASS="${SSH_PASSWORD}"
-                if timeout 10 sshpass -e sshfs \
+                MOUNT_OUTPUT=$(timeout 10 sshpass -e sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE")
+                MOUNT_EXIT=$?
+                if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                     MOUNT_SUCCESS=true
                 fi
-                unset SSHPASS
             else
                 # Use key-based authentication
-                if timeout 10 sshfs \
+                MOUNT_OUTPUT=$(timeout 10 sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE")
+                MOUNT_EXIT=$?
+                if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                     MOUNT_SUCCESS=true
                 fi
+            fi
+            
+            # If mount failed due to SFTP subsystem, try to enable it
+            if [ "$MOUNT_SUCCESS" = false ] && echo "$MOUNT_OUTPUT" | grep -q "subsystem request failed"; then
+                echo "SFTP subsystem not available on remote host. Attempting to enable it..." | tee -a "$LOG_FILE"
+                SFTP_SETUP_ATTEMPTED=true
+                
+                # Build the SFTP enablement command
+                SFTP_ENABLE_CMD='
+                    if ! grep -q "^Subsystem.*sftp" /etc/ssh/sshd_config 2>/dev/null; then
+                        echo "Subsystem sftp /usr/lib/openssh/sftp-server" | sudo tee -a /etc/ssh/sshd_config > /dev/null && \
+                        sudo systemctl restart sshd 2>/dev/null || sudo service sshd restart 2>/dev/null || sudo /etc/init.d/ssh restart 2>/dev/null
+                        if [ $? -eq 0 ]; then
+                            echo "SFTP enabled successfully"
+                            exit 0
+                        else
+                            echo "Failed to restart SSH service"
+                            exit 1
+                        fi
+                    else
+                        echo "SFTP already configured"
+                        exit 0
+                    fi
+                '
+                
+                # Execute SFTP enablement on remote host
+                if [ -n "${SSH_PASSWORD}" ]; then
+                    export SSHPASS="${SSH_PASSWORD}"
+                    SFTP_RESULT=$(sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                        "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
+                    SFTP_EXIT=$?
+                else
+                    SFTP_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                        "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
+                    SFTP_EXIT=$?
+                fi
+                
+                echo "$SFTP_RESULT" | tee -a "$LOG_FILE"
+                
+                # If SFTP was enabled, retry the mount
+                if [ $SFTP_EXIT -eq 0 ]; then
+                    echo "Retrying SSHFS mount after enabling SFTP..." | tee -a "$LOG_FILE"
+                    sleep 2  # Give SSH service a moment to restart
+                    
+                    if [ -n "${SSH_PASSWORD}" ]; then
+                        export SSHPASS="${SSH_PASSWORD}"
+                        if timeout 10 sshpass -e sshfs \
+                                ${SSHFS_OPTS} \
+                                remote-target:"${SSH_PATH}" \
+                                "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                            MOUNT_SUCCESS=true
+                        fi
+                    else
+                        if timeout 10 sshfs \
+                                ${SSHFS_OPTS} \
+                                remote-target:"${SSH_PATH}" \
+                                "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                            MOUNT_SUCCESS=true
+                        fi
+                    fi
+                else
+                    echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
+                fi
+            fi
+            
+            # Clean up password env var
+            if [ -n "${SSH_PASSWORD}" ]; then
+                unset SSHPASS
             fi
             
             if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
@@ -326,33 +400,76 @@ EOF
             else
                 echo "SSHFS mount failed. Remote filesystem not available." | tee -a "$LOG_FILE"
                 rmdir "$REMOTE_MOUNT_DIR" 2>/dev/null || true
-                cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
+                
+                # Create appropriate error message based on whether SFTP setup was attempted
+                if [ "$SFTP_SETUP_ATTEMPTED" = true ]; then
+                    cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
+# 🔌 SSH Mount Failed
+
+We attempted to mount **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** to \`workspace/remote/\` but the connection failed.
+
+## SFTP Auto-Configuration Attempted
+The system detected that SFTP was not enabled on the remote host and attempted to enable it automatically. This requires:
+- **Sudo access** on the remote host for user ${SSH_USER}
+- **Write access** to /etc/ssh/sshd_config
+- **Permission** to restart the SSH service
+
+## What You Can Do
+1. **Manual SFTP Setup**: SSH to the remote host and run:
+   \`\`\`bash
+   echo 'Subsystem sftp /usr/lib/openssh/sftp-server' | sudo tee -a /etc/ssh/sshd_config
+   sudo systemctl restart sshd
+   \`\`\`
+2. **Check Permissions**: Ensure ${SSH_USER} has sudo access or ask your system administrator
+3. **Verify Configuration**: Check if SFTP line exists in /etc/ssh/sshd_config
+4. **Test Connection**: Use the integrated terminal:
+   \`\`\`bash
+   ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "grep sftp /etc/ssh/sshd_config"
+   \`\`\`
+5. **Check Logs**: See STARTUP_LOG.txt for detailed error messages
+
+## Current Status
+Your workspace is running with **local storage only**. Once SFTP is enabled, recreate this environment to mount the remote filesystem at \`workspace/remote/\`.
+
+For now, you can still use this environment to write code locally! 🚀
+EOF
+                else
+                    cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
 # 🔌 SSH Mount Failed
 
 We attempted to mount **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** to \`workspace/remote/\` but the connection failed.
 
 ## Common Causes
-- **Authentication**: SSH key not provided or incorrect
+- **Authentication**: SSH key not provided or password incorrect
   - Add your SSH private key via the dashboard's environment settings
-  - Or ensure password authentication is enabled on the remote host
+  - Or verify the SSH password is correct
 - **Network**: Cannot reach ${SSH_HOST}:${SSH_PORT}
   - Check firewall rules and network connectivity
 - **Permissions**: Missing FUSE support in container
   - Requires /dev/fuse device and SYS_ADMIN capability (automatically configured)
+- **SFTP Not Available**: Remote host doesn't support SFTP
+  - The auto-enablement requires "subsystem request failed" error
+  - See manual setup instructions below
 
 ## What You Can Do
-1. **Add SSH Key**: Go to the dashboard → Edit Environment → Add your private SSH key
-2. **Test Connection**: Use the integrated terminal to run:
+1. **Test Connection**: Use the integrated terminal to run:
    \`\`\`bash
    ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST}
    \`\`\`
+2. **Verify Authentication**: Ensure your SSH key or password is correct
 3. **Check Logs**: See STARTUP_LOG.txt for detailed error messages
+4. **Manual SFTP Setup** (if needed): SSH to remote host and run:
+   \`\`\`bash
+   echo 'Subsystem sftp /usr/lib/openssh/sftp-server' | sudo tee -a /etc/ssh/sshd_config
+   sudo systemctl restart sshd
+   \`\`\`
 
 ## Current Status
 Your workspace is running with **local storage only**. Once authentication is configured, recreate this environment to mount the remote filesystem at \`workspace/remote/\`.
 
 For now, you can still use this environment to write code locally! 🚀
 EOF
+                fi
             fi
         fi
     fi
