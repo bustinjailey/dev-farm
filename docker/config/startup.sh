@@ -5,14 +5,97 @@ set -e
 echo "Ensuring workspace ownership..."
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
-# Ensure settings directory exists and copy settings
+# Ensure settings directory exists and (optionally) seed user settings
 echo "Applying VS Code settings..."
 mkdir -p /home/coder/.local/share/code-server/User
 
-# Copy settings if they don't exist or are different
+# Only seed user settings if missing, unless forced via DEVFARM_FORCE_APPLY_USER_SETTINGS=true
+FORCE_USER_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_USER_SETTINGS:-false}"
 if [ -f /home/coder/.local/share/code-server/User/settings.json.template ]; then
-    cp -f /home/coder/.local/share/code-server/User/settings.json.template /home/coder/.local/share/code-server/User/settings.json
-    echo "Settings applied successfully!"
+    if [ ! -f /home/coder/.local/share/code-server/User/settings.json ] || [ "${FORCE_USER_SETTINGS_SEED}" = "true" ]; then
+        cp -f /home/coder/.local/share/code-server/User/settings.json.template /home/coder/.local/share/code-server/User/settings.json
+        echo "User settings seeded from template."
+    else
+        echo "User settings already exist; skipping seed. Set DEVFARM_FORCE_APPLY_USER_SETTINGS=true to override."
+    fi
+fi
+
+# Seed workspace-level settings from template if available (workspace overrides user settings)
+mkdir -p /home/coder/workspace/.vscode
+if [ -f /home/coder/.devfarm/workspace-settings.json.template ]; then
+    echo "Seeding workspace .vscode/settings.json from template..."
+    /usr/bin/python3 - <<'PYEOF'
+import json, os, sys
+tpl = "/home/coder/.devfarm/workspace-settings.json.template"
+out = "/home/coder/workspace/.vscode/settings.json"
+try:
+    with open(tpl, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+except Exception as e:
+    print(f"Failed to read template: {e}")
+    data = {}
+# Overlay dynamic window title
+title = os.environ.get('WORKSPACE_NAME', 'Workspace')
+data["window.title"] = title
+with open(out, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+print("Workspace settings written to", out)
+PYEOF
+else
+    echo "No workspace settings template found; writing minimal settings."
+    WORKSPACE_DISPLAY_NAME="${WORKSPACE_NAME:-Workspace}"
+    cat > /home/coder/workspace/.vscode/settings.json <<EOFVSCODE
+{
+  "github.copilot.chat.welcomeMessage": "never",
+  "workbench.startupEditor": "none",
+  "window.title": "${WORKSPACE_DISPLAY_NAME}"
+}
+EOFVSCODE
+fi
+
+# Log helper
+LOG_FILE="/home/coder/workspace/STARTUP_LOG.txt"
+{
+    echo "==== Dev Farm startup $(date -Is) ===="
+} >> "$LOG_FILE" 2>/dev/null || true
+
+# Tiny helper to install an extension by id (with pre-check and logging)
+install_extension() {
+    local ext_id="$1"
+    if /usr/bin/code-server --list-extensions | grep -q "^${ext_id}$"; then
+        echo "Extension already installed: ${ext_id}" | tee -a "$LOG_FILE"
+        return 0
+    fi
+    echo "Installing extension: ${ext_id}" | tee -a "$LOG_FILE"
+    if /usr/bin/code-server --install-extension "${ext_id}" >> "$LOG_FILE" 2>&1; then
+        echo "Installed: ${ext_id}" | tee -a "$LOG_FILE"
+        return 0
+    else
+        echo "Failed to install by id: ${ext_id}" | tee -a "$LOG_FILE"
+        return 1
+    fi
+}
+
+# Always ensure a Remote-SSH experience is available (or the best possible fallback)
+echo "Ensuring Remote-SSH extension is installed..." | tee -a "$LOG_FILE"
+
+# Try official Remote - SSH (MS Marketplace – typically unsupported on code-server/Open VSX)
+install_extension ms-vscode-remote.remote-ssh || echo "Remote-SSH (MS) likely unsupported here." | tee -a "$LOG_FILE"
+
+# Fallback: community 'Open Remote - SSH' on Open VSX (works in web)
+if ! install_extension jeanp413.open-remote-ssh; then
+    echo "Attempting VSIX fallback for Open Remote - SSH..." | tee -a "$LOG_FILE"
+    mkdir -p /tmp/devfarm-ext && cd /tmp/devfarm-ext
+    # Download the latest VSIX from Open VSX (stable URL) and install from file
+    if curl -fsSL -o open-remote-ssh.vsix "https://open-vsx.org/api/jeanp413/open-remote-ssh/latest/file" >> "$LOG_FILE" 2>&1; then
+        if /usr/bin/code-server --install-extension /tmp/devfarm-ext/open-remote-ssh.vsix >> "$LOG_FILE" 2>&1; then
+            echo "Installed Open Remote - SSH via VSIX." | tee -a "$LOG_FILE"
+        else
+            echo "VSIX install failed for Open Remote - SSH." | tee -a "$LOG_FILE"
+        fi
+    else
+        echo "Failed to download VSIX for Open Remote - SSH." | tee -a "$LOG_FILE"
+    fi
 fi
 
 # Setup GitHub authentication if token is provided
@@ -42,9 +125,6 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Install GitHub Copilot extensions if not already installed
     /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
     /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
-    
-    # Install Remote-SSH extension (useful for all modes)
-    /usr/bin/code-server --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote-SSH extension install skipped"
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
@@ -169,21 +249,9 @@ else
     echo "Using standard workspace mode"
 fi
 
-# Create a startup script to open Copilot Chat
-mkdir -p /home/coder/workspace/.vscode
+# (Workspace settings seeding moved earlier to honor template and avoid duplicate writes)
 
-# Use WORKSPACE_NAME if provided for the window title
-WORKSPACE_DISPLAY_NAME="${WORKSPACE_NAME:-Workspace}"
-
-cat > /home/coder/workspace/.vscode/settings.json <<EOFVSCODE
-{
-  "github.copilot.chat.welcomeMessage": "never",
-  "workbench.startupEditor": "none",
-  "window.title": "${WORKSPACE_DISPLAY_NAME}"
-}
-EOFVSCODE
-
-# Create keybindings to make Copilot more accessible
+# Create keybindings to make Chat/Inline Chat more accessible
 mkdir -p /home/coder/.local/share/code-server/User
 cat > /home/coder/.local/share/code-server/User/keybindings.json <<'EOFKEYS'
 [
@@ -197,6 +265,10 @@ cat > /home/coder/.local/share/code-server/User/keybindings.json <<'EOFKEYS'
   }
 ]
 EOFKEYS
+
+# Persist a snapshot of installed extensions for quick troubleshooting
+echo "\nInstalled extensions after setup:" | tee -a "$LOG_FILE"
+/usr/bin/code-server --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
 
 # Start code-server with focus on Copilot
 echo "Starting code-server with workspace name: ${WORKSPACE_NAME:-workspace}"

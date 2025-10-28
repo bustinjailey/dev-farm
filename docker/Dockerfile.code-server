@@ -42,9 +42,19 @@ RUN mkdir -p /home/coder/.local/share/code-server/User
 COPY --chown=coder:coder docker/config/settings.json /home/coder/.local/share/code-server/User/settings.json.template
 COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
 
+# Include a workspace settings template to seed per-workspace settings at runtime
+RUN mkdir -p /home/coder/.devfarm
+COPY --chown=coder:coder docker/config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
+
 # Create startup script for GitHub authentication
 COPY --chown=coder:coder docker/config/startup.sh /home/coder/startup.sh
 RUN chmod +x /home/coder/startup.sh
+
+# Pre-install reliable, web-compatible SSH helper from Open VSX to ensure it appears in Installed by default
+RUN mkdir -p /home/coder/.local/share/code-server/extensions \
+  && (curl -fsSL -A "Mozilla/5.0" -o /home/coder/open-remote-ssh.vsix https://open-vsx.org/api/jeanp413/open-remote-ssh/latest/file || true) \
+  && (/usr/bin/code-server --install-extension /home/coder/open-remote-ssh.vsix || true) \
+  && rm -f /home/coder/open-remote-ssh.vsix || true
 
 WORKDIR /workspace
 
