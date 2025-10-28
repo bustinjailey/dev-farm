@@ -268,7 +268,7 @@ EOFERR
             # Handle password authentication if provided
             if [ -n "${SSH_PASSWORD}" ]; then
                 echo "Using password authentication for SSH mount" | tee -a "$LOG_FILE"
-                SSHFS_OPTS="${SSHFS_OPTS} -o password_stdin"
+                # Note: sshpass handles password automatically, no need for password_stdin option
             else
                 echo "Using key-based authentication for SSH mount" | tee -a "$LOG_FILE"
                 SSHFS_OPTS="${SSHFS_OPTS} -o PasswordAuthentication=no"
