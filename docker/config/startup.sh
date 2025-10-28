@@ -305,19 +305,13 @@ EOFERR
                 fi
             fi
             
-            # If mount failed due to SFTP subsystem, try to enable it
-            if [ "$MOUNT_SUCCESS" = false ] && (echo "$MOUNT_OUTPUT" | grep -q "subsystem request failed\|Connection reset by peer"); then
-                # Check if this looks like an SFTP subsystem issue specifically
-                if echo "$MOUNT_OUTPUT" | grep -q "subsystem request failed"; then
-                    echo "SFTP subsystem not available on remote host. Attempting to enable it..." | tee -a "$LOG_FILE"
+            # If mount failed, try to enable SFTP subsystem (common issue with minimal SSH servers)
+            if [ "$MOUNT_SUCCESS" = false ]; then
+                # Check if error suggests SFTP issue
+                if echo "$MOUNT_OUTPUT" | grep -qi "subsystem\|connection reset"; then
+                    echo "Mount failed - attempting to enable SFTP subsystem on remote host..." | tee -a "$LOG_FILE"
                     SFTP_SETUP_ATTEMPTED=true
-                elif echo "$MOUNT_OUTPUT" | grep -q "Connection reset by peer"; then
-                    # Could be SFTP issue, try to enable it
-                    echo "Connection reset by peer - this may be due to missing SFTP subsystem. Attempting to enable it..." | tee -a "$LOG_FILE"
-                    SFTP_SETUP_ATTEMPTED=true
-                fi
-                
-                if [ "$SFTP_SETUP_ATTEMPTED" = true ]; then
+                    
                     # Build the SFTP enablement command
                     SFTP_ENABLE_CMD='
                         if ! grep -q "^Subsystem.*sftp" /etc/ssh/sshd_config 2>/dev/null; then
@@ -374,8 +368,8 @@ EOFERR
                     else
                         echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
                     fi
-                fi  # End SFTP_SETUP_ATTEMPTED check
-            fi  # End mount failure detection
+                fi
+            fi
             
             # Clean up password env var
             if [ -n "${SSH_PASSWORD}" ]; then
