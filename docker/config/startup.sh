@@ -303,16 +303,31 @@ EOF
                 echo "SSHFS mount failed. Remote filesystem not available." | tee -a "$LOG_FILE"
                 rmdir "$REMOTE_MOUNT_DIR" 2>/dev/null || true
                 cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
-# SSHFS Mount Failed
+# 🔌 SSH Mount Failed
 
-We attempted to mount ${SSH_USER}@${SSH_HOST}:${SSH_PATH} to /home/coder/workspace but it failed.
+We attempted to mount **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** to \`workspace/remote/\` but the connection failed.
 
-Common causes:
-- /dev/fuse not available in container (needs device mapping and SYS_ADMIN capability)
-- Invalid SSH credentials or key permissions
-- Network connectivity issues
+## Common Causes
+- **Authentication**: SSH key not provided or incorrect
+  - Add your SSH private key via the dashboard's environment settings
+  - Or ensure password authentication is enabled on the remote host
+- **Network**: Cannot reach ${SSH_HOST}:${SSH_PORT}
+  - Check firewall rules and network connectivity
+- **Permissions**: Missing FUSE support in container
+  - Requires /dev/fuse device and SYS_ADMIN capability (automatically configured)
 
-Logs are in STARTUP_LOG.txt.
+## What You Can Do
+1. **Add SSH Key**: Go to the dashboard → Edit Environment → Add your private SSH key
+2. **Test Connection**: Use the integrated terminal to run:
+   \`\`\`bash
+   ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST}
+   \`\`\`
+3. **Check Logs**: See STARTUP_LOG.txt for detailed error messages
+
+## Current Status
+Your workspace is running with **local storage only**. Once authentication is configured, recreate this environment to mount the remote filesystem at \`workspace/remote/\`.
+
+For now, you can still use this environment to write code locally! 🚀
 EOF
             fi
         fi
