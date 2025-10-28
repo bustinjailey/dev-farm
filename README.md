@@ -9,8 +9,13 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 ## ✨ Features
 
 - 🎯 **On-Demand Environments** - Create and destroy dev environments instantly
-- 📱 **Mobile Dashboard** - Touch-optimized interface for managing from your phone
+- � **Three Environment Modes**:
+  - 💻 **Workspace Mode** - Empty folder for new projects
+  - 📦 **Git Mode** - Clone from GitHub with repository browser
+  - 🔌 **SSH Mode** - Connect to remote servers with Remote-SSH
+- �📱 **Mobile Dashboard** - Touch-optimized interface for managing from your phone
 - 🔐 **Consistent Configuration** - Every environment has GitHub CLI and Copilot MCP pre-configured
+- 🔒 **No Trust Prompts** - Workspaces always open in trusted mode
 - 🐳 **Docker-Based** - Isolated containers for each project
 - 📊 **Resource Monitoring** - See CPU and memory usage at a glance
 - 🚀 **One-Click Access** - Tap to open VS Code Server in your browser
@@ -206,6 +211,29 @@ Features:
 
 No manual login required! Just open your environment and start coding.
 
+### Environment Modes
+
+Dev Farm supports three different modes for different workflows:
+
+1. **💻 Workspace Mode** (Default)
+   - Empty folder for new projects
+   - Perfect for experimentation
+   - No trust prompts
+
+2. **📦 Git Repository Mode**
+   - Clone from GitHub with built-in repository browser
+   - Browse your repos or paste any Git URL
+   - Repository ready to edit immediately
+   - Perfect for contributing to existing projects
+
+3. **🔌 Remote SSH Mode**
+   - Connect to remote servers via SSH
+   - Remote-SSH extension pre-installed
+   - Edit files directly on remote systems
+   - Perfect for server management
+
+**See [docs/ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md) for detailed documentation.**
+
 ### Copilot MCP Servers
 
 Each environment includes pre-configured MCP servers:
@@ -345,6 +373,12 @@ docker system prune
 - **Use SSH tunneling** for secure remote access
 - **Set up Tailscale** for zero-config VPN access
 - **Backup volumes** regularly with `docker volume inspect`
+
+## 📚 Documentation
+
+- **[docs/ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md)** - Detailed guide to workspace, git, and SSH modes
+- **[docs/SECRETS.md](docs/SECRETS.md)** - Secret management and GitHub authentication
+- **[docs/QUICKREF.md](docs/QUICKREF.md)** - Quick reference for common commands
 
 ---
 
