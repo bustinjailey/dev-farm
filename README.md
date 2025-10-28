@@ -13,7 +13,7 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
   - 💻 **Workspace Mode** - Empty folder for new projects
   - 📦 **Git Mode** - Clone from GitHub with repository browser
   - 🔌 **SSH Mode** - Connect to remote servers with Remote-SSH
--  **Mobile Dashboard** - Touch-optimized interface for managing from your phone
+- **Mobile Dashboard** - Touch-optimized interface for managing from your phone
 - 🔄 **Self-Update System** - Update Dev Farm with one click from the dashboard
 - 🔐 **GitHub OAuth Integration** - Web-based authentication, no manual token setup
 - 🔒 **Consistent Configuration** - Every environment has GitHub CLI and Copilot MCP pre-configured
@@ -136,16 +136,19 @@ export GITHUB_TOKEN="your_github_token_here"
 ### System Management
 
 **Self-Update:**
+
 - Click the "⬆️ Update Now" button in the dashboard
 - System will pull latest code and restart automatically
 - No SSH or manual commands required
 
 **GitHub Authentication:**
+
 - Click "🔗 Connect" button to authenticate via OAuth
 - Token is automatically applied to all new and existing environments
 - Restart existing containers to apply the token
 
 **Orphan Cleanup:**
+
 - Dashboard automatically detects zombie containers
 - Click "🧹 Clean Up" to remove orphaned containers
 
@@ -180,7 +183,7 @@ The `devfarm.sh` script provides easy management:
 
 ./scripts/devfarm.sh help
 
-````
+```
 
 ## 🎛️ Configuration
 
@@ -202,11 +205,13 @@ No manual login required! Just open your environment and start coding.
 Dev Farm supports three different modes for different workflows:
 
 1. **💻 Workspace Mode** (Default)
+
    - Empty folder for new projects
    - Perfect for experimentation
    - No trust prompts
 
 2. **📦 Git Repository Mode**
+
    - Clone from GitHub with built-in repository browser
    - Browse your repos or paste any Git URL
    - Repository ready to edit immediately
@@ -236,7 +241,7 @@ Default settings are in `docker/config/settings.json`. Modify and rebuild:
 
 ```bash
 ./scripts/devfarm.sh build
-````
+```
 
 ## 📦 Environment Persistence
 

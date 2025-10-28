@@ -645,8 +645,8 @@ def system_update():
         os.chdir(REPO_PATH)
         
         # Ensure we're on main branch
-        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True)
-        subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True)
+        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True)
+        subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True)
         
         # Pull latest changes
         pull_result = subprocess.run(
@@ -719,9 +719,14 @@ def system_update():
         return jsonify(result)
         
     except subprocess.CalledProcessError as e:
+        error_output = ''
+        if e.stdout:
+            error_output = e.stdout if isinstance(e.stdout, str) else e.stdout.decode('utf-8')
+        elif e.stderr:
+            error_output = e.stderr if isinstance(e.stderr, str) else e.stderr.decode('utf-8')
         return jsonify({
             'error': f'Command failed: {e.cmd}',
-            'output': e.stdout if e.stdout else e.stderr,
+            'output': error_output,
             'stages': result.get('stages', [])
         }), 500
     except Exception as e:
