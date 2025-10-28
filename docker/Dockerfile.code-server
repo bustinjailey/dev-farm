@@ -35,11 +35,11 @@ RUN mkdir -p /home/coder/.local/share/code-server/extensions
 
 # Pre-configure code-server settings (store as template to apply at runtime)
 RUN mkdir -p /home/coder/.local/share/code-server/User
-COPY --chown=coder:coder config/settings.json /home/coder/.local/share/code-server/User/settings.json.template
-COPY --chown=coder:coder config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
+COPY --chown=coder:coder docker/config/settings.json /home/coder/.local/share/code-server/User/settings.json.template
+COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
 
 # Create startup script for GitHub authentication
-COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh
+COPY --chown=coder:coder docker/config/startup.sh /home/coder/startup.sh
 RUN chmod +x /home/coder/startup.sh
 
 WORKDIR /workspace
