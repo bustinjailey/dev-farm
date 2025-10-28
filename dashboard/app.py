@@ -241,6 +241,7 @@ def create_environment():
     ssh_host = data.get('ssh_host', '')
     ssh_user = data.get('ssh_user', '')
     ssh_path = data.get('ssh_path', '/home')
+    ssh_password = data.get('ssh_password', '')  # Optional password for SSH authentication
     git_url = data.get('git_url', '')
     
     if not client:
@@ -280,6 +281,8 @@ def create_environment():
             env_vars['SSH_HOST'] = ssh_host
             env_vars['SSH_USER'] = ssh_user
             env_vars['SSH_PATH'] = ssh_path
+            if ssh_password:  # Only add password if provided
+                env_vars['SSH_PASSWORD'] = ssh_password
         elif mode == 'git':
             env_vars['GIT_URL'] = git_url
         
@@ -327,6 +330,7 @@ def create_environment():
             'project': project,
             'mode': mode,
             'ssh_host': ssh_host if mode == 'ssh' else None,
+            'ssh_password': ssh_password if mode == 'ssh' and ssh_password else None,  # Store password if provided
             'git_url': git_url if mode == 'git' else None
         }
         save_registry(registry)

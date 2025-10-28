@@ -252,25 +252,47 @@ EOFERR
             UID_VAL=$(id -u coder 2>/dev/null || id -u)
             GID_VAL=$(id -g coder 2>/dev/null || id -g)
             
+            # Prepare SSHFS options
+            SSHFS_OPTS="-p ${SSH_PORT}"
+            SSHFS_OPTS="${SSHFS_OPTS} -o allow_other"
+            SSHFS_OPTS="${SSHFS_OPTS} -o StrictHostKeyChecking=no"
+            SSHFS_OPTS="${SSHFS_OPTS} -o UserKnownHostsFile=/dev/null"
+            SSHFS_OPTS="${SSHFS_OPTS} -o reconnect"
+            SSHFS_OPTS="${SSHFS_OPTS} -o follow_symlinks"
+            SSHFS_OPTS="${SSHFS_OPTS} -o ConnectTimeout=5"
+            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveInterval=5"
+            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveCountMax=2"
+            SSHFS_OPTS="${SSHFS_OPTS} -o uid=${UID_VAL}"
+            SSHFS_OPTS="${SSHFS_OPTS} -o gid=${GID_VAL}"
+            
+            # Handle password authentication if provided
+            if [ -n "${SSH_PASSWORD}" ]; then
+                echo "Using password authentication for SSH mount" | tee -a "$LOG_FILE"
+                SSHFS_OPTS="${SSHFS_OPTS} -o password_stdin"
+            else
+                echo "Using key-based authentication for SSH mount" | tee -a "$LOG_FILE"
+                SSHFS_OPTS="${SSHFS_OPTS} -o PasswordAuthentication=no"
+                SSHFS_OPTS="${SSHFS_OPTS} -o BatchMode=yes"
+            fi
+            
             # Run SSHFS with timeout to prevent hanging on authentication failures
             MOUNT_SUCCESS=false
-            if timeout 10 sshfs \
-                    -p "${SSH_PORT}" \
-                    -o allow_other \
-                    -o StrictHostKeyChecking=no \
-                    -o UserKnownHostsFile=/dev/null \
-                    -o reconnect \
-                    -o follow_symlinks \
-                    -o ConnectTimeout=5 \
-                    -o ServerAliveInterval=5 \
-                    -o ServerAliveCountMax=2 \
-                    -o uid=${UID_VAL} \
-                    -o gid=${GID_VAL} \
-                    -o PasswordAuthentication=no \
-                    -o BatchMode=yes \
-                    remote-target:"${SSH_PATH}" \
-                    "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
-                MOUNT_SUCCESS=true
+            if [ -n "${SSH_PASSWORD}" ]; then
+                # Use password authentication via sshpass
+                if echo "${SSH_PASSWORD}" | timeout 10 sshpass -p "${SSH_PASSWORD}" sshfs \
+                        ${SSHFS_OPTS} \
+                        remote-target:"${SSH_PATH}" \
+                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                    MOUNT_SUCCESS=true
+                fi
+            else
+                # Use key-based authentication
+                if timeout 10 sshfs \
+                        ${SSHFS_OPTS} \
+                        remote-target:"${SSH_PATH}" \
+                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                    MOUNT_SUCCESS=true
+                fi
             fi
             
             if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
