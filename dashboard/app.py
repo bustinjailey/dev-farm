@@ -13,6 +13,7 @@ import secrets
 import re
 import time
 import requests
+import threading
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -679,7 +680,7 @@ def cleanup_orphans():
 
 @app.route('/api/system/update', methods=['POST'])
 def system_update():
-    """Pull latest code from GitHub and restart services"""
+    """Pull latest code from GitHub and restart services via external orchestrator"""
     try:
         result = {'stages': []}
         
@@ -690,9 +691,6 @@ def system_update():
         if not github_token:
             return jsonify({'error': 'GitHub token not configured. Please authenticate first.'}), 401
         
-        # Configure git to use token
-        git_url = f'https://{github_token}@github.com/bustinjailey/dev-farm.git'
-        
         # Verify the repo path exists and is a git repository
         if not os.path.exists(REPO_PATH):
             return jsonify({'error': f'Repository path {REPO_PATH} does not exist'}), 500
@@ -701,7 +699,6 @@ def system_update():
             return jsonify({'error': f'{REPO_PATH} is not a git repository'}), 500
         
         # Run git commands in the repo directory
-        # Ensure we're on main branch
         subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
         subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
         
@@ -735,19 +732,34 @@ def system_update():
         dockerfile_changed = any('Dockerfile' in f for f in files_changed)
         
         if dockerfile_changed:
-            build_result = subprocess.run(
-                ['docker', 'build', '--no-cache', '-t', 'dev-farm/code-server:latest',
-                 '-f', 'docker/Dockerfile.code-server', '.'],
-                check=True,
-                capture_output=True,
-                text=True,
-                cwd=REPO_PATH
-            )
-            result['stages'].append({
-                'stage': 'rebuild_image',
-                'status': 'success',
-                'message': 'Image rebuilt successfully'
-            })
+            # Use updater service to rebuild images
+            try:
+                updater = client.containers.get('devfarm-updater')
+                exec_result = updater.exec_run(
+                    cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t dev-farm/code-server:latest -f docker/Dockerfile.code-server .'],
+                    demux=False
+                )
+                
+                if exec_result.exit_code == 0:
+                    result['stages'].append({
+                        'stage': 'rebuild_image',
+                        'status': 'success',
+                        'message': 'Image rebuilt successfully'
+                    })
+                else:
+                    result['stages'].append({
+                        'stage': 'rebuild_image',
+                        'status': 'error',
+                        'message': 'Failed to rebuild image'
+                    })
+                    return jsonify(result), 500
+            except docker.errors.NotFound:
+                result['stages'].append({
+                    'stage': 'rebuild_image',
+                    'status': 'error',
+                    'message': 'Updater service not found. Please restart the system.'
+                })
+                return jsonify(result), 500
         else:
             result['stages'].append({
                 'stage': 'rebuild_image',
@@ -755,47 +767,72 @@ def system_update():
                 'message': 'No Dockerfile changes detected'
             })
         
-        # Stage 3: Rebuild and restart dashboard
+        # Stage 3: Rebuild and restart dashboard via updater service
         result['stages'].append({'stage': 'restart_dashboard', 'status': 'starting'})
         
-        # Rebuild dashboard image with latest code
-        subprocess.run(
-            ['docker', 'compose', 'build', 'dashboard'],
-            check=True,
-            capture_output=True,
-            text=True,
-            cwd=REPO_PATH
-        )
-        
-        # Create a restart script on the host filesystem (not inside container)
-        # This ensures it survives container removal during restart
-        restart_script = os.path.join(REPO_PATH, '.restart_dashboard.sh')
-        with open(restart_script, 'w') as f:
-            f.write('#!/bin/bash\n')
-            f.write('sleep 3\n')  # Give time for response to be sent
-            f.write(f'cd {REPO_PATH}\n')
-            # Stop and remove the old container explicitly, then start fresh
-            f.write('docker compose stop dashboard\n')
-            f.write('docker compose rm -f dashboard\n')
-            f.write('docker compose up -d dashboard\n')
-            f.write(f'rm -f {restart_script}\n')  # Clean up script after execution
-        os.chmod(restart_script, 0o755)
-        
-        # Execute the script directly with bash in background
-        subprocess.Popen(
-            ['bash', restart_script],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True,
-            cwd=REPO_PATH
-        )
-        
-        result['stages'].append({
-            'stage': 'restart_dashboard',
-            'status': 'success',
-            'message': 'Dashboard restart initiated'
-        })
+        try:
+            # Ensure updater service exists and is running
+            try:
+                updater = client.containers.get('devfarm-updater')
+                if updater.status != 'running':
+                    updater.start()
+            except docker.errors.NotFound:
+                # Create updater service if it doesn't exist
+                updater = client.containers.run(
+                    'docker:27-cli',
+                    name='devfarm-updater',
+                    volumes={
+                        '/var/run/docker.sock': {'bind': '/var/run/docker.sock', 'mode': 'rw'},
+                        REPO_PATH: {'bind': REPO_PATH, 'mode': 'rw'}
+                    },
+                    command='tail -f /dev/null',
+                    detach=True,
+                    restart_policy={'Name': 'unless-stopped'},
+                    network_mode='bridge'
+                )
+                time.sleep(1)  # Give container time to start
+            
+            # First rebuild the dashboard image
+            exec_result = updater.exec_run(
+                cmd=['sh', '-c', f'cd {REPO_PATH} && docker compose build dashboard'],
+                demux=False
+            )
+            
+            if exec_result.exit_code != 0:
+                result['stages'].append({
+                    'stage': 'restart_dashboard',
+                    'status': 'error',
+                    'message': 'Failed to rebuild dashboard image'
+                })
+                return jsonify(result), 500
+            
+            # Schedule restart via updater service after response is sent
+            def delayed_restart():
+                time.sleep(2)  # Give time for HTTP response to complete
+                try:
+                    updater.exec_run(
+                        cmd=['sh', '-c', f'cd {REPO_PATH} && docker compose up -d dashboard'],
+                        detach=True
+                    )
+                except Exception as e:
+                    print(f"Error during delayed restart: {e}")
+            
+            # Start restart in background thread
+            threading.Thread(target=delayed_restart, daemon=True).start()
+            
+            result['stages'].append({
+                'stage': 'restart_dashboard',
+                'status': 'success',
+                'message': 'Dashboard restart initiated'
+            })
+            
+        except Exception as e:
+            result['stages'].append({
+                'stage': 'restart_dashboard',
+                'status': 'error',
+                'message': f'Restart failed: {str(e)}'
+            })
+            return jsonify(result), 500
         
         result['success'] = True
         result['message'] = 'Update completed successfully. Dashboard will restart momentarily.'

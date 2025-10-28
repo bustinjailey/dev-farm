@@ -25,6 +25,19 @@ services:
       start_period: 15s
     networks:
       - devfarm
+    depends_on:
+      - updater
+  
+  updater:
+    image: docker:27-cli
+    container_name: devfarm-updater
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt:/opt
+    restart: unless-stopped
+    command: tail -f /dev/null
+    networks:
+      - devfarm
 
 networks:
   devfarm:
