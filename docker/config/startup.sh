@@ -271,7 +271,11 @@ EOFERR
             
             # Prepare SSHFS options
             SSHFS_OPTS="-p ${SSH_PORT}"
-            SSHFS_OPTS="${SSHFS_OPTS} -o allow_other"
+            # Only use allow_other for key-based auth (requires proper FUSE setup)
+            # For password auth via sshpass, skip allow_other to avoid permission issues
+            if [ -z "${SSH_PASSWORD}" ]; then
+                SSHFS_OPTS="${SSHFS_OPTS} -o allow_other"
+            fi
             SSHFS_OPTS="${SSHFS_OPTS} -o StrictHostKeyChecking=no"
             SSHFS_OPTS="${SSHFS_OPTS} -o UserKnownHostsFile=/dev/null"
             SSHFS_OPTS="${SSHFS_OPTS} -o reconnect"
