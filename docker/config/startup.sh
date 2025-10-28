@@ -5,35 +5,21 @@ set -e
 echo "Ensuring workspace ownership..."
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
-# Ensure settings directory exists and (optionally) seed user settings
-echo "Applying VS Code settings..."
+echo "Applying VS Code workspace settings..."
 mkdir -p /home/coder/.local/share/code-server/User
 
-# Only seed user settings if missing, unless forced via DEVFARM_FORCE_APPLY_USER_SETTINGS=true
-FORCE_USER_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_USER_SETTINGS:-false}"
-if [ -f /home/coder/.local/share/code-server/User/settings.json.template ]; then
-    if [ ! -f /home/coder/.local/share/code-server/User/settings.json ] || [ "${FORCE_USER_SETTINGS_SEED}" = "true" ]; then
-        cp -f /home/coder/.local/share/code-server/User/settings.json.template /home/coder/.local/share/code-server/User/settings.json
-        echo "User settings seeded from template."
-    else
-        echo "User settings already exist; skipping seed. Set DEVFARM_FORCE_APPLY_USER_SETTINGS=true to override."
-    fi
-fi
-
-# Seed workspace-level settings from template if available (workspace overrides user settings)
+# Seed workspace-level settings from template if available (workspace is the only source of truth now)
 mkdir -p /home/coder/workspace/.vscode
+FORCE_WS_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS:-true}"
 if [ -f /home/coder/.devfarm/workspace-settings.json.template ]; then
-    echo "Seeding workspace .vscode/settings.json from template..."
-    /usr/bin/python3 - <<'PYEOF'
-import json, os, sys
+    if [ ! -f /home/coder/workspace/.vscode/settings.json ] || [ "${FORCE_WS_SETTINGS_SEED}" = "true" ]; then
+        echo "Seeding workspace .vscode/settings.json from template..."
+        /usr/bin/python3 - <<'PYEOF'
+import json, os
 tpl = "/home/coder/.devfarm/workspace-settings.json.template"
 out = "/home/coder/workspace/.vscode/settings.json"
-try:
-    with open(tpl, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-except Exception as e:
-    print(f"Failed to read template: {e}")
-    data = {}
+with open(tpl, 'r', encoding='utf-8') as f:
+    data = json.load(f)
 # Overlay dynamic window title
 title = os.environ.get('WORKSPACE_NAME', 'Workspace')
 data["window.title"] = title
@@ -41,16 +27,11 @@ with open(out, 'w', encoding='utf-8') as f:
     json.dump(data, f, indent=2)
 print("Workspace settings written to", out)
 PYEOF
+    else
+        echo "Workspace settings already exist; skipping seed. Set DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS=true to override."
+    fi
 else
-    echo "No workspace settings template found; writing minimal settings."
-    WORKSPACE_DISPLAY_NAME="${WORKSPACE_NAME:-Workspace}"
-    cat > /home/coder/workspace/.vscode/settings.json <<EOFVSCODE
-{
-  "github.copilot.chat.welcomeMessage": "never",
-  "workbench.startupEditor": "none",
-  "window.title": "${WORKSPACE_DISPLAY_NAME}"
-}
-EOFVSCODE
+    echo "No workspace settings template found; skipping."
 fi
 
 # Log helper
