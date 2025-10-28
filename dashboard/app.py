@@ -311,11 +311,10 @@ def create_environment():
             }
 
         # For ssh mode, enable FUSE for SSHFS mounts
+        # Using privileged mode to ensure FUSE mounts work properly
         if mode == 'ssh':
             run_kwargs.update({
-                'cap_add': ['SYS_ADMIN'],
-                'devices': ['/dev/fuse:/dev/fuse'],
-                'security_opt': ['apparmor:unconfined']
+                'privileged': True
             })
 
         container = client.containers.run(**run_kwargs)
