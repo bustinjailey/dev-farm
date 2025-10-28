@@ -113,6 +113,10 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
     /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
     
+    # Install essential language extensions for markdown preview and other built-ins
+    /usr/bin/code-server --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
+    /usr/bin/code-server --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+    
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
     # Try to read token from shared storage file
@@ -138,6 +142,10 @@ elif [ -f "/data/.github_token" ]; then
         /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
         /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
         
+        # Install essential language extensions for markdown preview and other built-ins
+        /usr/bin/code-server --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
+        /usr/bin/code-server --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+        
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
     else
         echo "Warning: Shared GitHub token file is empty."
@@ -145,6 +153,10 @@ elif [ -f "/data/.github_token" ]; then
 else
     echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
+    
+    # Still install essential language extensions even without GitHub auth
+    /usr/bin/code-server --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
+    /usr/bin/code-server --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
 fi
 
 # Handle different development modes
