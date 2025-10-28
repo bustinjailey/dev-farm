@@ -408,37 +408,11 @@ def system_upgrade():
 def system_status():
     """Get system status information"""
     try:
-        # Get git info
-        git_branch = subprocess.run(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-            capture_output=True, text=True, cwd='/opt'
-        ).stdout.strip()
-        
-        git_commit = subprocess.run(
-            ['git', 'rev-parse', '--short', 'HEAD'],
-            capture_output=True, text=True, cwd='/opt'
-        ).stdout.strip()
-        
-        git_remote = subprocess.run(
-            ['git', 'ls-remote', '--get-url'],
-            capture_output=True, text=True, cwd='/opt'
-        ).stdout.strip()
-        
-        # Check for updates
-        subprocess.run(['git', 'fetch'], capture_output=True, cwd='/opt')
-        commits_behind = subprocess.run(
-            ['git', 'rev-list', '--count', 'HEAD..@{u}'],
-            capture_output=True, text=True, cwd='/opt'
-        ).stdout.strip()
-        
         return jsonify({
-            'branch': git_branch,
-            'commit': git_commit,
-            'remote': git_remote,
-            'updates_available': int(commits_behind) > 0 if commits_behind else False,
-            'commits_behind': int(commits_behind) if commits_behind else 0,
             'docker_connected': client is not None,
-            'environments': len(load_registry())
+            'environments': len(load_registry()),
+            'updates_available': False,  # Can't check updates from inside container
+            'commits_behind': 0
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

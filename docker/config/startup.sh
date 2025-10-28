@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Fix workspace ownership (volume might be owned by root)
+echo "Ensuring workspace ownership..."
+sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
+
 # Ensure settings directory exists and copy settings
 echo "Applying VS Code settings..."
 mkdir -p /home/coder/.local/share/code-server/User

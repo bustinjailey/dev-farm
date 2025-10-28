@@ -725,7 +725,7 @@
         const newGithubHTML = githubData.authenticated
           ? `<span class="status-badge badge-success">✓ ${githubData.username}</span>`
           : `<span class="status-badge badge-error">✗ Not configured</span>`;
-        
+
         // Only update if changed to prevent flashing
         if (githubStatus.innerHTML !== newGithubHTML) {
           githubStatus.innerHTML = newGithubHTML;
@@ -742,10 +742,10 @@
           newUpdateHTML = `<span class="status-badge badge-warning">⚠ ${systemData.commits_behind} updates available</span>`;
           newUpgradeDisplay = 'flex';
         } else {
-          newUpdateHTML = `<span class="status-badge badge-success">✓ Up to date (${systemData.commit})</span>`;
+          newUpdateHTML = `<span class="status-badge badge-success">✓ System OK</span>`;
           newUpgradeDisplay = 'none';
         }
-        
+
         // Only update if changed to prevent flashing
         if (updateStatus.innerHTML !== newUpdateHTML) {
           updateStatus.innerHTML = newUpdateHTML;
