@@ -768,23 +768,28 @@ def system_update():
         )
         
         # Create a restart script on the host filesystem (not inside container)
-        # This ensures it survives container removal during --force-recreate
+        # This ensures it survives container removal during restart
         restart_script = os.path.join(REPO_PATH, '.restart_dashboard.sh')
         with open(restart_script, 'w') as f:
             f.write('#!/bin/bash\n')
-            f.write('sleep 2\n')  # Give time for response to be sent
+            f.write('sleep 3\n')  # Give time for response to be sent
             f.write(f'cd {REPO_PATH}\n')
-            f.write('docker compose up -d --force-recreate dashboard\n')
+            # Stop and remove the old container explicitly, then start fresh
+            f.write('docker compose stop dashboard\n')
+            f.write('docker compose rm -f dashboard\n')
+            f.write('docker compose up -d dashboard\n')
             f.write(f'rm -f {restart_script}\n')  # Clean up script after execution
         os.chmod(restart_script, 0o755)
         
-        # Start the restart process fully detached using nohup and setsid
+        # Execute the script directly with bash in background
+        # Use nohup to detach from the process tree
         subprocess.Popen(
-            ['nohup', 'setsid', restart_script],
+            ['bash', restart_script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
+            preexec_fn=os.setpgrp if hasattr(os, 'setpgrp') else None,
             cwd=REPO_PATH
         )
         
