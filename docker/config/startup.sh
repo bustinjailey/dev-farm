@@ -172,11 +172,24 @@ if [ "${DEV_MODE}" = "git" ]; then
         echo "Warning: GIT_URL not set for git mode. Creating empty workspace."
     fi
 elif [ "${DEV_MODE}" = "ssh" ]; then
-    # SSH mode - mount remote filesystem via SSHFS so the workspace is truly remote
-    echo "Setting up SSHFS mount for remote workspace..." | tee -a "$LOG_FILE"
+    # SSH mode - mount remote filesystem as subdirectory to preserve local workspace settings
+    echo "Setting up SSHFS mount for remote filesystem..." | tee -a "$LOG_FILE"
 
     if [ -z "${SSH_HOST}" ]; then
         echo "Error: SSH_HOST not set. Cannot mount remote filesystem." | tee -a "$LOG_FILE"
+        cat > /home/coder/workspace/SSH_SETUP_ERROR.md <<'EOFERR'
+# SSH Setup Error
+
+SSH_HOST environment variable is not set. Cannot mount remote filesystem.
+
+To use SSH mode, you need to provide:
+- SSH_HOST: The remote hostname or IP
+- SSH_USER: The SSH username (optional, defaults to root)
+- SSH_PATH: The remote path to mount (optional, defaults to /home)
+- SSH_PRIVATE_KEY: Your SSH private key (optional, for key-based auth)
+
+You can update these settings in the dashboard.
+EOFERR
     else
         mkdir -p /home/coder/.ssh
         chmod 700 /home/coder/.ssh
@@ -206,22 +219,40 @@ Host remote-target
 EOF
         chmod 600 /home/coder/.ssh/config
 
+        # Create mount point as subdirectory of workspace
+        REMOTE_MOUNT_DIR="/home/coder/workspace/remote"
+        mkdir -p "$REMOTE_MOUNT_DIR"
+        
         # Ensure FUSE device exists
         if [ ! -e /dev/fuse ]; then
             echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount. Check container run privileges." | tee -a "$LOG_FILE"
+            cat > /home/coder/workspace/SSH_MOUNT_ERROR.md <<'EOFERR'
+# SSH Mount Error
+
+/dev/fuse device is not available in this container.
+
+SSHFS requires FUSE support which needs:
+- /dev/fuse device mapped into container
+- SYS_ADMIN capability
+- AppArmor security profile configured
+
+The container was not started with the necessary privileges for SSHFS.
+Please contact your administrator or recreate this environment.
+EOFERR
         else
-            # Attempt to mount remote path onto the workspace
-            echo "Mounting ${SSH_USER}@${SSH_HOST}:${SSH_PATH} -> /home/coder/workspace" | tee -a "$LOG_FILE"
+            # Attempt to mount remote path to subdirectory
+            echo "Mounting ${SSH_USER}@${SSH_HOST}:${SSH_PATH} -> ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
+            
             # Unmount if previously mounted
-            if mountpoint -q /home/coder/workspace; then
-                fusermount3 -u /home/coder/workspace || true
+            if mountpoint -q "$REMOTE_MOUNT_DIR"; then
+                fusermount3 -u "$REMOTE_MOUNT_DIR" || true
             fi
+            
             # Mount with user mapping and reconnect options
             UID_VAL=$(id -u coder 2>/dev/null || id -u)
             GID_VAL=$(id -g coder 2>/dev/null || id -g)
             
             # Run SSHFS with timeout to prevent hanging on authentication failures
-            # Use timeout command to kill after 10 seconds if mount doesn't complete
             MOUNT_SUCCESS=false
             if timeout 10 sshfs \
                     -p "${SSH_PORT}" \
@@ -238,16 +269,39 @@ EOF
                     -o PasswordAuthentication=no \
                     -o BatchMode=yes \
                     remote-target:"${SSH_PATH}" \
-                    /home/coder/workspace 2>&1 | tee -a "$LOG_FILE"; then
+                    "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
                 MOUNT_SUCCESS=true
             fi
             
-            if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q /home/coder/workspace; then
-                echo "SSHFS mount successful." | tee -a "$LOG_FILE"
+            if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
+                echo "SSHFS mount successful at ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
+                cat > /home/coder/workspace/REMOTE_ACCESS.md <<EOF
+# 🔗 Remote SSH Access
+
+Successfully connected to **${SSH_HOST}**!
+
+## Mounted Location
+The remote filesystem is mounted at: \`remote/\`
+
+Browse and edit files from **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** directly in this workspace.
+
+## Connection Details
+- **Host**: ${SSH_HOST}:${SSH_PORT}
+- **User**: ${SSH_USER}
+- **Remote Path**: ${SSH_PATH}
+- **Mount Point**: ${REMOTE_MOUNT_DIR}
+
+## Tips
+- Files are edited live on the remote host
+- Changes are synchronized automatically via SSHFS
+- If connection is lost, the mount will attempt to reconnect
+- Use the terminal to run commands directly on remote files
+
+Happy coding! 🚀
+EOF
             else
-                echo "SSHFS mount failed. Continuing with local workspace. Check credentials and container privileges." | tee -a "$LOG_FILE"
-                # Ensure workspace directory exists and is writable after failed mount
-                mkdir -p /home/coder/workspace 2>/dev/null || true
+                echo "SSHFS mount failed. Remote filesystem not available." | tee -a "$LOG_FILE"
+                rmdir "$REMOTE_MOUNT_DIR" 2>/dev/null || true
                 cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
 # SSHFS Mount Failed
 
@@ -289,15 +343,17 @@ EOFKEYS
 echo "\nInstalled extensions after setup:" | tee -a "$LOG_FILE"
 /usr/bin/code-server --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
 
-# Start code-server and open WELCOME.md once on first run
+# Start code-server and open WELCOME.md in preview mode on first run
 echo "Starting code-server with workspace name: ${WORKSPACE_NAME:-workspace}"
 WELCOME_MARK_DIR="/home/coder/workspace/.devfarm"
 WELCOME_MARK_FILE="$WELCOME_MARK_DIR/.welcome_opened"
 mkdir -p "$WELCOME_MARK_DIR"
 
+# Open workspace folder, and if first run, also open WELCOME.md
+# The workbench.editorAssociations setting will open it in preview mode
 OPEN_PATHS=("/home/coder/workspace")
 if [ -f "$WELCOME_PATH" ] && [ ! -f "$WELCOME_MARK_FILE" ]; then
-    echo "Opening WELCOME.md on first run"
+    echo "Opening WELCOME.md in preview mode on first run"
     OPEN_PATHS+=("$WELCOME_PATH")
     touch "$WELCOME_MARK_FILE"
 fi

@@ -40,5 +40,11 @@
   "workbench.statusBar.visible": true,
   "remote.SSH.showLoginTerminal": true,
   "remote.SSH.connectTimeout": 60,
-  "workbench.startupEditor": "none"
+  "workbench.startupEditor": "none",
+  "isTrusted": true,
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+  },
+  "notifications.silent": false,
+  "workbench.statusBar.suppressInSecureWarning": true
 }
