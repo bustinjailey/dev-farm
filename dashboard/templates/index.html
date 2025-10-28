@@ -231,34 +231,76 @@
 
     .env-actions {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr;
-      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
     }
 
     .btn-open {
-      background: #667eea;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
+      grid-column: 1 / -1;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px 20px;
+    }
+
+    .btn-open:hover:not(:disabled) {
+      background: linear-gradient(135deg, #5568d3 0%, #653a8a 100%);
     }
 
     .btn-stop {
       background: #f56565;
       color: white;
-      font-size: 14px;
-      padding: 12px 20px;
+    }
+
+    .btn-stop:hover:not(:disabled) {
+      background: #e53e3e;
     }
 
     .btn-logs {
       background: #4299e1;
       color: white;
-      font-size: 14px;
-      padding: 12px 20px;
+    }
+
+    .btn-logs:hover:not(:disabled) {
+      background: #3182ce;
     }
 
     .btn-delete {
       background: #e53e3e;
       color: white;
-      font-size: 14px;
-      padding: 12px 20px;
+      grid-column: 1 / -1;
+    }
+
+    .btn-delete:hover:not(:disabled) {
+      background: #c53030;
     }
 
     .empty-state {
