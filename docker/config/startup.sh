@@ -62,11 +62,17 @@ if [ ! -f "$WELCOME_PATH" ] || [ "${DEVFARM_FORCE_WELCOME}" = "true" ]; then
     cat > "$WELCOME_PATH" <<'EOWELCOME'
 # 👋 Welcome to Dev Farm
 
-You’re ready to code! A few helpful shortcuts:
+You're ready to code! A few helpful shortcuts:
 
 - Sign in to GitHub: [Click here](command:github.signin)
 - Sign in to GitHub Copilot: [Click here](command:github.copilot.signIn)
 - Manage Accounts: [Open Accounts](command:workbench.action.manageAccounts)
+
+## 📁 Your Workspace
+
+- **Git Mode**: Your cloned repository is in the `repo/` directory
+- **SSH Mode**: Your remote filesystem is mounted at `remote/`
+- **Workspace Mode**: Use this directory directly for your code
 
 Notes:
 - Git and the GitHub CLI (gh) are already authenticated if you connected GitHub in the dashboard.
@@ -164,22 +170,37 @@ DEV_MODE="${DEV_MODE:-workspace}"
 echo "Development mode: ${DEV_MODE}"
 
 if [ "${DEV_MODE}" = "git" ]; then
-    # Git repository mode - clone the repository
+    # Git repository mode - clone the repository into subdirectory
     if [ -n "${GIT_URL}" ]; then
         echo "Cloning repository: ${GIT_URL}"
-        cd /home/coder/workspace
+        REPO_DIR="/home/coder/workspace/repo"
         
-        # Remove any existing content (workspace should be empty)
-        rm -rf ./* .git 2>/dev/null || true
+        # Create repo directory
+        mkdir -p "${REPO_DIR}"
         
-        # Clone the repository
-        git clone "${GIT_URL}" temp_clone
+        # Clone the repository into the repo subdirectory
+        git clone "${GIT_URL}" "${REPO_DIR}"
         
-        # Move contents to workspace root
-        mv temp_clone/* temp_clone/.* /home/coder/workspace/ 2>/dev/null || true
-        rmdir temp_clone 2>/dev/null || true
+        echo "Repository cloned successfully to ${REPO_DIR}"
         
-        echo "Repository cloned successfully!"
+        # Create info file about the cloned repo
+        cat > /home/coder/workspace/REPO_INFO.md <<EOF
+# 📦 Git Repository Cloned
+
+Successfully cloned repository from **${GIT_URL}**
+
+## Repository Location
+The cloned repository is at: \`repo/\`
+
+Browse and edit the repository files in the \`repo/\` directory.
+
+## Git Operations
+- All git commands work normally in the \`repo/\` directory
+- Changes are tracked by git
+- You can commit and push as usual
+
+Happy coding! 🚀
+EOF
     else
         echo "Warning: GIT_URL not set for git mode. Creating empty workspace."
     fi
