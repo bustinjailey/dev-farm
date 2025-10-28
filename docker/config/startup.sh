@@ -11,9 +11,9 @@ mkdir -p /home/coder/.local/share/code-server/User
 
 # Seed workspace-level settings from template if available (workspace is the only source of truth now)
 mkdir -p /home/coder/workspace/.vscode
-FORCE_WS_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS:-true}"
+FORCE_WS_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS:-always}"
 if [ -f /home/coder/.devfarm/workspace-settings.json.template ]; then
-    if [ ! -f /home/coder/workspace/.vscode/settings.json ] || [ "${FORCE_WS_SETTINGS_SEED}" = "true" ]; then
+    if [ ! -f /home/coder/workspace/.vscode/settings.json ] || [ "${FORCE_WS_SETTINGS_SEED}" = "always" ]; then
         echo "Seeding workspace .vscode/settings.json from template..."
         /usr/bin/python3 - <<'PYEOF'
 import json, os

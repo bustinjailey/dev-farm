@@ -30,7 +30,7 @@ REGISTRY_FILE = '/data/environments.json'
 BASE_PORT = 8100
 GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
-REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt')
+REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt/dev-farm')
 
 # In-memory system update progress (polled by UI)
 UPDATE_PROGRESS = {

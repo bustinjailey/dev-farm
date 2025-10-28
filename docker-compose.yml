@@ -9,13 +9,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - devfarm-data:/data
-      - /opt:/opt
+      - /opt/dev-farm:/opt/dev-farm
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GITHUB_USERNAME=${GITHUB_USERNAME:-bustinjailey}
       - GITHUB_EMAIL=${GITHUB_EMAIL:-bustinjailey@users.noreply.github.com}
       - DEBUG=false
-      - HOST_REPO_PATH=/opt
+      - HOST_REPO_PATH=/opt/dev-farm
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
@@ -33,7 +33,7 @@ services:
     container_name: devfarm-updater
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /opt:/opt
+      - /opt/dev-farm:/opt/dev-farm
     restart: unless-stopped
     command: tail -f /dev/null
     networks:
