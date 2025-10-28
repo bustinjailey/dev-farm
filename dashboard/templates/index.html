@@ -596,11 +596,15 @@
             <input type="text" class="form-input" id="sshUser" placeholder="root" value="root">
           </div>
           <div class="form-group">
+            <label class="form-label">SSH Password (optional)</label>
+            <input type="password" class="form-input" id="sshPassword" placeholder="Leave blank for key-based auth">
+          </div>
+          <div class="form-group">
             <label class="form-label">Remote Path</label>
             <input type="text" class="form-input" id="sshPath" placeholder="/home" value="/home">
           </div>
           <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 15px;">
-            Make sure SSH keys are configured on the remote host
+            Use password or leave blank for SSH key authentication
           </small>
         </div>
 
@@ -707,6 +711,10 @@
         payload.ssh_host = document.getElementById('sshHost').value;
         payload.ssh_user = document.getElementById('sshUser').value;
         payload.ssh_path = document.getElementById('sshPath').value;
+        const sshPassword = document.getElementById('sshPassword').value;
+        if (sshPassword) {
+          payload.ssh_password = sshPassword;
+        }
         if (!payload.ssh_host) {
           alert('Please enter an SSH host');
           return;
