@@ -153,7 +153,7 @@ install_dependencies() {
         sh /tmp/get-docker.sh
         
         # Install Docker Compose
-        apt-get install -y docker-compose-plugin docker-compose
+        apt-get install -y docker-compose-plugin
         
         # Enable and start Docker
         systemctl enable docker

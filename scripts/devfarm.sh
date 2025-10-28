@@ -49,7 +49,7 @@ build_image() {
 start_dashboard() {
     log_info "Starting Dev Farm dashboard..."
     cd "$PROJECT_DIR"
-    docker-compose up -d
+    docker compose up -d
     log_success "Dashboard started successfully"
     log_info "Access the dashboard at: http://localhost:5000"
 }
@@ -58,8 +58,8 @@ start_dashboard() {
 stop_dashboard() {
     log_info "Stopping Dev Farm dashboard..."
     cd "$PROJECT_DIR"
-    docker-compose down
-    log_success "Dashboard stopped"
+    docker compose down
+    log_success "Dashboard stopped successfully"
 }
 
 # Create a new environment
@@ -111,7 +111,7 @@ delete_env() {
 # Show logs
 show_logs() {
     cd "$PROJECT_DIR"
-    docker-compose logs -f
+    docker compose logs -f
 }
 
 # Setup initial configuration
