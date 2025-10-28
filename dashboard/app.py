@@ -146,12 +146,12 @@ def create_environment():
             print("Warning: GITHUB_TOKEN not set. Environments will not have GitHub authentication.")
         
         # Create container with environment variables
-        print(f"Creating container {env_name} with port mapping: 8080 -> {port}")
+        print(f"Creating container {env_name} with port mapping: 8080/tcp -> {port}")
         container = client.containers.run(
             'dev-farm/code-server:latest',
             name=f"devfarm-{env_name}",
             detach=True,
-            ports={'8080': port},  # Map container's internal 8080 to host's external port
+            ports={'8080/tcp': port},  # Map container's internal 8080 to host's external port
             volumes={
                 f'devfarm-{env_name}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             },
