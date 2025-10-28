@@ -815,36 +815,107 @@ def cleanup_orphans():
 
 def _run_system_update_thread():
     try:
-        _append_stage('init', 'starting', 'Update thread started')
-        _append_stage('git_pull', 'starting')
-
+        _append_stage('init', 'starting', '🚀 Initializing system update...')
+        
+        # Validate prerequisites
+        _append_stage('validate', 'starting', '🔍 Validating environment...')
+        
         github_token = load_github_token()
         if not github_token:
-            _append_stage('git_pull', 'error', 'GitHub token not configured. Please authenticate first.')
+            _append_stage('validate', 'error', '❌ GitHub token not configured. Please authenticate first.')
             _set_update_result(False, 'GitHub token not configured')
             return
 
         if not os.path.exists(REPO_PATH):
-            _append_stage('git_pull', 'error', f'Repository path {REPO_PATH} does not exist')
+            _append_stage('validate', 'error', f'❌ Repository path {REPO_PATH} does not exist')
             _set_update_result(False, f'Repository path {REPO_PATH} does not exist')
             return
 
         if not os.path.exists(os.path.join(REPO_PATH, '.git')):
-            _append_stage('git_pull', 'error', f'{REPO_PATH} is not a git repository')
+            _append_stage('validate', 'error', f'❌ {REPO_PATH} is not a git repository')
             _set_update_result(False, f'{REPO_PATH} is not a git repository')
             return
+        
+        _append_stage('validate', 'success', '✅ Environment validated')
 
-        # Break out git operations into sub-steps with immediate feedback
-        _append_stage('git_fetch', 'starting', 'Fetching origin...')
-        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
-        _append_stage('git_fetch', 'success', 'Fetch complete')
+        # Get current version for comparison
+        _append_stage('version_check', 'starting', '📊 Checking current version...')
+        try:
+            current_sha_result = subprocess.run(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH,
+                check=True
+            )
+            current_sha = current_sha_result.stdout.strip()
+            _append_stage('version_check', 'success', f'📌 Current version: {current_sha}')
+        except subprocess.CalledProcessError as e:
+            _append_stage('version_check', 'error', f'⚠️ Could not determine current version: {e.stderr}')
+            current_sha = 'unknown'
 
-        _append_stage('git_checkout', 'starting', 'Checking out main...')
-        subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
-        _append_stage('git_checkout', 'success', 'On branch main')
+        # Clean any local changes that might block pull
+        _append_stage('git_clean', 'starting', '🧹 Resetting any local changes...')
+        try:
+            subprocess.run(['git', 'reset', '--hard', 'HEAD'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
+            _append_stage('git_clean', 'success', '✅ Working directory clean')
+        except subprocess.CalledProcessError as e:
+            _append_stage('git_clean', 'warning', f'⚠️ Reset warning: {e.stderr.strip() if e.stderr else "unknown"}')
 
-        # Stream git pull output line-by-line to the client via progress entries
-        _append_stage('git_pull', 'starting', 'Pulling latest commits...')
+        # Fetch latest changes
+        _append_stage('git_fetch', 'starting', '📥 Fetching latest changes from GitHub...')
+        try:
+            fetch_result = subprocess.run(
+                ['git', 'fetch', 'origin', 'main'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH,
+                check=True,
+                timeout=30
+            )
+            _append_stage('git_fetch', 'success', '✅ Fetch complete')
+        except subprocess.TimeoutExpired:
+            _append_stage('git_fetch', 'error', '❌ Fetch timed out. Check network connection.')
+            _set_update_result(False, 'Fetch timed out')
+            return
+        except subprocess.CalledProcessError as e:
+            _append_stage('git_fetch', 'error', f'❌ Fetch failed: {e.stderr.strip() if e.stderr else "unknown error"}')
+            _set_update_result(False, f'Fetch failed: {e.stderr}')
+            return
+
+        # Check what we're about to pull
+        _append_stage('version_compare', 'starting', '🔄 Comparing versions...')
+        try:
+            remote_sha_result = subprocess.run(
+                ['git', 'rev-parse', '--short', 'origin/main'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH,
+                check=True
+            )
+            remote_sha = remote_sha_result.stdout.strip()
+            
+            if current_sha == remote_sha:
+                _append_stage('version_compare', 'success', f'✅ Already up to date at {current_sha}')
+                _set_update_result(True)
+                return
+            else:
+                _append_stage('version_compare', 'success', f'🆕 Update available: {current_sha} → {remote_sha}')
+        except subprocess.CalledProcessError:
+            _append_stage('version_compare', 'warning', '⚠️ Could not compare versions, continuing anyway...')
+
+        # Ensure we're on main branch
+        _append_stage('git_checkout', 'starting', '🔀 Ensuring main branch...')
+        try:
+            subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
+            _append_stage('git_checkout', 'success', '✅ On branch main')
+        except subprocess.CalledProcessError as e:
+            _append_stage('git_checkout', 'error', f'❌ Checkout failed: {e.stderr.strip() if e.stderr else "unknown error"}')
+            _set_update_result(False, 'Checkout failed')
+            return
+
+        # Pull latest changes with detailed output
+        _append_stage('git_pull', 'starting', '⬇️ Pulling latest code...')
         import subprocess as sp
         proc = sp.Popen(
             ['git', 'pull', 'origin', 'main'],
@@ -854,31 +925,57 @@ def _run_system_update_thread():
             text=True,
             bufsize=1
         )
+        pull_output = []
         try:
             for line in iter(proc.stdout.readline, ''):
                 if line:
-                    _append_stage('git_pull', 'progress', line.strip())
+                    clean_line = line.strip()
+                    pull_output.append(clean_line)
+                    _append_stage('git_pull', 'progress', f'  {clean_line}')
         finally:
             proc.stdout.close()
         rc = proc.wait()
+        
         if rc == 0:
-            _append_stage('git_pull', 'success', 'Pull complete')
+            _append_stage('git_pull', 'success', '✅ Code updated successfully')
         else:
-            _append_stage('git_pull', 'error', f'git pull failed (exit {rc})')
+            error_msg = '\n'.join(pull_output[-5:]) if pull_output else 'unknown error'
+            _append_stage('git_pull', 'error', f'❌ Pull failed: {error_msg}')
             _set_update_result(False, f'git pull failed (exit {rc})')
             return
+        
+        # Verify the update succeeded
+        _append_stage('verify_update', 'starting', '✔️ Verifying update...')
+        try:
+            new_sha_result = subprocess.run(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH,
+                check=True
+            )
+            new_sha = new_sha_result.stdout.strip()
+            if new_sha != current_sha:
+                _append_stage('verify_update', 'success', f'✅ Updated: {current_sha} → {new_sha}')
+            else:
+                _append_stage('verify_update', 'success', f'✅ Version confirmed: {new_sha}')
+        except subprocess.CalledProcessError:
+            _append_stage('verify_update', 'warning', '⚠️ Could not verify update')
 
-        # Stage 2: Rebuild images if code-server or dashboard files changed
-        _append_stage('check_changes', 'starting', 'Checking for image changes...')
+        # Stage 2: Analyze what changed
+        _append_stage('check_changes', 'starting', '🔍 Analyzing changes...')
         diff_result = subprocess.run(
             ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
             capture_output=True,
             text=True,
             cwd=REPO_PATH
         )
-        files_changed = diff_result.stdout.split('\n')
+        files_changed = diff_result.stdout.split('\n') if diff_result.stdout else []
         
-        # Check if code-server image needs rebuild (Dockerfile or startup.sh or config changes)
+        if files_changed and files_changed[0]:
+            _append_stage('check_changes', 'progress', f'📝 {len([f for f in files_changed if f])} files changed')
+        
+        # Check if code-server image needs rebuild
         codeserver_changed = any(
             'Dockerfile.code-server' in f or 
             'docker/config/startup.sh' in f or
@@ -887,47 +984,76 @@ def _run_system_update_thread():
             for f in files_changed
         )
         
-        # Check if dashboard needs rebuild (Dockerfile, templates, or app.py changes)
+        # Check if dashboard needs rebuild
         dashboard_changed = any(
             'dashboard/Dockerfile' in f or
             'dashboard/templates/' in f or
             'dashboard/app.py' in f
             for f in files_changed
         )
+        
+        _append_stage('check_changes', 'success', f'✅ Code-server rebuild: {"YES" if codeserver_changed else "NO"}, Dashboard rebuild: {"YES" if dashboard_changed else "NO"}')
 
+        # Stage 3: Rebuild code-server if needed
         if codeserver_changed:
-            _append_stage('rebuild_codeserver', 'starting', 'Rebuilding code-server image...')
+            _append_stage('rebuild_codeserver', 'starting', '🔨 Rebuilding code-server image...')
             try:
-                updater = client.containers.get('devfarm-updater')
+                # Ensure updater exists
+                try:
+                    updater = client.containers.get('devfarm-updater')
+                    if updater.status != 'running':
+                        updater.start()
+                        time.sleep(1)
+                except docker.errors.NotFound:
+                    _append_stage('rebuild_codeserver', 'progress', '📦 Creating updater container...')
+                    updater = client.containers.run(
+                        'docker:27-cli',
+                        name='devfarm-updater',
+                        volumes={
+                            '/var/run/docker.sock': {'bind': '/var/run/docker.sock', 'mode': 'rw'},
+                            REPO_PATH: {'bind': REPO_PATH, 'mode': 'rw'}
+                        },
+                        command='tail -f /dev/null',
+                        detach=True,
+                        restart_policy={'Name': 'unless-stopped'},
+                        network_mode='bridge'
+                    )
+                    time.sleep(2)
+                
+                _append_stage('rebuild_codeserver', 'progress', '⏳ Building... (this may take 1-2 minutes)')
                 exec_result = updater.exec_run(
                     cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t opt-code-server:latest -f docker/Dockerfile.code-server .'],
                     demux=False
                 )
                 if exec_result.exit_code == 0:
-                    _append_stage('rebuild_codeserver', 'success', 'Code-server image rebuilt successfully')
+                    _append_stage('rebuild_codeserver', 'success', '✅ Code-server image rebuilt successfully')
                 else:
-                    _append_stage('rebuild_codeserver', 'error', 'Failed to rebuild code-server image')
+                    error_output = exec_result.output.decode('utf-8', errors='replace') if exec_result.output else 'unknown error'
+                    _append_stage('rebuild_codeserver', 'error', f'❌ Build failed: {error_output[-200:]}')
                     _set_update_result(False, 'Failed to rebuild code-server image')
                     return
-            except docker.errors.NotFound:
-                _append_stage('rebuild_codeserver', 'error', 'Updater service not found. Please restart the system.')
-                _set_update_result(False, 'Updater service not found')
+            except Exception as e:
+                _append_stage('rebuild_codeserver', 'error', f'❌ Error: {str(e)}')
+                _set_update_result(False, f'Code-server rebuild error: {str(e)}')
                 return
         else:
-            _append_stage('rebuild_codeserver', 'skipped', 'No code-server changes detected')
+            _append_stage('rebuild_codeserver', 'skipped', '⏭️ No code-server changes detected')
 
-        # Stage 3: Rebuild and restart dashboard
+        # Stage 4: Always rebuild and restart dashboard (it's quick and ensures latest code)
         if dashboard_changed:
-            _append_stage('rebuild_dashboard', 'starting', 'Rebuilding dashboard image...')
+            _append_stage('rebuild_dashboard', 'starting', '🔨 Rebuilding dashboard image...')
         else:
-            _append_stage('rebuild_dashboard', 'starting', 'Rebuilding dashboard image to ensure latest code...')
+            _append_stage('rebuild_dashboard', 'starting', '🔨 Rebuilding dashboard to ensure latest code...')
         
         try:
+            # Ensure updater exists and is running
             try:
                 updater = client.containers.get('devfarm-updater')
                 if updater.status != 'running':
                     updater.start()
+                    time.sleep(1)
             except docker.errors.NotFound:
+                _append_stage('rebuild_dashboard', 'progress', '📦 Creating updater container...')
                 updater = client.containers.run(
                     'docker:27-cli',
                     name='devfarm-updater',
@@ -940,24 +1066,25 @@ def _run_system_update_thread():
                     restart_policy={'Name': 'unless-stopped'},
                     network_mode='bridge'
                 )
-                time.sleep(1)
+                time.sleep(2)
 
+            _append_stage('rebuild_dashboard', 'progress', '⏳ Building dashboard...')
             exec_result = updater.exec_run(
                 cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t opt-dashboard:latest ./dashboard'],
                 demux=False
             )
             if exec_result.exit_code != 0:
-                _append_stage('rebuild_dashboard', 'error', 'Failed to rebuild dashboard image')
+                error_output = exec_result.output.decode('utf-8', errors='replace') if exec_result.output else 'unknown error'
+                _append_stage('rebuild_dashboard', 'error', f'❌ Build failed: {error_output[-200:]}')
                 _set_update_result(False, 'Failed to rebuild dashboard image')
                 return
             
-            _append_stage('rebuild_dashboard', 'success', 'Dashboard image rebuilt')
-            _append_stage('restart_dashboard', 'starting', 'Restarting dashboard container...')
+            _append_stage('rebuild_dashboard', 'success', '✅ Dashboard image rebuilt')
+            _append_stage('restart_dashboard', 'starting', '🔄 Restarting dashboard...')
 
             def delayed_restart():
                 time.sleep(2)
                 try:
-                    # Restart dashboard using docker restart command
                     updater.exec_run(
                         cmd=['sh', '-c', 'docker restart devfarm-dashboard'],
                         detach=True
@@ -966,23 +1093,24 @@ def _run_system_update_thread():
                     print(f"Error during delayed restart: {e}")
 
             threading.Thread(target=delayed_restart, daemon=True).start()
-            _append_stage('restart_dashboard', 'success', 'Dashboard restart initiated')
+            _append_stage('restart_dashboard', 'success', '✅ Dashboard restart initiated')
         except Exception as e:
-            _append_stage('restart_dashboard', 'error', f'Restart failed: {str(e)}')
-            _set_update_result(False, f'Restart failed: {str(e)}')
+            _append_stage('restart_dashboard', 'error', f'❌ Error: {str(e)}')
+            _set_update_result(False, f'Dashboard restart error: {str(e)}')
             return
 
+        _append_stage('complete', 'success', '🎉 System update completed successfully!')
         _set_update_result(True)
     except subprocess.CalledProcessError as e:
-        msg = ''
+        error_msg = 'Command failed'
         if e.stdout:
-            msg = e.stdout if isinstance(e.stdout, str) else e.stdout.decode('utf-8')
+            error_msg = e.stdout if isinstance(e.stdout, str) else e.stdout.decode('utf-8')
         elif e.stderr:
-            msg = e.stderr if isinstance(e.stderr, str) else e.stderr.decode('utf-8')
-        _append_stage('error', 'error', msg)
-        _set_update_result(False, msg)
+            error_msg = e.stderr if isinstance(e.stderr, str) else e.stderr.decode('utf-8')
+        _append_stage('error', 'error', f'❌ {error_msg}')
+        _set_update_result(False, error_msg)
     except Exception as e:
-        _append_stage('error', 'error', str(e))
+        _append_stage('error', 'error', f'❌ Unexpected error: {str(e)}')
         _set_update_result(False, str(e))
 
 
