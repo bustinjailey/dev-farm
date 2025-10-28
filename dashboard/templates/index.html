@@ -319,7 +319,19 @@
             <span>{{ env.project }}</span>
           </div>
           <div class="info-row">
-            <span>🔌 Port:</span>
+            <span>� Mode:</span>
+            <span>
+              {% if env.mode == 'ssh' %}
+              🔌 Remote SSH{% if env.ssh_host %} ({{ env.ssh_host }}){% endif %}
+              {% elif env.mode == 'git' %}
+              📦 Git Repository{% if env.git_url %} ({{ env.git_url|truncate(40) }}){% endif %}
+              {% else %}
+              💻 Workspace
+              {% endif %}
+            </span>
+          </div>
+          <div class="info-row">
+            <span>�🔌 Port:</span>
             <span>{{ env.port }}</span>
           </div>
           <div class="info-row">
@@ -382,10 +394,59 @@
           <label class="form-label">Environment Name</label>
           <input type="text" class="form-input" id="envName" placeholder="my-project" required>
         </div>
+
+        <div class="form-group">
+          <label class="form-label">Development Mode</label>
+          <select class="form-input" id="envMode" onchange="toggleModeFields()">
+            <option value="workspace">💻 Workspace (Empty folder)</option>
+            <option value="git">📦 Git Repository (Clone from URL)</option>
+            <option value="ssh">🔌 Remote SSH (Connect to remote server)</option>
+          </select>
+        </div>
+
+        <!-- Git mode fields -->
+        <div class="form-group" id="gitFields" style="display: none;">
+          <label class="form-label">Git Repository URL</label>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="url" class="form-input" id="gitUrl" placeholder="https://github.com/user/repo.git"
+              style="flex: 1;">
+            <button type="button" class="btn" onclick="loadGitHubRepos()" style="padding: 12px 20px;">
+              📚 Browse
+            </button>
+          </div>
+          <div id="repoList"
+            style="display: none; max-height: 200px; overflow-y: auto; border: 2px solid #e2e8f0; border-radius: 8px; margin-top: 8px;">
+            <div id="repoListContent" style="padding: 8px;"></div>
+          </div>
+          <small style="color: #666; font-size: 0.85em; display: block; margin-top: 5px;">
+            The repository will be cloned into the workspace
+          </small>
+        </div>
+
+        <!-- SSH mode fields -->
+        <div id="sshFields" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">SSH Host</label>
+            <input type="text" class="form-input" id="sshHost" placeholder="192.168.1.100 or server.example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SSH User</label>
+            <input type="text" class="form-input" id="sshUser" placeholder="root" value="root">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Remote Path</label>
+            <input type="text" class="form-input" id="sshPath" placeholder="/home" value="/home">
+          </div>
+          <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 15px;">
+            Make sure SSH keys are configured on the remote host
+          </small>
+        </div>
+
         <div class="form-group">
           <label class="form-label">Project Type</label>
           <input type="text" class="form-input" id="envProject" placeholder="general" value="general">
         </div>
+
         <div class="modal-actions">
           <button type="button" class="btn btn-cancel" onclick="hideCreateModal()">Cancel</button>
           <button type="submit" class="btn btn-create">Create</button>
@@ -395,25 +456,106 @@
   </div>
 
   <script>
+    let githubRepos = [];
+
+    async function loadGitHubRepos() {
+      const repoList = document.getElementById('repoList');
+      const repoListContent = document.getElementById('repoListContent');
+
+      if (githubRepos.length > 0) {
+        repoList.style.display = repoList.style.display === 'none' ? 'block' : 'none';
+        return;
+      }
+
+      repoListContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading repositories...</div>';
+      repoList.style.display = 'block';
+
+      try {
+        const response = await fetch('/api/github/repos');
+        if (response.ok) {
+          githubRepos = await response.json();
+
+          if (githubRepos.length === 0) {
+            repoListContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No repositories found</div>';
+            return;
+          }
+
+          repoListContent.innerHTML = githubRepos.map(repo => `
+            <div style="padding: 8px; border-bottom: 1px solid #e2e8f0; cursor: pointer; hover: background: #f7fafc;" 
+                 onclick="selectRepo('${repo.url}')"
+                 onmouseover="this.style.background='#f7fafc'" 
+                 onmouseout="this.style.background='white'">
+              <div style="font-weight: 600; color: #667eea;">${repo.name}</div>
+              ${repo.description ? `<div style="font-size: 0.85em; color: #666; margin-top: 2px;">${repo.description}</div>` : ''}
+            </div>
+          `).join('');
+        } else {
+          const error = await response.json();
+          repoListContent.innerHTML = `<div style="text-align: center; padding: 20px; color: #f56565;">Error: ${error.error}</div>`;
+        }
+      } catch (error) {
+        repoListContent.innerHTML = `<div style="text-align: center; padding: 20px; color: #f56565;">Error loading repositories</div>`;
+      }
+    }
+
+    function selectRepo(url) {
+      document.getElementById('gitUrl').value = url;
+      document.getElementById('repoList').style.display = 'none';
+    }
+
+    function toggleModeFields() {
+      const mode = document.getElementById('envMode').value;
+      document.getElementById('gitFields').style.display = mode === 'git' ? 'block' : 'none';
+      document.getElementById('sshFields').style.display = mode === 'ssh' ? 'block' : 'none';
+
+      // Reset repo list when changing modes
+      if (mode !== 'git') {
+        document.getElementById('repoList').style.display = 'none';
+      }
+    }
+
     function showCreateModal() {
       document.getElementById('createModal').classList.add('active');
+      toggleModeFields();
     }
 
     function hideCreateModal() {
       document.getElementById('createModal').classList.remove('active');
       document.getElementById('createForm').reset();
+      document.getElementById('repoList').style.display = 'none';
+      toggleModeFields();
     }
 
     document.getElementById('createForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('envName').value;
       const project = document.getElementById('envProject').value;
+      const mode = document.getElementById('envMode').value;
+
+      const payload = { name, project, mode };
+
+      // Add mode-specific parameters
+      if (mode === 'git') {
+        payload.git_url = document.getElementById('gitUrl').value;
+        if (!payload.git_url) {
+          alert('Please enter a Git repository URL');
+          return;
+        }
+      } else if (mode === 'ssh') {
+        payload.ssh_host = document.getElementById('sshHost').value;
+        payload.ssh_user = document.getElementById('sshUser').value;
+        payload.ssh_path = document.getElementById('sshPath').value;
+        if (!payload.ssh_host) {
+          alert('Please enter an SSH host');
+          return;
+        }
+      }
 
       try {
         const response = await fetch('/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, project })
+          body: JSON.stringify(payload)
         });
 
         if (response.ok) {

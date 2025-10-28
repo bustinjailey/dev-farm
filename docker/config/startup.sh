@@ -31,5 +31,99 @@ else
     echo "You'll need to authenticate manually."
 fi
 
+# Handle different development modes
+DEV_MODE="${DEV_MODE:-workspace}"
+echo "Development mode: ${DEV_MODE}"
+
+if [ "${DEV_MODE}" = "git" ]; then
+    # Git repository mode - clone the repository
+    if [ -n "${GIT_URL}" ]; then
+        echo "Cloning repository: ${GIT_URL}"
+        cd /home/coder/workspace
+        
+        # Remove any existing content (workspace should be empty)
+        rm -rf ./* .git 2>/dev/null || true
+        
+        # Clone the repository
+        git clone "${GIT_URL}" temp_clone
+        
+        # Move contents to workspace root
+        mv temp_clone/* temp_clone/.* /home/coder/workspace/ 2>/dev/null || true
+        rmdir temp_clone 2>/dev/null || true
+        
+        echo "Repository cloned successfully!"
+    else
+        echo "Warning: GIT_URL not set for git mode. Creating empty workspace."
+    fi
+elif [ "${DEV_MODE}" = "ssh" ]; then
+    # SSH mode - install and configure Remote-SSH extension
+    echo "Setting up Remote-SSH mode..."
+    
+    # Install Remote-SSH extension
+    /usr/bin/code-server --install-extension ms-vscode-remote.remote-ssh 2>&1 || {
+        echo "Warning: Failed to install Remote-SSH extension"
+    }
+    
+    # Create SSH config if host details are provided
+    if [ -n "${SSH_HOST}" ]; then
+        mkdir -p /home/coder/.ssh
+        chmod 700 /home/coder/.ssh
+        
+        SSH_USER="${SSH_USER:-root}"
+        SSH_PATH="${SSH_PATH:-/home}"
+        
+        # Create SSH config entry
+        cat > /home/coder/.ssh/config <<EOF
+Host ${SSH_HOST}
+    HostName ${SSH_HOST}
+    User ${SSH_USER}
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+EOF
+        chmod 600 /home/coder/.ssh/config
+        
+        echo "SSH configuration created for ${SSH_USER}@${SSH_HOST}"
+        echo "You can connect using the Remote-SSH extension"
+        
+        # Create a README in the workspace with instructions
+        cat > /home/coder/workspace/REMOTE_SSH_SETUP.md <<EOF
+# Remote SSH Mode
+
+This environment is configured for Remote SSH development.
+
+## Connection Details
+- Host: ${SSH_HOST}
+- User: ${SSH_USER}
+- Default Path: ${SSH_PATH}
+
+## How to Connect
+1. Press \`Ctrl+Shift+P\` (or \`Cmd+Shift+P\` on Mac)
+2. Type "Remote-SSH: Connect to Host"
+3. Select: ${SSH_HOST}
+4. Once connected, open the folder: ${SSH_PATH}
+
+Your SSH key authentication should be set up on the remote host.
+EOF
+    else
+        echo "Warning: SSH_HOST not set. Remote-SSH extension installed but not configured."
+        cat > /home/coder/workspace/REMOTE_SSH_SETUP.md <<EOF
+# Remote SSH Mode
+
+The Remote-SSH extension is installed.
+
+## How to Connect
+1. Configure your SSH host details
+2. Press \`Ctrl+Shift+P\` (or \`Cmd+Shift+P\` on Mac)
+3. Type "Remote-SSH: Connect to Host"
+4. Follow the prompts to add your SSH connection
+
+Make sure your SSH keys are properly configured.
+EOF
+    fi
+else
+    # Workspace mode (default) - just use the empty workspace
+    echo "Using standard workspace mode"
+fi
+
 # Start code-server
 exec /usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none /home/coder/workspace

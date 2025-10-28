@@ -89,6 +89,9 @@ def index():
                     'status': status,
                     'created': env_data.get('created', 'Unknown'),
                     'project': env_data.get('project', 'general'),
+                    'mode': env_data.get('mode', 'workspace'),
+                    'ssh_host': env_data.get('ssh_host'),
+                    'git_url': env_data.get('git_url'),
                     'stats': stats,
                     'url': f"http://{request.host.split(':')[0]}:{env_data['port']}"
                 })
@@ -125,6 +128,13 @@ def create_environment():
     data = request.get_json()
     env_name = data.get('name', f'env-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     project = data.get('project', 'general')
+    mode = data.get('mode', 'workspace')  # workspace, ssh, or git
+    
+    # Mode-specific parameters
+    ssh_host = data.get('ssh_host', '')
+    ssh_user = data.get('ssh_user', '')
+    ssh_path = data.get('ssh_path', '/home')
+    git_url = data.get('git_url', '')
     
     if not client:
         return jsonify({'error': 'Docker not available'}), 500
@@ -147,6 +157,23 @@ def create_environment():
         
         # Create container with environment variables
         print(f"Creating container {env_name} with port mapping: 8080/tcp -> {port}")
+        
+        # Build environment variables
+        env_vars = {
+            'GITHUB_TOKEN': github_token,
+            'GITHUB_USERNAME': github_username,
+            'GITHUB_EMAIL': github_email,
+            'DEV_MODE': mode
+        }
+        
+        # Add mode-specific environment variables
+        if mode == 'ssh':
+            env_vars['SSH_HOST'] = ssh_host
+            env_vars['SSH_USER'] = ssh_user
+            env_vars['SSH_PATH'] = ssh_path
+        elif mode == 'git':
+            env_vars['GIT_URL'] = git_url
+        
         container = client.containers.run(
             'dev-farm/code-server:latest',
             name=f"devfarm-{env_name}",
@@ -155,15 +182,12 @@ def create_environment():
             volumes={
                 f'devfarm-{env_name}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             },
-            environment={
-                'GITHUB_TOKEN': github_token,
-                'GITHUB_USERNAME': github_username,
-                'GITHUB_EMAIL': github_email
-            },
+            environment=env_vars,
             labels={
                 'dev-farm': 'true',
                 'dev-farm.name': env_name,
-                'dev-farm.project': project
+                'dev-farm.project': project,
+                'dev-farm.mode': mode
             }
         )
         
@@ -172,7 +196,10 @@ def create_environment():
             'container_id': container.id,
             'port': port,
             'created': datetime.now().isoformat(),
-            'project': project
+            'project': project,
+            'mode': mode,
+            'ssh_host': ssh_host if mode == 'ssh' else None,
+            'git_url': git_url if mode == 'git' else None
         }
         save_registry(registry)
         
@@ -253,6 +280,39 @@ def health():
         'docker_connected': client is not None,
         'environments': len(load_registry())
     })
+
+@app.route('/api/github/repos')
+def github_repos():
+    """Get GitHub repositories for the authenticated user"""
+    github_token = os.environ.get('GITHUB_TOKEN', '')
+    if not github_token:
+        return jsonify({'error': 'GitHub token not configured'}), 401
+    
+    try:
+        import requests
+        headers = {
+            'Authorization': f'token {github_token}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        # Get user's repositories
+        response = requests.get('https://api.github.com/user/repos', headers=headers, params={
+            'sort': 'updated',
+            'per_page': 50
+        })
+        
+        if response.status_code == 200:
+            repos = response.json()
+            return jsonify([{
+                'name': repo['full_name'],
+                'url': repo['clone_url'],
+                'description': repo['description'],
+                'updated': repo['updated_at']
+            } for repo in repos])
+        else:
+            return jsonify({'error': 'Failed to fetch repositories'}), response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('DEBUG', 'false').lower() == 'true')
