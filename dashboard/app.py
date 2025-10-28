@@ -137,6 +137,11 @@ def create_environment():
     port = get_next_port()
     
     try:
+        # Get GitHub token from environment
+        github_token = os.environ.get('GITHUB_TOKEN', '')
+        if not github_token:
+            print("Warning: GITHUB_TOKEN not set. GitHub authentication will not work.")
+        
         # Create container
         container = client.containers.run(
             'dev-farm/code-server:latest',
@@ -145,7 +150,7 @@ def create_environment():
             ports={'8080/tcp': port},
             environment={
                 'PASSWORD': 'code',
-                'GITHUB_TOKEN': os.environ.get('GITHUB_TOKEN', ''),
+                'GITHUB_TOKEN': github_token,
                 'GITHUB_USER': 'bustinjailey'
             },
             volumes={

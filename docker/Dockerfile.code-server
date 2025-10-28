@@ -4,23 +4,23 @@ USER root
 
 # Install essential development tools
 RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    wget \
-    build-essential \
-    python3 \
-    python3-pip \
-    nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+  git \
+  curl \
+  wget \
+  build-essential \
+  python3 \
+  python3-pip \
+  nodejs \
+  npm \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y gh \
-    && rm -rf /var/lib/apt/lists/*
+  && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+  && apt-get update \
+  && apt-get install -y gh \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install additional useful tools
 RUN npm install -g yarn typescript ts-node prettier eslint
@@ -37,8 +37,12 @@ RUN mkdir -p /home/coder/.local/share/code-server/extensions
 COPY --chown=coder:coder config/settings.json /home/coder/.local/share/code-server/User/settings.json
 COPY --chown=coder:coder config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
 
+# Create startup script for GitHub authentication
+COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh
+RUN chmod +x /home/coder/startup.sh
+
 WORKDIR /workspace
 
 EXPOSE 8080
 
-CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "password", "/workspace"]
+CMD ["/home/coder/startup.sh"]

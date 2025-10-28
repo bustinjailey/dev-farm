@@ -1,20 +1,26 @@
 {
-  "workbench.colorTheme": "Dark+ (default dark)",
+  "workbench.colorTheme": "Dark Modern",
   "editor.fontSize": 14,
   "editor.fontFamily": "Consolas, 'Courier New', monospace",
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
   "editor.formatOnSave": true,
   "editor.minimap.enabled": true,
+  "editor.inlineSuggest.enabled": true,
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 1000,
   "terminal.integrated.fontSize": 13,
+  "terminal.integrated.shellIntegration.enabled": true,
   "git.enableSmartCommit": true,
   "git.confirmSync": false,
+  "security.workspace.trust.untrustedFiles": "open",
+  "explorer.confirmDelete": false,
+  "typescript.updateImportsOnFileMove.enabled": "always",
   "github.copilot.enable": {
     "*": true,
     "yaml": true,
     "plaintext": true,
-    "markdown": true
+    "markdown": true,
+    "scminput": true
   }
 }

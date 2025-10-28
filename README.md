@@ -71,23 +71,27 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 ### Installation
 
 1. **Clone the repository:**
+
 ```bash
 git clone https://github.com/bustinjailey/dev-farm.git
 cd dev-farm
 ```
 
 2. **(Optional) Set up GitHub token:**
+
 ```bash
 export GITHUB_TOKEN="your_github_token_here"
 ```
 
 3. **Run the setup script:**
+
 ```bash
 chmod +x scripts/devfarm.sh
 ./scripts/devfarm.sh setup
 ```
 
 This will:
+
 - Build the custom code-server Docker image
 - Start the dashboard
 - Create the Docker network
@@ -96,6 +100,7 @@ This will:
 4. **Access the dashboard:**
 
 Open your browser (or phone browser) and navigate to:
+
 ```
 http://<your-lxc-ip>:5000
 ```
@@ -148,19 +153,20 @@ The `devfarm.sh` script provides easy management:
 
 ### GitHub Integration
 
-Each environment is pre-configured with:
-- **GitHub CLI** for repo management
-- **Git** with credentials
+Each environment is **automatically authenticated** with GitHub using your personal access token from the `.env` file.
+
+Features:
+- **GitHub CLI** pre-authenticated
+- **Git** with credentials configured
+- **GitHub Copilot** ready to use (if you have a license)
 - **GitHub username:** `bustinjailey`
 
-To authenticate GitHub CLI in an environment:
-```bash
-gh auth login
-```
+No manual login required! Just open your environment and start coding.
 
 ### Copilot MCP Servers
 
 Each environment includes pre-configured MCP servers:
+
 - **Filesystem MCP** - File system operations
 - **GitHub MCP** - GitHub API access (requires `GITHUB_TOKEN`)
 - **Brave Search MCP** - Web search capabilities (requires `BRAVE_API_KEY`)
@@ -170,6 +176,7 @@ Configure tokens via environment variables before starting.
 ### Custom VS Code Settings
 
 Default settings are in `docker/config/settings.json`. Modify and rebuild:
+
 ```bash
 ./scripts/devfarm.sh build
 ```
@@ -177,6 +184,7 @@ Default settings are in `docker/config/settings.json`. Modify and rebuild:
 ## 📦 Environment Persistence
 
 Each environment has its own persistent Docker volume:
+
 - Volume name: `devfarm-<environment-name>`
 - Mount point: `/workspace`
 - Survives container restarts
@@ -187,6 +195,7 @@ Each environment has its own persistent Docker volume:
 ### Proxmox LXC Setup
 
 Recommended LXC specs:
+
 - **OS:** Ubuntu 22.04 or Debian 12
 - **CPU:** 4 cores minimum
 - **RAM:** 8GB minimum (16GB recommended)
@@ -198,17 +207,20 @@ Recommended LXC specs:
 The dashboard automatically assigns ports starting from **8100**.
 
 To access from outside your network:
+
 1. Forward port **5000** (dashboard) on your router
 2. Environments will use ports **8100+** (also forward these if needed)
 
 ### Custom Dockerfile
 
 Modify `docker/Dockerfile.code-server` to add:
+
 - Additional programming languages
 - Custom tools and utilities
 - Pre-installed extensions
 
 Then rebuild:
+
 ```bash
 ./scripts/devfarm.sh build
 ```
@@ -236,6 +248,7 @@ dev-farm/
 ## 🤝 Contributing
 
 Contributions welcome! Feel free to:
+
 - Report bugs
 - Suggest features
 - Submit pull requests
@@ -254,6 +267,7 @@ MIT License - feel free to use for personal or commercial projects.
 ## 🐛 Troubleshooting
 
 ### Dashboard won't start
+
 ```bash
 # Check Docker is running
 docker info
@@ -263,6 +277,7 @@ docker info
 ```
 
 ### Can't access from phone
+
 ```bash
 # Check firewall allows port 5000
 sudo ufw allow 5000
@@ -272,6 +287,7 @@ docker logs devfarm-dashboard
 ```
 
 ### Environment won't create
+
 ```bash
 # Check available resources
 docker system df
@@ -291,4 +307,4 @@ docker system prune
 
 **Made with ❤️ for developers who code from anywhere**
 
-*Star this repo if you find it useful!* ⭐
+_Star this repo if you find it useful!_ ⭐

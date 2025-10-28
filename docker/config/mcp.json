@@ -3,26 +3,42 @@
     "filesystem": {
       "type": "local",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
-      "tools": ["*"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/workspace"
+      ],
+      "tools": [
+        "*"
+      ]
     },
     "github": {
-      "type": "local", 
+      "type": "local",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       },
-      "tools": ["*"]
+      "tools": [
+        "*"
+      ]
     },
     "brave-search": {
       "type": "local",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
       "env": {
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       },
-      "tools": ["*"]
+      "tools": [
+        "*"
+      ]
     }
   }
 }
