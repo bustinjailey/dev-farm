@@ -286,8 +286,9 @@ EOFERR
                 MOUNT_OUTPUT=$(timeout 10 sshpass -e sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE")
+                        "$REMOTE_MOUNT_DIR" 2>&1)
                 MOUNT_EXIT=$?
+                echo "$MOUNT_OUTPUT" | tee -a "$LOG_FILE"
                 if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                     MOUNT_SUCCESS=true
                 fi
@@ -296,17 +297,27 @@ EOFERR
                 MOUNT_OUTPUT=$(timeout 10 sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
-                        "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE")
+                        "$REMOTE_MOUNT_DIR" 2>&1)
                 MOUNT_EXIT=$?
+                echo "$MOUNT_OUTPUT" | tee -a "$LOG_FILE"
                 if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                     MOUNT_SUCCESS=true
                 fi
             fi
             
             # If mount failed due to SFTP subsystem, try to enable it
-            if [ "$MOUNT_SUCCESS" = false ] && echo "$MOUNT_OUTPUT" | grep -q "subsystem request failed"; then
-                echo "SFTP subsystem not available on remote host. Attempting to enable it..." | tee -a "$LOG_FILE"
-                SFTP_SETUP_ATTEMPTED=true
+            if [ "$MOUNT_SUCCESS" = false ] && (echo "$MOUNT_OUTPUT" | grep -q "subsystem request failed\|Connection reset by peer"); then
+                # Check if this looks like an SFTP subsystem issue specifically
+                if echo "$MOUNT_OUTPUT" | grep -q "subsystem request failed"; then
+                    echo "SFTP subsystem not available on remote host. Attempting to enable it..." | tee -a "$LOG_FILE"
+                    SFTP_SETUP_ATTEMPTED=true
+                elif echo "$MOUNT_OUTPUT" | grep -q "Connection reset by peer"; then
+                    # Could be SFTP issue, try to enable it
+                    echo "Connection reset by peer - this may be due to missing SFTP subsystem. Attempting to enable it..." | tee -a "$LOG_FILE"
+                    SFTP_SETUP_ATTEMPTED=true
+                fi
+                
+                if [ "$SFTP_SETUP_ATTEMPTED" = true ]; then
                 
                 # Build the SFTP enablement command
                 SFTP_ENABLE_CMD='
@@ -364,7 +375,8 @@ EOFERR
                 else
                     echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
                 fi
-            fi
+                fi  # End SFTP_SETUP_ATTEMPTED check
+            fi  # End mount failure detection
             
             # Clean up password env var
             if [ -n "${SSH_PASSWORD}" ]; then
