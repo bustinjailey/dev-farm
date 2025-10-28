@@ -7,11 +7,13 @@ Based on your TODO requirements, I've successfully implemented all requested fea
 ### 1. ✅ Three Environment Modes
 
 **💻 Workspace Mode (Default)**
+
 - Empty folder for new projects
 - Perfect for experimentation and starting from scratch
 - No additional setup required
 
 **📦 Git Repository Mode**
+
 - Clone repositories from GitHub
 - Built-in repository browser that lists your GitHub repos
 - Paste any Git URL manually if preferred
@@ -19,6 +21,7 @@ Based on your TODO requirements, I've successfully implemented all requested fea
 - Ready to edit, commit, and push immediately
 
 **🔌 Remote SSH Mode**
+
 - Connect to remote servers via SSH
 - Remote-SSH extension automatically installed
 - SSH config automatically created with provided credentials
@@ -28,6 +31,7 @@ Based on your TODO requirements, I've successfully implemented all requested fea
 ### 2. ✅ Mode Selection UI
 
 **Dashboard Enhancements**:
+
 - Dropdown selector to choose mode when creating environment
 - Conditional form fields that appear based on selected mode
 - Git mode shows:
@@ -42,6 +46,7 @@ Based on your TODO requirements, I've successfully implemented all requested fea
   - Instructions about SSH key requirements
 
 **Environment Cards**:
+
 - Display mode icon and details on each environment
 - Git mode shows truncated repository URL
 - SSH mode shows remote host
@@ -50,6 +55,7 @@ Based on your TODO requirements, I've successfully implemented all requested fea
 ### 3. ✅ Workspace Trust Settings
 
 **All trust prompts disabled**:
+
 ```json
 {
   "security.workspace.trust.enabled": false,
@@ -65,11 +71,13 @@ Every environment now opens in **trusted mode** automatically. You will never se
 ### Files Modified
 
 1. **docker/config/settings.json**
+
    - Added workspace trust configuration
    - Disabled all trust prompts
    - Added Remote-SSH settings
 
 2. **dashboard/app.py**
+
    - Added `mode` parameter to create_environment endpoint
    - Added mode-specific parameters (git_url, ssh_host, ssh_user, ssh_path)
    - Pass mode configuration to containers via environment variables
@@ -77,9 +85,11 @@ Every environment now opens in **trusted mode** automatically. You will never se
    - Added `/api/github/repos` endpoint to list user's repositories
 
 3. **dashboard/requirements.txt**
+
    - Added `requests==2.31.0` for GitHub API calls
 
 4. **dashboard/templates/index.html**
+
    - Added mode dropdown selector
    - Added conditional form fields for each mode
    - Added repository browser with API integration
@@ -87,6 +97,7 @@ Every environment now opens in **trusted mode** automatically. You will never se
    - Added JavaScript for mode field toggling and repo selection
 
 5. **docker/config/startup.sh**
+
    - Added DEV_MODE environment variable handling
    - Git mode: Clone repository into workspace
    - SSH mode: Install Remote-SSH extension, create SSH config
@@ -94,6 +105,7 @@ Every environment now opens in **trusted mode** automatically. You will never se
    - Create helpful README files for SSH mode
 
 6. **docs/ENVIRONMENT_MODES.md** (NEW)
+
    - Comprehensive guide to all three modes
    - Use cases and examples for each mode
    - API documentation for creating environments
@@ -142,6 +154,7 @@ curl -X POST http://192.168.1.126:5000/create \
 ### Mode Behaviors
 
 **Git Mode**:
+
 1. Container starts
 2. GitHub authentication configured
 3. Repository cloned to /home/coder/workspace
@@ -149,6 +162,7 @@ curl -X POST http://192.168.1.126:5000/create \
 5. Ready to edit, commit, push
 
 **SSH Mode**:
+
 1. Container starts
 2. Remote-SSH extension installed
 3. SSH config created at ~/.ssh/config
@@ -156,6 +170,7 @@ curl -X POST http://192.168.1.126:5000/create \
 5. Use Command Palette → "Remote-SSH: Connect to Host"
 
 **Workspace Mode**:
+
 1. Container starts
 2. GitHub authentication configured
 3. Empty workspace ready
@@ -197,6 +212,7 @@ ssh root@eagle.bustinjailey.org "pct exec 200 -- bash -c 'cd /opt && ./scripts/u
 ```
 
 This will:
+
 1. Pull latest code from GitHub
 2. Rebuild dashboard image (picks up new Python dependencies)
 3. Rebuild code-server image (picks up new settings.json and startup.sh)
@@ -208,6 +224,7 @@ This will:
 ## ✨ Features Demonstrated
 
 ### GitHub Repository Browser
+
 - Click "📚 Browse" in Git mode
 - Fetches your repos from GitHub API
 - Shows repo name and description
@@ -215,12 +232,14 @@ This will:
 - Sorted by most recently updated
 
 ### No Trust Prompts
+
 - Open any environment
 - No "Do you trust..." dialog
 - Workspace is immediately usable
 - Copilot works right away
 
 ### Mode Persistence
+
 - Environment mode is saved in registry
 - Displayed on environment card in dashboard
 - Survives container restarts
@@ -229,6 +248,7 @@ This will:
 ## 🎓 Examples
 
 ### Example 1: Quick Bug Fix on Existing Repo
+
 1. Open dashboard
 2. Create environment, select "Git Repository"
 3. Click "📚 Browse"
@@ -239,6 +259,7 @@ This will:
 8. Delete environment when done
 
 ### Example 2: Edit Server Config
+
 1. Open dashboard
 2. Create environment, select "Remote SSH"
 3. Enter: host=192.168.1.157, user=root, path=/etc
@@ -248,6 +269,7 @@ This will:
 7. Edit config files directly on server
 
 ### Example 3: New Project
+
 1. Open dashboard
 2. Create environment, select "Workspace"
 3. Click Create
@@ -277,22 +299,28 @@ This will:
 Your TODO items have been **fully implemented**:
 
 ✅ **"I want each dev environment to operate in one of two modes"**
-   - Implemented **three** modes (workspace, git, ssh) for maximum flexibility
+
+- Implemented **three** modes (workspace, git, ssh) for maximum flexibility
 
 ✅ **"Remote mode, where it uses the Remote - SSH extension"**
-   - SSH mode installs extension and configures connection
+
+- SSH mode installs extension and configures connection
 
 ✅ **"Git repo mode, where it creates a repo from a Git URL or list from the signed-in user"**
-   - Git mode with URL input AND repository browser for your GitHub repos
+
+- Git mode with URL input AND repository browser for your GitHub repos
 
 ✅ **"For both modes, the user should select what they want before creating an environment"**
-   - Dashboard has mode selector with conditional fields
+
+- Dashboard has mode selector with conditional fields
 
 ✅ **"environment should open in the proper mode"**
-   - startup.sh handles each mode's initialization automatically
+
+- startup.sh handles each mode's initialization automatically
 
 ✅ **"Always open in trusted mode, don't show me the 'Do you trust...' prompt ever"**
-   - All trust settings disabled, workspaces always trusted
+
+- All trust settings disabled, workspaces always trusted
 
 ## 🎁 Bonus Features
 

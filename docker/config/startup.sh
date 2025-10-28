@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Ensure settings directory exists and copy settings
+echo "Applying VS Code settings..."
+mkdir -p /home/coder/.local/share/code-server/User
+
+# Copy settings if they don't exist or are different
+if [ -f /home/coder/.local/share/code-server/User/settings.json.template ]; then
+    cp -f /home/coder/.local/share/code-server/User/settings.json.template /home/coder/.local/share/code-server/User/settings.json
+    echo "Settings applied successfully!"
+fi
+
 # Setup GitHub authentication if token is provided
 if [ -n "${GITHUB_TOKEN}" ]; then
     echo "Setting up GitHub authentication..."
@@ -24,6 +34,10 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.local/share/code-server/User/globalStorage/github.vscode-pull-request-github
+    
+    # Install GitHub Copilot extensions if not already installed
+    /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
+    /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 else
@@ -125,5 +139,31 @@ else
     echo "Using standard workspace mode"
 fi
 
-# Start code-server
+# Create a startup script to open Copilot Chat
+mkdir -p /home/coder/workspace/.vscode
+
+cat > /home/coder/workspace/.vscode/settings.json <<'EOFVSCODE'
+{
+  "github.copilot.chat.welcomeMessage": "never",
+  "workbench.startupEditor": "none"
+}
+EOFVSCODE
+
+# Create keybindings to make Copilot more accessible
+mkdir -p /home/coder/.local/share/code-server/User
+cat > /home/coder/.local/share/code-server/User/keybindings.json <<'EOFKEYS'
+[
+  {
+    "key": "ctrl+shift+space",
+    "command": "workbench.action.chat.open"
+  },
+  {
+    "key": "ctrl+i",
+    "command": "github.copilot.interactiveEditor.explain"
+  }
+]
+EOFKEYS
+
+# Start code-server with focus on Copilot
+echo "Starting code-server with Copilot ready..."
 exec /usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none /home/coder/workspace

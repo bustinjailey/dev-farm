@@ -3,12 +3,13 @@
 Dev Farm Dashboard - Mobile-friendly web interface for managing development environments
 """
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 import docker
 import os
 import json
 import subprocess
 from datetime import datetime
+import secrets
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -311,6 +312,106 @@ def github_repos():
             } for repo in repos])
         else:
             return jsonify({'error': 'Failed to fetch repositories'}), response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/github/auth/start')
+def github_auth_start():
+    """Start GitHub OAuth flow"""
+    # For now, return instructions for manual token setup
+    # Full OAuth would require registered GitHub App
+    return jsonify({
+        'message': 'GitHub authentication via dashboard',
+        'instructions': 'Please set GITHUB_TOKEN in your .env file',
+        'docs': 'https://github.com/settings/tokens'
+    })
+
+@app.route('/api/github/auth/status')
+def github_auth_status():
+    """Check GitHub authentication status"""
+    github_token = os.environ.get('GITHUB_TOKEN', '')
+    if not github_token:
+        return jsonify({'authenticated': False, 'message': 'No token configured'})
+    
+    try:
+        import requests
+        headers = {
+            'Authorization': f'token {github_token}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        response = requests.get('https://api.github.com/user', headers=headers)
+        
+        if response.status_code == 200:
+            user_data = response.json()
+            return jsonify({
+                'authenticated': True,
+                'username': user_data.get('login'),
+                'name': user_data.get('name'),
+                'avatar': user_data.get('avatar_url')
+            })
+        else:
+            return jsonify({'authenticated': False, 'message': 'Invalid token'})
+    except Exception as e:
+        return jsonify({'authenticated': False, 'message': str(e)})
+
+@app.route('/api/system/upgrade', methods=['POST'])
+def system_upgrade():
+    """Upgrade the dev-farm system"""
+    try:
+        # Run the upgrade script
+        result = subprocess.run(
+            ['/bin/bash', '/opt/scripts/upgrade.sh'],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        return jsonify({
+            'success': result.returncode == 0,
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Upgrade timed out'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/system/status')
+def system_status():
+    """Get system status information"""
+    try:
+        # Get git info
+        git_branch = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            capture_output=True, text=True, cwd='/opt'
+        ).stdout.strip()
+        
+        git_commit = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, cwd='/opt'
+        ).stdout.strip()
+        
+        git_remote = subprocess.run(
+            ['git', 'ls-remote', '--get-url'],
+            capture_output=True, text=True, cwd='/opt'
+        ).stdout.strip()
+        
+        # Check for updates
+        subprocess.run(['git', 'fetch'], capture_output=True, cwd='/opt')
+        commits_behind = subprocess.run(
+            ['git', 'rev-list', '--count', 'HEAD..@{u}'],
+            capture_output=True, text=True, cwd='/opt'
+        ).stdout.strip()
+        
+        return jsonify({
+            'branch': git_branch,
+            'commit': git_commit,
+            'remote': git_remote,
+            'updates_available': int(commits_behind) > 0 if commits_behind else False,
+            'commits_behind': int(commits_behind) if commits_behind else 0,
+            'docker_connected': client is not None,
+            'environments': len(load_registry())
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

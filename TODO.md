@@ -1,12 +1,13 @@
-TODO
+TODO:
 
-Allow me to initiate the github auth workflow from the dashboard and use that created session within all of my newly-created environments
+Set the environment tab/workspace name to the name set on the dashboard
+
+--
+
+Allow non-kebab names on teh dashboard, but have them kebabafied when used for IDs
 
 ---
 
-When the IDE starts, make Copilot front and center. I want this to be mobile-friendly/first so make IDE elements bigger and put Copilot chat in the main/center window. Copilot will be the main way I interact with the IDE on mobile.
+This seems like a zombie we lost track of.  Stop it and prevent similar from happening in the future
 
-
----
-
-I don't see settings applied in new environments.  The theme is wrong, I'm not signed in, etc.  Figure out why and make it work.
+devfarm-test-env    Up 17 minutes           0.0.0.0:8101->8080/tcp, [::]:8101->8080/tcp

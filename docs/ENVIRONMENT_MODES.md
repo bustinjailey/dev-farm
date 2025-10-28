@@ -5,6 +5,7 @@ Dev Farm supports three different modes for development environments, each optim
 ## 🎯 Mode Overview
 
 ### 1. 💻 Workspace Mode (Default)
+
 **Best for**: New projects, experimentation, sandboxes
 
 - Starts with an empty workspace folder
@@ -13,12 +14,14 @@ Dev Farm supports three different modes for development environments, each optim
 - No trust prompts - ready to code immediately
 
 **Use cases**:
+
 - Creating a new project from scratch
 - Testing code snippets
 - Learning and experimentation
 - Temporary development environments
 
 ### 2. 📦 Git Repository Mode
+
 **Best for**: Working on existing GitHub projects
 
 - Clones a Git repository into the workspace
@@ -28,12 +31,14 @@ Dev Farm supports three different modes for development environments, each optim
 - No trust prompts
 
 **Use cases**:
+
 - Contributing to open source projects
 - Working on your own repositories
 - Code reviews and testing
 - Feature development
 
 **How to use**:
+
 1. Select "Git Repository" mode when creating environment
 2. Either:
    - Enter a Git URL manually, or
@@ -41,6 +46,7 @@ Dev Farm supports three different modes for development environments, each optim
 3. Repository will be cloned automatically on startup
 
 ### 3. 🔌 Remote SSH Mode
+
 **Best for**: Working with existing servers or remote systems
 
 - Installs Remote-SSH extension automatically
@@ -50,12 +56,14 @@ Dev Farm supports three different modes for development environments, each optim
 - No trust prompts
 
 **Use cases**:
+
 - Managing production servers
 - Working on remote development machines
 - Accessing existing codebases on servers
 - Remote debugging and testing
 
 **How to use**:
+
 1. Select "Remote SSH" mode when creating environment
 2. Enter:
    - **SSH Host**: IP address or hostname (e.g., `192.168.1.100`)
@@ -65,6 +73,7 @@ Dev Farm supports three different modes for development environments, each optim
 4. Once the environment opens, use Remote-SSH extension to connect
 
 **SSH Setup Requirements**:
+
 - SSH key authentication must be configured
 - The remote host must be accessible from the container
 - Public key should be in remote's `~/.ssh/authorized_keys`
@@ -74,6 +83,7 @@ Dev Farm supports three different modes for development environments, each optim
 All environments are configured to **always open in trusted mode**. You will never see the "Do you trust the authors of the files in this folder?" prompt.
 
 This is configured via these settings:
+
 ```json
 {
   "security.workspace.trust.enabled": false,
@@ -98,6 +108,7 @@ This is configured via these settings:
 ### Via API
 
 **Workspace Mode**:
+
 ```bash
 curl -X POST http://192.168.1.126:5000/create \
   -H 'Content-Type: application/json' \
@@ -109,6 +120,7 @@ curl -X POST http://192.168.1.126:5000/create \
 ```
 
 **Git Mode**:
+
 ```bash
 curl -X POST http://192.168.1.126:5000/create \
   -H 'Content-Type: application/json' \
@@ -121,6 +133,7 @@ curl -X POST http://192.168.1.126:5000/create \
 ```
 
 **SSH Mode**:
+
 ```bash
 curl -X POST http://192.168.1.126:5000/create \
   -H 'Content-Type: application/json' \
@@ -166,11 +179,13 @@ Each environment's mode and configuration is stored in `/data/environments.json`
 The `startup.sh` script handles mode initialization:
 
 1. **GitHub Authentication** (all modes)
+
    - Configures git username/email
    - Authenticates with GitHub CLI
    - Sets up credential helper
 
 2. **Mode-specific Setup**
+
    - **Workspace**: No additional setup
    - **Git**: Clones repository into workspace
    - **SSH**: Installs Remote-SSH extension, creates SSH config
@@ -185,15 +200,18 @@ The `startup.sh` script handles mode initialization:
 Each container receives these variables:
 
 **All modes**:
+
 - `GITHUB_TOKEN`: For GitHub authentication
 - `GITHUB_USERNAME`: Git commit author
 - `GITHUB_EMAIL`: Git commit email
 - `DEV_MODE`: workspace, git, or ssh
 
 **Git mode**:
+
 - `GIT_URL`: Repository to clone
 
 **SSH mode**:
+
 - `SSH_HOST`: Remote hostname/IP
 - `SSH_USER`: SSH username
 - `SSH_PATH`: Remote folder path
@@ -201,21 +219,25 @@ Each container receives these variables:
 ## 🔍 Troubleshooting
 
 ### Git Clone Fails
+
 - Check that the repository URL is accessible
 - Verify GitHub token has repo access
 - Check container logs: `docker logs devfarm-<name>`
 
 ### SSH Connection Fails
+
 - Verify SSH key is added to remote `~/.ssh/authorized_keys`
 - Check network connectivity from container to remote host
 - Try manual SSH: `docker exec -it devfarm-<name> ssh user@host`
 
 ### Repository List Empty
+
 - Verify `GITHUB_TOKEN` is set in `.env`
 - Check token has `repo` scope
 - Test API: `curl -H "Authorization: token <token>" https://api.github.com/user/repos`
 
 ### Changes Not Trusted
+
 - This should not happen with current config
 - If it does, check `/home/coder/.local/share/code-server/User/settings.json`
 - Verify trust settings are present
@@ -223,6 +245,7 @@ Each container receives these variables:
 ## 📚 Examples
 
 ### Example 1: Quick Bug Fix
+
 ```bash
 # Create environment with your repository
 curl -X POST http://192.168.1.126:5000/create \
@@ -235,6 +258,7 @@ curl -X POST http://192.168.1.126:5000/create \
 ```
 
 ### Example 2: Server Configuration
+
 ```bash
 # Create SSH environment
 curl -X POST http://192.168.1.126:5000/create \
@@ -246,6 +270,7 @@ curl -X POST http://192.168.1.126:5000/create \
 ```
 
 ### Example 3: New Project
+
 ```bash
 # Create empty workspace
 curl -X POST http://192.168.1.126:5000/create \
@@ -260,7 +285,7 @@ curl -X POST http://192.168.1.126:5000/create \
 ## 🎓 Best Practices
 
 1. **Use descriptive names**: `bugfix-login-error` instead of `test1`
-2. **Match mode to task**: 
+2. **Match mode to task**:
    - New code → workspace
    - Existing repo → git
    - Server work → ssh

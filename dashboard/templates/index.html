@@ -28,7 +28,7 @@
     header {
       text-align: center;
       color: white;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
     }
 
     h1 {
@@ -40,6 +40,69 @@
     .subtitle {
       font-size: 1.1em;
       opacity: 0.9;
+    }
+
+    .system-status {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 15px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+    }
+
+    .status-label {
+      font-weight: 600;
+      color: #666;
+    }
+
+    .status-value {
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: #48bb78;
+      color: white;
+    }
+
+    .badge-warning {
+      background: #ed8936;
+      color: white;
+    }
+
+    .badge-error {
+      background: #f56565;
+      color: white;
+    }
+
+    .btn-upgrade {
+      background: #667eea;
+      color: white;
+      padding: 12px 24px;
+      font-size: 14px;
+    }
+
+    .btn-upgrade:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .create-btn-container {
@@ -295,6 +358,27 @@
       <h1>🚜 Dev Farm</h1>
       <p class="subtitle">Your on-demand development environments</p>
     </header>
+
+    <!-- System Status -->
+    <div class="system-status" id="systemStatus">
+      <div class="status-row">
+        <span class="status-label">🔐 GitHub</span>
+        <span class="status-value" id="githubStatus">
+          <span class="status-badge badge-warning">Checking...</span>
+        </span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">🔄 Updates</span>
+        <span class="status-value" id="updateStatus">
+          <span class="status-badge badge-warning">Checking...</span>
+        </span>
+      </div>
+      <div class="status-row" id="upgradeRow" style="display: none;">
+        <button class="btn btn-upgrade" onclick="performUpgrade()" id="upgradeBtn">
+          ⬆️ Upgrade Now
+        </button>
+      </div>
+    </div>
 
     <div class="create-btn-container">
       <button class="btn btn-create" onclick="showCreateModal()">
@@ -618,6 +702,77 @@
     setInterval(() => {
       window.location.reload();
     }, 30000);
+
+    // Check system status on load
+    async function checkSystemStatus() {
+      try {
+        // Check GitHub auth
+        const githubResp = await fetch('/api/github/auth/status');
+        const githubData = await githubResp.json();
+        const githubStatus = document.getElementById('githubStatus');
+
+        if (githubData.authenticated) {
+          githubStatus.innerHTML = `
+            <span class="status-badge badge-success">✓ ${githubData.username}</span>
+          `;
+        } else {
+          githubStatus.innerHTML = `
+            <span class="status-badge badge-error">✗ Not configured</span>
+          `;
+        }
+
+        // Check for updates
+        const systemResp = await fetch('/api/system/status');
+        const systemData = await systemResp.json();
+        const updateStatus = document.getElementById('updateStatus');
+        const upgradeRow = document.getElementById('upgradeRow');
+
+        if (systemData.updates_available) {
+          updateStatus.innerHTML = `
+            <span class="status-badge badge-warning">⚠ ${systemData.commits_behind} updates available</span>
+          `;
+          upgradeRow.style.display = 'flex';
+        } else {
+          updateStatus.innerHTML = `
+            <span class="status-badge badge-success">✓ Up to date (${systemData.commit})</span>
+          `;
+          upgradeRow.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Status check failed:', error);
+      }
+    }
+
+    async function performUpgrade() {
+      const btn = document.getElementById('upgradeBtn');
+      const originalText = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Upgrading...';
+
+      try {
+        const response = await fetch('/api/system/upgrade', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+          btn.innerHTML = '✓ Upgraded! Reloading...';
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          alert('Upgrade failed: ' + (data.error || 'Unknown error'));
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      } catch (error) {
+        alert('Upgrade failed: ' + error);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+
+    // Run status check on page load
+    checkSystemStatus();
   </script>
 </body>
 

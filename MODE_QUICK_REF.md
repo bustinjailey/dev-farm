@@ -3,10 +3,13 @@
 ## 🎯 Choose Your Mode
 
 ### 💻 Workspace Mode
+
 **When to use**: New projects, experimentation, learning
+
 - Empty folder
 - GitHub auth ready
 - No setup needed
+
 ```bash
 curl -X POST http://192.168.1.126:5000/create \
   -H 'Content-Type: application/json' \
@@ -14,10 +17,13 @@ curl -X POST http://192.168.1.126:5000/create \
 ```
 
 ### 📦 Git Mode
+
 **When to use**: Working on existing repos, contributing to projects
+
 - Clone from GitHub
 - Browse your repos or paste URL
 - Ready to commit/push
+
 ```bash
 curl -X POST http://192.168.1.126:5000/create \
   -H 'Content-Type: application/json' \
@@ -25,10 +31,13 @@ curl -X POST http://192.168.1.126:5000/create \
 ```
 
 ### 🔌 SSH Mode
+
 **When to use**: Remote server management, editing files on existing systems
+
 - Remote-SSH extension installed
 - Connect to servers
 - Edit files remotely
+
 ```bash
 curl -X POST http://192.168.1.126:5000/create \
   -H 'Content-Type: application/json' \
