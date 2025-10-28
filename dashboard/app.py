@@ -807,8 +807,8 @@ def _run_system_update_thread():
             _set_update_result(False, f'git pull failed (exit {rc})')
             return
 
-        # Stage 2: Rebuild image if Dockerfile changed
-        _append_stage('rebuild_image', 'starting', 'Checking if Dockerfile changed...')
+        # Stage 2: Rebuild images if code-server or dashboard files changed
+        _append_stage('check_changes', 'starting', 'Checking for image changes...')
         diff_result = subprocess.run(
             ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
             capture_output=True,
@@ -816,30 +816,51 @@ def _run_system_update_thread():
             cwd=REPO_PATH
         )
         files_changed = diff_result.stdout.split('\n')
-        dockerfile_changed = any('Dockerfile.code-server' in f or 'docker/Dockerfile' in f for f in files_changed)
+        
+        # Check if code-server image needs rebuild (Dockerfile or startup.sh or config changes)
+        codeserver_changed = any(
+            'Dockerfile.code-server' in f or 
+            'docker/config/startup.sh' in f or
+            'docker/config/mcp.json' in f or
+            'docker/config/settings.json' in f
+            for f in files_changed
+        )
+        
+        # Check if dashboard needs rebuild (Dockerfile, templates, or app.py changes)
+        dashboard_changed = any(
+            'dashboard/Dockerfile' in f or
+            'dashboard/templates/' in f or
+            'dashboard/app.py' in f
+            for f in files_changed
+        )
 
-        if dockerfile_changed:
+        if codeserver_changed:
+            _append_stage('rebuild_codeserver', 'starting', 'Rebuilding code-server image...')
             try:
                 updater = client.containers.get('devfarm-updater')
                 exec_result = updater.exec_run(
-                    cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t dev-farm/code-server:latest -f docker/Dockerfile.code-server .'],
+                    cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t opt-code-server:latest -f docker/Dockerfile.code-server .'],
                     demux=False
                 )
                 if exec_result.exit_code == 0:
-                    _append_stage('rebuild_image', 'success', 'Image rebuilt successfully')
+                    _append_stage('rebuild_codeserver', 'success', 'Code-server image rebuilt successfully')
                 else:
-                    _append_stage('rebuild_image', 'error', 'Failed to rebuild image')
-                    _set_update_result(False, 'Failed to rebuild image')
+                    _append_stage('rebuild_codeserver', 'error', 'Failed to rebuild code-server image')
+                    _set_update_result(False, 'Failed to rebuild code-server image')
                     return
             except docker.errors.NotFound:
-                _append_stage('rebuild_image', 'error', 'Updater service not found. Please restart the system.')
+                _append_stage('rebuild_codeserver', 'error', 'Updater service not found. Please restart the system.')
                 _set_update_result(False, 'Updater service not found')
                 return
         else:
-            _append_stage('rebuild_image', 'skipped', 'No Dockerfile changes detected')
+            _append_stage('rebuild_codeserver', 'skipped', 'No code-server changes detected')
 
-        # Stage 3: Restart dashboard
-        _append_stage('restart_dashboard', 'starting')
+        # Stage 3: Rebuild and restart dashboard
+        if dashboard_changed:
+            _append_stage('rebuild_dashboard', 'starting', 'Rebuilding dashboard image...')
+        else:
+            _append_stage('rebuild_dashboard', 'starting', 'Rebuilding dashboard image to ensure latest code...')
+        
         try:
             try:
                 updater = client.containers.get('devfarm-updater')
@@ -861,19 +882,23 @@ def _run_system_update_thread():
                 time.sleep(1)
 
             exec_result = updater.exec_run(
-                cmd=['sh', '-c', f'cd {REPO_PATH} && docker compose build dashboard'],
+                cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t opt-dashboard:latest ./dashboard'],
                 demux=False
             )
             if exec_result.exit_code != 0:
-                _append_stage('restart_dashboard', 'error', 'Failed to rebuild dashboard image')
+                _append_stage('rebuild_dashboard', 'error', 'Failed to rebuild dashboard image')
                 _set_update_result(False, 'Failed to rebuild dashboard image')
                 return
+            
+            _append_stage('rebuild_dashboard', 'success', 'Dashboard image rebuilt')
+            _append_stage('restart_dashboard', 'starting', 'Restarting dashboard container...')
 
             def delayed_restart():
                 time.sleep(2)
                 try:
+                    # Restart dashboard using docker restart command
                     updater.exec_run(
-                        cmd=['sh', '-c', f'cd {REPO_PATH} && docker compose up -d dashboard'],
+                        cmd=['sh', '-c', 'docker restart devfarm-dashboard'],
                         detach=True
                     )
                 except Exception as e:
