@@ -44,9 +44,37 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
+elif [ -f "/data/.github_token" ]; then
+    # Try to read token from shared storage file
+    echo "Loading GitHub token from shared storage..."
+    export GITHUB_TOKEN=$(cat /data/.github_token)
+    
+    if [ -n "${GITHUB_TOKEN}" ]; then
+        GITHUB_USERNAME="${GITHUB_USERNAME:-bustinjailey}"
+        GITHUB_EMAIL="${GITHUB_EMAIL:-${GITHUB_USERNAME}@users.noreply.github.com}"
+        
+        git config --global user.name "${GITHUB_USERNAME}"
+        git config --global user.email "${GITHUB_EMAIL}"
+        
+        echo "${GITHUB_TOKEN}" | gh auth login --with-token --hostname github.com 2>&1 || {
+            echo "Warning: gh auth login had issues, but continuing..."
+        }
+        
+        gh auth setup-git 2>&1 || {
+            echo "Warning: gh auth setup-git had issues, but continuing..."
+        }
+        
+        mkdir -p /home/coder/.local/share/code-server/User/globalStorage/github.vscode-pull-request-github
+        /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
+        /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
+        
+        echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
+    else
+        echo "Warning: Shared GitHub token file is empty."
+    fi
 else
-    echo "Warning: GITHUB_TOKEN not set. Skipping GitHub authentication."
-    echo "You'll need to authenticate manually."
+    echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
+    echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
 fi
 
 # Handle different development modes

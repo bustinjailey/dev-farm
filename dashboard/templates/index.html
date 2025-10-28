@@ -365,29 +365,30 @@
         <span class="status-label">🔐 GitHub</span>
         <span class="status-value" id="githubStatus">
           <span class="status-badge badge-warning">Checking...</span>
+          <button class="btn" onclick="startGitHubOAuth()" id="githubConnectBtn"
+            style="padding: 8px 16px; font-size: 13px; display: none;">
+            🔗 Connect
+          </button>
         </span>
       </div>
       <div class="status-row">
-        <span class="status-label">🔄 Updates</span>
-        <span class="status-value" id="updateStatus">
+        <span class="status-label">� System Version</span>
+        <span class="status-value" id="versionStatus">
           <span class="status-badge badge-warning">Checking...</span>
+          <button class="btn btn-upgrade" onclick="updateSystem()" id="updateBtn" style="display: none;">
+            ⬆️ Update Now
+          </button>
         </span>
       </div>
       <div class="status-row" id="orphanRow" style="display: none;">
         <span class="status-label">⚠️ Orphaned Containers</span>
         <span class="status-value" id="orphanStatus">
           <span class="status-badge badge-error">0 found</span>
+          <button class="btn btn-upgrade" onclick="cleanupOrphans()" id="cleanupBtn"
+            style="background: #f59e0b; display: none;">
+            🧹 Clean Up
+          </button>
         </span>
-      </div>
-      <div class="status-row" id="upgradeRow" style="display: none;">
-        <button class="btn btn-upgrade" onclick="performUpgrade()" id="upgradeBtn">
-          ⬆️ Upgrade Now
-        </button>
-      </div>
-      <div class="status-row" id="cleanupRow" style="display: none;">
-        <button class="btn btn-upgrade" onclick="cleanupOrphans()" id="cleanupBtn" style="background: #f59e0b;">
-          🧹 Clean Up Orphans
-        </button>
       </div>
     </div>
 
@@ -477,6 +478,53 @@
         <p>Create your first development environment to get started!</p>
       </div>
       {% endif %}
+    </div>
+  </div>
+
+  <!-- GitHub OAuth Modal -->
+  <div class="modal" id="oauthModal">
+    <div class="modal-content">
+      <div class="modal-header">Connect to GitHub</div>
+      <div id="oauthContent" style="text-align: center; padding: 20px;">
+        <div class="empty-state-icon" style="font-size: 3em; margin-bottom: 15px;">🔐</div>
+        <p style="margin-bottom: 20px; color: #666;">Initiating GitHub authentication...</p>
+      </div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn btn-cancel" onclick="hideOAuthModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Update Modal -->
+  <div class="modal" id="updateModal">
+    <div class="modal-content">
+      <div class="modal-header">System Update</div>
+      <div id="updateContent" style="padding: 20px;">
+        <div style="margin-bottom: 15px;" id="updateStage1">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+            <span id="updateIcon1">⏳</span>
+            <strong>Pulling latest code from GitHub...</strong>
+          </div>
+          <div id="updateMsg1" style="margin-left: 30px; color: #666; font-size: 0.9em;"></div>
+        </div>
+        <div style="margin-bottom: 15px;" id="updateStage2" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+            <span id="updateIcon2">⏳</span>
+            <strong>Rebuilding images...</strong>
+          </div>
+          <div id="updateMsg2" style="margin-left: 30px; color: #666; font-size: 0.9em;"></div>
+        </div>
+        <div style="margin-bottom: 15px;" id="updateStage3" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+            <span id="updateIcon3">⏳</span>
+            <strong>Restarting dashboard...</strong>
+          </div>
+          <div id="updateMsg3" style="margin-left: 30px; color: #666; font-size: 0.9em;"></div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn btn-cancel" onclick="hideUpdateModal()" id="updateCloseBtn" disabled>Close</button>
+      </div>
     </div>
   </div>
 
@@ -721,59 +769,205 @@
         const githubResp = await fetch('/api/github/auth/status');
         const githubData = await githubResp.json();
         const githubStatus = document.getElementById('githubStatus');
+        const githubConnectBtn = document.getElementById('githubConnectBtn');
 
-        const newGithubHTML = githubData.authenticated
-          ? `<span class="status-badge badge-success">✓ ${githubData.username}</span>`
-          : `<span class="status-badge badge-error">✗ Not configured</span>`;
-
-        // Only update if changed to prevent flashing
-        if (githubStatus.innerHTML !== newGithubHTML) {
-          githubStatus.innerHTML = newGithubHTML;
-        }
-
-        // Check for updates
-        const systemResp = await fetch('/api/system/status');
-        const systemData = await systemResp.json();
-        const updateStatus = document.getElementById('updateStatus');
-        const upgradeRow = document.getElementById('upgradeRow');
-
-        let newUpdateHTML, newUpgradeDisplay;
-        if (systemData.updates_available) {
-          newUpdateHTML = `<span class="status-badge badge-warning">⚠ ${systemData.commits_behind} updates available</span>`;
-          newUpgradeDisplay = 'flex';
+        if (githubData.authenticated) {
+          githubStatus.innerHTML = `<span class="status-badge badge-success">✓ ${githubData.username}</span>`;
+          githubConnectBtn.style.display = 'none';
         } else {
-          newUpdateHTML = `<span class="status-badge badge-success">✓ System OK</span>`;
-          newUpgradeDisplay = 'none';
+          githubStatus.innerHTML = `<span class="status-badge badge-error">✗ Not connected</span>`;
+          githubConnectBtn.style.display = 'inline-flex';
         }
 
-        // Only update if changed to prevent flashing
-        if (updateStatus.innerHTML !== newUpdateHTML) {
-          updateStatus.innerHTML = newUpdateHTML;
-        }
-        if (upgradeRow.style.display !== newUpgradeDisplay) {
-          upgradeRow.style.display = newUpgradeDisplay;
-        }
+        // Check version (always show current version)
+        const versionStatus = document.getElementById('versionStatus');
+        const updateBtn = document.getElementById('updateBtn');
+        
+        // For now, always show update button - we can add version checking later
+        versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest</span>`;
+        updateBtn.style.display = 'inline-flex';
 
         // Check for orphaned containers
         const orphansResp = await fetch('/api/system/orphans');
         const orphansData = await orphansResp.json();
         const orphanRow = document.getElementById('orphanRow');
         const orphanStatus = document.getElementById('orphanStatus');
-        const cleanupRow = document.getElementById('cleanupRow');
+        const cleanupBtn = document.getElementById('cleanupBtn');
 
         if (orphansData.count > 0) {
-          orphanStatus.innerHTML = `
-            <span class="status-badge badge-error">${orphansData.count} found</span>
-          `;
+          orphanStatus.innerHTML = `<span class="status-badge badge-error">${orphansData.count} found</span>`;
           orphanRow.style.display = 'flex';
-          cleanupRow.style.display = 'flex';
+          cleanupBtn.style.display = 'inline-flex';
         } else {
           orphanRow.style.display = 'none';
-          cleanupRow.style.display = 'none';
         }
       } catch (error) {
         console.error('Status check failed:', error);
       }
+    }
+
+    async function startGitHubOAuth() {
+      const modal = document.getElementById('oauthModal');
+      const content = document.getElementById('oauthContent');
+      
+      modal.classList.add('active');
+      content.innerHTML = '<div style="margin: 20px 0;"><div class="empty-state-icon" style="font-size: 3em;">⏳</div><p style="color: #666;">Starting authentication...</p></div>';
+      
+      try {
+        const response = await fetch('/api/github/auth/start', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.user_code) {
+          content.innerHTML = `
+            <div style="margin: 20px 0;">
+              <div class="empty-state-icon" style="font-size: 3em;">🔑</div>
+              <p style="margin: 15px 0; color: #333; font-size: 1.1em;">Enter this code on GitHub:</p>
+              <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 15px 0;">
+                <div style="font-size: 2em; font-weight: bold; color: #667eea; letter-spacing: 3px;">${data.user_code}</div>
+              </div>
+              <a href="${data.verification_uri}" target="_blank" class="btn" style="text-decoration: none; margin: 15px 0; display: inline-flex;">
+                🚀 Open GitHub
+              </a>
+              <p style="margin-top: 15px; color: #666; font-size: 0.9em;">Waiting for authorization...</p>
+              <div id="pollStatus" style="margin-top: 10px; color: #667eea; font-size: 0.9em;">⏳ Checking...</div>
+            </div>
+          `;
+          
+          // Start polling
+          pollForOAuth();
+        } else {
+          content.innerHTML = `<div style="color: #f56565; margin: 20px 0;">❌ Failed to start OAuth flow</div>`;
+        }
+      } catch (error) {
+        content.innerHTML = `<div style="color: #f56565; margin: 20px 0;">❌ Error: ${error.message}</div>`;
+      }
+    }
+
+    let pollInterval = null;
+    async function pollForOAuth() {
+      const pollStatus = document.getElementById('pollStatus');
+      
+      if (pollInterval) clearInterval(pollInterval);
+      
+      pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch('/api/github/auth/poll', { method: 'POST' });
+          const data = await response.json();
+          
+          if (data.status === 'success') {
+            clearInterval(pollInterval);
+            const content = document.getElementById('oauthContent');
+            content.innerHTML = `
+              <div style="margin: 20px 0;">
+                <div class="empty-state-icon" style="font-size: 3em;">✅</div>
+                <p style="margin: 15px 0; color: #48bb78; font-size: 1.2em; font-weight: bold;">Successfully connected!</p>
+                <p style="color: #666;">GitHub account: <strong>${data.username || 'Connected'}</strong></p>
+                <p style="margin-top: 15px; color: #666; font-size: 0.9em;">The page will reload in a moment...</p>
+              </div>
+            `;
+            setTimeout(() => {
+              hideOAuthModal();
+              window.location.reload();
+            }, 2000);
+          } else if (data.status === 'pending') {
+            if (pollStatus) pollStatus.textContent = '⏳ Waiting for authorization...';
+          } else if (data.status === 'expired') {
+            clearInterval(pollInterval);
+            if (pollStatus) pollStatus.innerHTML = '<span style="color: #f56565;">❌ Code expired. Please try again.</span>';
+          } else if (data.status === 'denied') {
+            clearInterval(pollInterval);
+            if (pollStatus) pollStatus.innerHTML = '<span style="color: #f56565;">❌ Authorization denied.</span>';
+          } else if (data.status === 'error') {
+            clearInterval(pollInterval);
+            if (pollStatus) pollStatus.innerHTML = `<span style="color: #f56565;">❌ Error: ${data.message}</span>`;
+          }
+        } catch (error) {
+          console.error('Poll error:', error);
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
+    function hideOAuthModal() {
+      document.getElementById('oauthModal').classList.remove('active');
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }
+
+    async function updateSystem() {
+      const modal = document.getElementById('updateModal');
+      modal.classList.add('active');
+      
+      const stage1 = document.getElementById('updateStage1');
+      const stage2 = document.getElementById('updateStage2');
+      const stage3 = document.getElementById('updateStage3');
+      const icon1 = document.getElementById('updateIcon1');
+      const icon2 = document.getElementById('updateIcon2');
+      const icon3 = document.getElementById('updateIcon3');
+      const msg1 = document.getElementById('updateMsg1');
+      const msg2 = document.getElementById('updateMsg2');
+      const msg3 = document.getElementById('updateMsg3');
+      const closeBtn = document.getElementById('updateCloseBtn');
+      
+      closeBtn.disabled = true;
+      stage1.style.display = 'block';
+      stage2.style.display = 'none';
+      stage3.style.display = 'none';
+      icon1.textContent = '⏳';
+      
+      try {
+        const response = await fetch('/api/system/update', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.stages) {
+          for (const stage of data.stages) {
+            if (stage.stage === 'git_pull') {
+              if (stage.status === 'success') {
+                icon1.textContent = '✅';
+                msg1.textContent = stage.message || 'Code updated successfully';
+              } else if (stage.status === 'error') {
+                icon1.textContent = '❌';
+                msg1.textContent = stage.message || 'Failed to pull code';
+              }
+            } else if (stage.stage === 'rebuild_image') {
+              stage2.style.display = 'block';
+              if (stage.status === 'success') {
+                icon2.textContent = '✅';
+                msg2.textContent = stage.message || 'Image rebuilt';
+              } else if (stage.status === 'skipped') {
+                icon2.textContent = '⏭️';
+                msg2.textContent = stage.message || 'Skipped';
+              } else if (stage.status === 'error') {
+                icon2.textContent = '❌';
+                msg2.textContent = stage.message || 'Failed to rebuild';
+              }
+            } else if (stage.stage === 'restart_dashboard') {
+              stage3.style.display = 'block';
+              if (stage.status === 'success') {
+                icon3.textContent = '✅';
+                msg3.textContent = stage.message || 'Dashboard restarting...';
+              }
+            }
+          }
+        }
+        
+        if (data.success) {
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        } else {
+          closeBtn.disabled = false;
+        }
+      } catch (error) {
+        icon1.textContent = '❌';
+        msg1.textContent = 'Error: ' + error.message;
+        closeBtn.disabled = false;
+      }
+    }
+
+    function hideUpdateModal() {
+      document.getElementById('updateModal').classList.remove('active');
     }
 
     async function cleanupOrphans() {
@@ -785,7 +979,7 @@
       const originalText = btn.innerHTML;
 
       btn.disabled = true;
-      btn.innerHTML = '⏳ Cleaning...';
+      btn.innerHTML = '⏳';
 
       try {
         const response = await fetch('/api/system/cleanup-orphans', {
@@ -806,34 +1000,6 @@
         }
       } catch (error) {
         alert('Cleanup failed: ' + error);
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      }
-    }
-
-    async function performUpgrade() {
-      const btn = document.getElementById('upgradeBtn');
-      const originalText = btn.innerHTML;
-
-      btn.disabled = true;
-      btn.innerHTML = '⏳ Upgrading...';
-
-      try {
-        const response = await fetch('/api/system/upgrade', { method: 'POST' });
-        const data = await response.json();
-
-        if (data.success) {
-          btn.innerHTML = '✓ Upgraded! Reloading...';
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
-        } else {
-          alert('Upgrade failed: ' + (data.error || 'Unknown error'));
-          btn.disabled = false;
-          btn.innerHTML = originalText;
-        }
-      } catch (error) {
-        alert('Upgrade failed: ' + error);
         btn.disabled = false;
         btn.innerHTML = originalText;
       }

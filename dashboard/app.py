@@ -11,6 +11,8 @@ import subprocess
 from datetime import datetime
 import secrets
 import re
+import time
+import requests
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -24,6 +26,9 @@ except Exception as e:
 
 REGISTRY_FILE = '/data/environments.json'
 BASE_PORT = 8100
+GITHUB_TOKEN_FILE = '/data/.github_token'
+DEVICE_CODE_FILE = '/data/.device_code.json'
+REPO_PATH = '/opt'
 
 def kebabify(name):
     """Convert any name to kebab-case (Docker-safe ID format)
@@ -52,6 +57,29 @@ def save_registry(registry):
     os.makedirs(os.path.dirname(REGISTRY_FILE), exist_ok=True)
     with open(REGISTRY_FILE, 'w') as f:
         json.dump(registry, f, indent=2)
+
+def load_github_token():
+    """Load GitHub token from shared storage"""
+    # Try file storage first (persistent across restarts)
+    if os.path.exists(GITHUB_TOKEN_FILE):
+        try:
+            with open(GITHUB_TOKEN_FILE, 'r') as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except:
+            pass
+    # Fall back to environment variable
+    return os.environ.get('GITHUB_TOKEN', '')
+
+def save_github_token(token):
+    """Save GitHub token to shared storage and update environment"""
+    os.makedirs(os.path.dirname(GITHUB_TOKEN_FILE), exist_ok=True)
+    with open(GITHUB_TOKEN_FILE, 'w') as f:
+        f.write(token)
+    os.chmod(GITHUB_TOKEN_FILE, 0o600)
+    # Update environment for current process
+    os.environ['GITHUB_TOKEN'] = token
 
 def get_next_port():
     """Get the next available port"""
@@ -171,8 +199,8 @@ def create_environment():
     port = get_next_port()
     
     try:
-        # Get GitHub configuration from environment
-        github_token = os.environ.get('GITHUB_TOKEN', '')
+        # Get GitHub configuration from shared storage or environment
+        github_token = load_github_token()
         github_username = os.environ.get('GITHUB_USERNAME', 'bustinjailey')
         github_email = os.environ.get('GITHUB_EMAIL', f'{github_username}@users.noreply.github.com')
         
@@ -313,7 +341,7 @@ def health():
 @app.route('/api/github/repos')
 def github_repos():
     """Get GitHub repositories for the authenticated user"""
-    github_token = os.environ.get('GITHUB_TOKEN', '')
+    github_token = load_github_token()
     if not github_token:
         return jsonify({'error': 'GitHub token not configured'}), 401
     
@@ -343,21 +371,115 @@ def github_repos():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/github/auth/start')
+@app.route('/api/github/auth/start', methods=['POST'])
 def github_auth_start():
-    """Start GitHub OAuth flow"""
-    # For now, return instructions for manual token setup
-    # Full OAuth would require registered GitHub App
-    return jsonify({
-        'message': 'GitHub authentication via dashboard',
-        'instructions': 'Please set GITHUB_TOKEN in your .env file',
-        'docs': 'https://github.com/settings/tokens'
-    })
+    """Start GitHub OAuth device flow"""
+    try:
+        # Request device code from GitHub
+        response = requests.post(
+            'https://github.com/login/device/code',
+            headers={'Accept': 'application/json'},
+            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org workflow copilot'}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Save device code data for polling
+            device_data = {
+                'device_code': data['device_code'],
+                'user_code': data['user_code'],
+                'verification_uri': data['verification_uri'],
+                'expires_in': data['expires_in'],
+                'interval': data['interval'],
+                'started_at': time.time()
+            }
+            with open(DEVICE_CODE_FILE, 'w') as f:
+                json.dump(device_data, f)
+            
+            return jsonify({
+                'user_code': data['user_code'],
+                'verification_uri': data['verification_uri'],
+                'expires_in': data['expires_in']
+            })
+        else:
+            return jsonify({'error': 'Failed to start OAuth flow'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/github/auth/poll', methods=['POST'])
+def github_auth_poll():
+    """Poll for OAuth device flow completion"""
+    try:
+        if not os.path.exists(DEVICE_CODE_FILE):
+            return jsonify({'status': 'no_flow', 'message': 'No OAuth flow in progress'})
+        
+        with open(DEVICE_CODE_FILE, 'r') as f:
+            device_data = json.load(f)
+        
+        # Check if expired
+        if time.time() - device_data['started_at'] > device_data['expires_in']:
+            os.remove(DEVICE_CODE_FILE)
+            return jsonify({'status': 'expired'})
+        
+        # Poll GitHub for token
+        response = requests.post(
+            'https://github.com/login/oauth/access_token',
+            headers={'Accept': 'application/json'},
+            data={
+                'client_id': 'Iv1.b507a08c87ecfe98',
+                'device_code': device_data['device_code'],
+                'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
+            }
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            if 'access_token' in result:
+                # Success! Save token
+                save_github_token(result['access_token'])
+                os.remove(DEVICE_CODE_FILE)
+                
+                # Get user info
+                user_response = requests.get(
+                    'https://api.github.com/user',
+                    headers={'Authorization': f'token {result["access_token"]}'}
+                )
+                
+                if user_response.status_code == 200:
+                    user_data = user_response.json()
+                    return jsonify({
+                        'status': 'success',
+                        'username': user_data.get('login')
+                    })
+                else:
+                    return jsonify({'status': 'success'})
+            
+            elif result.get('error') == 'authorization_pending':
+                return jsonify({'status': 'pending'})
+            
+            elif result.get('error') == 'slow_down':
+                return jsonify({'status': 'slow_down'})
+            
+            elif result.get('error') == 'expired_token':
+                os.remove(DEVICE_CODE_FILE)
+                return jsonify({'status': 'expired'})
+            
+            elif result.get('error') == 'access_denied':
+                os.remove(DEVICE_CODE_FILE)
+                return jsonify({'status': 'denied'})
+            
+            else:
+                return jsonify({'status': 'error', 'message': result.get('error_description', 'Unknown error')})
+        
+        return jsonify({'status': 'error', 'message': 'Failed to poll'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/github/auth/status')
 def github_auth_status():
     """Check GitHub authentication status"""
-    github_token = os.environ.get('GITHUB_TOKEN', '')
+    github_token = load_github_token()
     if not github_token:
         return jsonify({'authenticated': False, 'message': 'No token configured'})
     
@@ -502,6 +624,111 @@ def cleanup_orphans():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/update', methods=['POST'])
+def system_update():
+    """Pull latest code from GitHub and restart services"""
+    try:
+        result = {'stages': []}
+        
+        # Stage 1: Git pull
+        result['stages'].append({'stage': 'git_pull', 'status': 'starting'})
+        
+        github_token = load_github_token()
+        if not github_token:
+            return jsonify({'error': 'GitHub token not configured. Please authenticate first.'}), 401
+        
+        # Configure git to use token
+        git_url = f'https://{github_token}@github.com/bustinjailey/dev-farm.git'
+        
+        # Change to repo directory and pull
+        os.chdir(REPO_PATH)
+        
+        # Ensure we're on main branch
+        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True)
+        subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True)
+        
+        # Pull latest changes
+        pull_result = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        
+        result['stages'].append({
+            'stage': 'git_pull',
+            'status': 'success',
+            'message': pull_result.stdout.strip()
+        })
+        
+        # Stage 2: Rebuild code-server image if Dockerfile changed
+        result['stages'].append({'stage': 'rebuild_image', 'status': 'starting'})
+        
+        # Check if Dockerfile was modified
+        diff_result = subprocess.run(
+            ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
+            capture_output=True,
+            text=True
+        )
+        
+        files_changed = diff_result.stdout.split('\n')
+        dockerfile_changed = any('Dockerfile' in f for f in files_changed)
+        
+        if dockerfile_changed:
+            build_result = subprocess.run(
+                ['docker', 'build', '--no-cache', '-t', 'dev-farm/code-server:latest',
+                 '-f', 'docker/Dockerfile.code-server', '.'],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=REPO_PATH
+            )
+            result['stages'].append({
+                'stage': 'rebuild_image',
+                'status': 'success',
+                'message': 'Image rebuilt successfully'
+            })
+        else:
+            result['stages'].append({
+                'stage': 'rebuild_image',
+                'status': 'skipped',
+                'message': 'No Dockerfile changes detected'
+            })
+        
+        # Stage 3: Restart dashboard
+        result['stages'].append({'stage': 'restart_dashboard', 'status': 'starting'})
+        
+        # Trigger restart using docker-compose
+        subprocess.Popen(
+            ['docker', 'compose', 'restart', 'dashboard'],
+            cwd=REPO_PATH,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
+        result['stages'].append({
+            'stage': 'restart_dashboard',
+            'status': 'success',
+            'message': 'Dashboard restarting...'
+        })
+        
+        result['success'] = True
+        result['message'] = 'Update completed successfully. Dashboard will restart momentarily.'
+        
+        return jsonify(result)
+        
+    except subprocess.CalledProcessError as e:
+        return jsonify({
+            'error': f'Command failed: {e.cmd}',
+            'output': e.stdout if e.stdout else e.stderr,
+            'stages': result.get('stages', [])
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'stages': result.get('stages', [])
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('DEBUG', 'false').lower() == 'true')
