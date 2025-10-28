@@ -206,7 +206,22 @@ EOFERR
         fi
 
         # Create SSH config entry
-        cat > /home/coder/.ssh/config <<EOF
+        if [ -n "${SSH_PASSWORD}" ]; then
+            # For password auth, don't specify IdentityFile
+            cat > /home/coder/.ssh/config <<EOF
+Host remote-target
+    HostName ${SSH_HOST}
+    User ${SSH_USER}
+    Port ${SSH_PORT}
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    ServerAliveInterval 15
+    ServerAliveCountMax 3
+    PreferredAuthentications password
+EOF
+        else
+            # For key-based auth, specify identity file
+            cat > /home/coder/.ssh/config <<EOF
 Host remote-target
     HostName ${SSH_HOST}
     User ${SSH_USER}
@@ -216,7 +231,9 @@ Host remote-target
     ServerAliveInterval 15
     ServerAliveCountMax 3
     IdentityFile /home/coder/.ssh/id_rsa
+    PreferredAuthentications publickey
 EOF
+        fi
         chmod 600 /home/coder/.ssh/config
 
         # Create mount point as subdirectory of workspace
