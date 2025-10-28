@@ -43,6 +43,9 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
     /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
     
+    # Install Remote-SSH extension (useful for all modes)
+    /usr/bin/code-server --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote-SSH extension install skipped"
+    
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
     # Try to read token from shared storage file
@@ -102,13 +105,8 @@ if [ "${DEV_MODE}" = "git" ]; then
         echo "Warning: GIT_URL not set for git mode. Creating empty workspace."
     fi
 elif [ "${DEV_MODE}" = "ssh" ]; then
-    # SSH mode - install and configure Remote-SSH extension
+    # SSH mode - configure Remote-SSH extension (already installed globally)
     echo "Setting up Remote-SSH mode..."
-    
-    # Install Remote-SSH extension
-    /usr/bin/code-server --install-extension ms-vscode-remote.remote-ssh 2>&1 || {
-        echo "Warning: Failed to install Remote-SSH extension"
-    }
     
     # Create SSH config if host details are provided
     if [ -n "${SSH_HOST}" ]; then
