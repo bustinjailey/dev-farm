@@ -1083,7 +1083,7 @@ def _run_system_update_thread():
             _append_stage('restart_dashboard', 'starting', '🔄 Recreating dashboard container...')
 
             def delayed_recreate():
-                time.sleep(2)
+                time.sleep(3)  # Give time for status response to be sent
                 try:
                     # Get the existing dashboard container to extract its configuration
                     dashboard = client.containers.get('devfarm-dashboard')
@@ -1092,9 +1092,11 @@ def _run_system_update_thread():
                     volumes = dashboard.attrs['HostConfig']['Binds']
                     env_vars = dashboard.attrs['Config']['Env']
                     
-                    # Stop and remove the old container
-                    dashboard.stop(timeout=5)
+                    # Stop the old container gracefully
+                    dashboard.stop(timeout=10)
+                    time.sleep(2)  # Wait for full cleanup
                     dashboard.remove()
+                    time.sleep(1)  # Wait for port release
                     
                     # Recreate from new image with same configuration
                     # Parse port bindings
@@ -1111,7 +1113,7 @@ def _run_system_update_thread():
                             volume_dict[parts[0]] = {'bind': parts[1], 'mode': parts[2] if len(parts) > 2 else 'rw'}
                     
                     # Create new container from updated image
-                    client.containers.run(
+                    new_container = client.containers.run(
                         'opt-dashboard:latest',
                         name='devfarm-dashboard',
                         detach=True,
@@ -1121,11 +1123,21 @@ def _run_system_update_thread():
                         network=networks[0] if networks else 'devfarm',
                         restart_policy={'Name': 'unless-stopped'}
                     )
+                    
+                    # Wait for container to be healthy (give it up to 30 seconds)
+                    for i in range(30):
+                        new_container.reload()
+                        if new_container.status == 'running':
+                            break
+                        time.sleep(1)
+                    
                 except Exception as e:
                     print(f"Error during dashboard recreation: {e}")
+                    import traceback
+                    traceback.print_exc()
 
             threading.Thread(target=delayed_recreate, daemon=True).start()
-            _append_stage('restart_dashboard', 'success', '✅ Dashboard recreation initiated (reloading in 2s...)')
+            _append_stage('restart_dashboard', 'success', '✅ Dashboard recreation initiated (reloading in 5s...)')
         except Exception as e:
             _append_stage('restart_dashboard', 'error', f'❌ Error: {str(e)}')
             _set_update_result(False, f'Dashboard restart error: {str(e)}')
