@@ -722,14 +722,13 @@
         const githubData = await githubResp.json();
         const githubStatus = document.getElementById('githubStatus');
 
-        if (githubData.authenticated) {
-          githubStatus.innerHTML = `
-            <span class="status-badge badge-success">✓ ${githubData.username}</span>
-          `;
-        } else {
-          githubStatus.innerHTML = `
-            <span class="status-badge badge-error">✗ Not configured</span>
-          `;
+        const newGithubHTML = githubData.authenticated
+          ? `<span class="status-badge badge-success">✓ ${githubData.username}</span>`
+          : `<span class="status-badge badge-error">✗ Not configured</span>`;
+        
+        // Only update if changed to prevent flashing
+        if (githubStatus.innerHTML !== newGithubHTML) {
+          githubStatus.innerHTML = newGithubHTML;
         }
 
         // Check for updates
@@ -738,16 +737,21 @@
         const updateStatus = document.getElementById('updateStatus');
         const upgradeRow = document.getElementById('upgradeRow');
 
+        let newUpdateHTML, newUpgradeDisplay;
         if (systemData.updates_available) {
-          updateStatus.innerHTML = `
-            <span class="status-badge badge-warning">⚠ ${systemData.commits_behind} updates available</span>
-          `;
-          upgradeRow.style.display = 'flex';
+          newUpdateHTML = `<span class="status-badge badge-warning">⚠ ${systemData.commits_behind} updates available</span>`;
+          newUpgradeDisplay = 'flex';
         } else {
-          updateStatus.innerHTML = `
-            <span class="status-badge badge-success">✓ Up to date (${systemData.commit})</span>
-          `;
-          upgradeRow.style.display = 'none';
+          newUpdateHTML = `<span class="status-badge badge-success">✓ Up to date (${systemData.commit})</span>`;
+          newUpgradeDisplay = 'none';
+        }
+        
+        // Only update if changed to prevent flashing
+        if (updateStatus.innerHTML !== newUpdateHTML) {
+          updateStatus.innerHTML = newUpdateHTML;
+        }
+        if (upgradeRow.style.display !== newUpgradeDisplay) {
+          upgradeRow.style.display = newUpgradeDisplay;
         }
 
         // Check for orphaned containers
