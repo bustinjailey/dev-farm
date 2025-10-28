@@ -150,7 +150,7 @@ def create_environment():
             'dev-farm/code-server:latest',
             name=f"devfarm-{env_name}",
             detach=True,
-            ports={f'{port}/tcp': port},
+            ports={'8080/tcp': port},  # Map internal 8080 to external port
             volumes={
                 f'devfarm-{env_name}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             },
