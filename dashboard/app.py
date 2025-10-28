@@ -288,7 +288,7 @@ def create_environment():
         
         # Container run options
         run_kwargs = {
-            'image': 'dev-farm/code-server:latest',
+            'image': 'opt-code-server:latest',
             'name': f"devfarm-{env_id}",
             'detach': True,
             'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
