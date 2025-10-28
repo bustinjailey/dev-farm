@@ -278,13 +278,15 @@ EOFERR
             # Run SSHFS with timeout to prevent hanging on authentication failures
             MOUNT_SUCCESS=false
             if [ -n "${SSH_PASSWORD}" ]; then
-                # Use password authentication via sshpass
-                if echo "${SSH_PASSWORD}" | timeout 10 sshpass -p "${SSH_PASSWORD}" sshfs \
+                # Use password authentication via sshpass (reads from SSHPASS env var)
+                export SSHPASS="${SSH_PASSWORD}"
+                if timeout 10 sshpass -e sshfs \
                         ${SSHFS_OPTS} \
                         remote-target:"${SSH_PATH}" \
                         "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
                     MOUNT_SUCCESS=true
                 fi
+                unset SSHPASS
             else
                 # Use key-based authentication
                 if timeout 10 sshfs \
