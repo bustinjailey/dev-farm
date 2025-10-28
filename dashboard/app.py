@@ -1080,20 +1080,52 @@ def _run_system_update_thread():
                 return
             
             _append_stage('rebuild_dashboard', 'success', '✅ Dashboard image rebuilt')
-            _append_stage('restart_dashboard', 'starting', '🔄 Restarting dashboard...')
+            _append_stage('restart_dashboard', 'starting', '🔄 Recreating dashboard container...')
 
-            def delayed_restart():
+            def delayed_recreate():
                 time.sleep(2)
                 try:
-                    updater.exec_run(
-                        cmd=['sh', '-c', 'docker restart devfarm-dashboard'],
-                        detach=True
+                    # Get the existing dashboard container to extract its configuration
+                    dashboard = client.containers.get('devfarm-dashboard')
+                    port_bindings = dashboard.attrs['HostConfig']['PortBindings']
+                    networks = list(dashboard.attrs['NetworkSettings']['Networks'].keys())
+                    volumes = dashboard.attrs['HostConfig']['Binds']
+                    env_vars = dashboard.attrs['Config']['Env']
+                    
+                    # Stop and remove the old container
+                    dashboard.stop(timeout=5)
+                    dashboard.remove()
+                    
+                    # Recreate from new image with same configuration
+                    # Parse port bindings
+                    ports = {}
+                    for container_port, host_configs in port_bindings.items():
+                        if host_configs:
+                            ports[container_port] = int(host_configs[0]['HostPort'])
+                    
+                    # Parse volume bindings
+                    volume_dict = {}
+                    for bind in volumes or []:
+                        parts = bind.split(':')
+                        if len(parts) >= 2:
+                            volume_dict[parts[0]] = {'bind': parts[1], 'mode': parts[2] if len(parts) > 2 else 'rw'}
+                    
+                    # Create new container from updated image
+                    client.containers.run(
+                        'opt-dashboard:latest',
+                        name='devfarm-dashboard',
+                        detach=True,
+                        ports=ports,
+                        volumes=volume_dict,
+                        environment=env_vars,
+                        network=networks[0] if networks else 'devfarm',
+                        restart_policy={'Name': 'unless-stopped'}
                     )
                 except Exception as e:
-                    print(f"Error during delayed restart: {e}")
+                    print(f"Error during dashboard recreation: {e}")
 
-            threading.Thread(target=delayed_restart, daemon=True).start()
-            _append_stage('restart_dashboard', 'success', '✅ Dashboard restart initiated')
+            threading.Thread(target=delayed_recreate, daemon=True).start()
+            _append_stage('restart_dashboard', 'success', '✅ Dashboard recreation initiated (reloading in 2s...)')
         except Exception as e:
             _append_stage('restart_dashboard', 'error', f'❌ Error: {str(e)}')
             _set_update_result(False, f'Dashboard restart error: {str(e)}')
