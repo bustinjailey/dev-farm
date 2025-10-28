@@ -368,29 +368,55 @@ EOFERR
                     # If SFTP was enabled, retry the mount
                     if [ $SFTP_EXIT -eq 0 ]; then
                         echo "Retrying SSHFS mount after enabling SFTP..." | tee -a "$LOG_FILE"
-                        sleep 2  # Give SSH service a moment to restart
+                        sleep 5  # Give SSH service more time to restart
                         
-                        if [ -n "${SSH_PASSWORD}" ]; then
-                            export SSHPASS="${SSH_PASSWORD}"
-                            RETRY_OUTPUT=$(timeout 10 sshpass -e sshfs \
-                                    ${SSHFS_OPTS} \
-                                    remote-target:"${SSH_PATH}" \
-                                    "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                            RETRY_EXIT=$?
-                            echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
-                            if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                                MOUNT_SUCCESS=true
+                        # Test SSH connectivity before retrying mount
+                        echo "Testing SSH connectivity..." | tee -a "$LOG_FILE"
+                        SSH_TEST_SUCCESS=false
+                        for i in {1..3}; do
+                            if [ -n "${SSH_PASSWORD}" ]; then
+                                if sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                                    "${SSH_USER}@${SSH_HOST}" "echo connected" 2>&1 | grep -q "connected"; then
+                                    SSH_TEST_SUCCESS=true
+                                    break
+                                fi
+                            else
+                                if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                                    "${SSH_USER}@${SSH_HOST}" "echo connected" 2>&1 | grep -q "connected"; then
+                                    SSH_TEST_SUCCESS=true
+                                    break
+                                fi
+                            fi
+                            echo "SSH connection test attempt $i failed, waiting..." | tee -a "$LOG_FILE"
+                            sleep 2
+                        done
+                        
+                        if [ "$SSH_TEST_SUCCESS" = true ]; then
+                            echo "SSH connectivity confirmed, attempting mount..." | tee -a "$LOG_FILE"
+                            if [ -n "${SSH_PASSWORD}" ]; then
+                                export SSHPASS="${SSH_PASSWORD}"
+                                RETRY_OUTPUT=$(timeout 10 sshpass -e sshfs \
+                                        ${SSHFS_OPTS} \
+                                        remote-target:"${SSH_PATH}" \
+                                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
+                                RETRY_EXIT=$?
+                                echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
+                                if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
+                                    MOUNT_SUCCESS=true
+                                fi
+                            else
+                                RETRY_OUTPUT=$(timeout 10 sshfs \
+                                        ${SSHFS_OPTS} \
+                                        remote-target:"${SSH_PATH}" \
+                                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
+                                RETRY_EXIT=$?
+                                echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
+                                if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
+                                    MOUNT_SUCCESS=true
+                                fi
                             fi
                         else
-                            RETRY_OUTPUT=$(timeout 10 sshfs \
-                                    ${SSHFS_OPTS} \
-                                    remote-target:"${SSH_PATH}" \
-                                    "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                            RETRY_EXIT=$?
-                            echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
-                            if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                                MOUNT_SUCCESS=true
-                            fi
+                            echo "SSH connectivity test failed after SFTP enablement" | tee -a "$LOG_FILE"
                         fi
                     else
                         echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
