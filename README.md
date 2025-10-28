@@ -9,16 +9,19 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 ## ✨ Features
 
 - 🎯 **On-Demand Environments** - Create and destroy dev environments instantly
-- � **Three Environment Modes**:
+- 📦 **Three Environment Modes**:
   - 💻 **Workspace Mode** - Empty folder for new projects
   - 📦 **Git Mode** - Clone from GitHub with repository browser
   - 🔌 **SSH Mode** - Connect to remote servers with Remote-SSH
-- �📱 **Mobile Dashboard** - Touch-optimized interface for managing from your phone
-- 🔐 **Consistent Configuration** - Every environment has GitHub CLI and Copilot MCP pre-configured
-- 🔒 **No Trust Prompts** - Workspaces always open in trusted mode
+-  **Mobile Dashboard** - Touch-optimized interface for managing from your phone
+- 🔄 **Self-Update System** - Update Dev Farm with one click from the dashboard
+- 🔐 **GitHub OAuth Integration** - Web-based authentication, no manual token setup
+- 🔒 **Consistent Configuration** - Every environment has GitHub CLI and Copilot MCP pre-configured
+- � **No Trust Prompts** - Workspaces always open in trusted mode
 - 🐳 **Docker-Based** - Isolated containers for each project
 - 📊 **Resource Monitoring** - See CPU and memory usage at a glance
 - 🚀 **One-Click Access** - Tap to open VS Code Server in your browser
+- 🧹 **Orphan Detection** - Automatically find and clean up zombie containers
 
 ## 🏗️ Architecture
 
@@ -96,32 +99,24 @@ git clone https://github.com/bustinjailey/dev-farm.git
 cd dev-farm
 ```
 
-2. **(Optional) Set up GitHub token:**
-
-```bash
-export GITHUB_TOKEN="your_github_token_here"
-```
-
-3. **Run the setup script:**
-
-```bash
-chmod +x scripts/devfarm.sh
-./scripts/devfarm.sh setup
-```
-
-This will:
-
-- Build the custom code-server Docker image
-- Start the dashboard
-- Create the Docker network
-- Set up persistent storage
-
-4. **Access the dashboard:**
+2. **Access the dashboard:**
 
 Open your browser (or phone browser) and navigate to:
 
 ```
 http://<your-lxc-ip>:5000
+```
+
+3. **(Recommended) Connect GitHub via OAuth:**
+
+- Click the "🔗 Connect" button next to GitHub status in the dashboard
+- Follow the OAuth device flow to authenticate
+- Your token will be stored securely and applied to all environments
+
+Alternative: Set up GitHub token manually via environment variable:
+
+```bash
+export GITHUB_TOKEN="your_github_token_here"
 ```
 
 ## 📱 Using the Dashboard
@@ -137,6 +132,22 @@ http://<your-lxc-ip>:5000
 ### Default Credentials
 
 - **Password for all environments:** `code`
+
+### System Management
+
+**Self-Update:**
+- Click the "⬆️ Update Now" button in the dashboard
+- System will pull latest code and restart automatically
+- No SSH or manual commands required
+
+**GitHub Authentication:**
+- Click "🔗 Connect" button to authenticate via OAuth
+- Token is automatically applied to all new and existing environments
+- Restart existing containers to apply the token
+
+**Orphan Cleanup:**
+- Dashboard automatically detects zombie containers
+- Click "🧹 Clean Up" to remove orphaned containers
 
 ## 🛠️ Management Commands
 
@@ -154,31 +165,6 @@ The `devfarm.sh` script provides easy management:
 
 # Create a new environment (via CLI)
 ./scripts/devfarm.sh create my-project python
-
-# Upgrade to latest version
-./scripts/upgrade.sh
-```
-
-### Upgrading Dev Farm
-
-To pull the latest code and rebuild containers:
-
-```bash
-cd /opt  # or your dev-farm directory
-./scripts/upgrade.sh
-```
-
-The upgrade script will:
-
-1. Load your GitHub token from `.env` or `PAT` file
-2. Pull latest code from GitHub
-3. Rebuild the code-server image
-4. Rebuild and restart the dashboard
-5. Preserve all existing environments
-
-**Note:** Existing environments will continue running. Create new environments to use the updated code-server image.
-
-# List all environments
 
 ./scripts/devfarm.sh list
 

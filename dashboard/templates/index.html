@@ -782,7 +782,7 @@
         // Check version (always show current version)
         const versionStatus = document.getElementById('versionStatus');
         const updateBtn = document.getElementById('updateBtn');
-        
+
         // For now, always show update button - we can add version checking later
         versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest</span>`;
         updateBtn.style.display = 'inline-flex';
@@ -809,14 +809,14 @@
     async function startGitHubOAuth() {
       const modal = document.getElementById('oauthModal');
       const content = document.getElementById('oauthContent');
-      
+
       modal.classList.add('active');
       content.innerHTML = '<div style="margin: 20px 0;"><div class="empty-state-icon" style="font-size: 3em;">⏳</div><p style="color: #666;">Starting authentication...</p></div>';
-      
+
       try {
         const response = await fetch('/api/github/auth/start', { method: 'POST' });
         const data = await response.json();
-        
+
         if (data.user_code) {
           content.innerHTML = `
             <div style="margin: 20px 0;">
@@ -832,7 +832,7 @@
               <div id="pollStatus" style="margin-top: 10px; color: #667eea; font-size: 0.9em;">⏳ Checking...</div>
             </div>
           `;
-          
+
           // Start polling
           pollForOAuth();
         } else {
@@ -846,14 +846,14 @@
     let pollInterval = null;
     async function pollForOAuth() {
       const pollStatus = document.getElementById('pollStatus');
-      
+
       if (pollInterval) clearInterval(pollInterval);
-      
+
       pollInterval = setInterval(async () => {
         try {
           const response = await fetch('/api/github/auth/poll', { method: 'POST' });
           const data = await response.json();
-          
+
           if (data.status === 'success') {
             clearInterval(pollInterval);
             const content = document.getElementById('oauthContent');
@@ -898,7 +898,7 @@
     async function updateSystem() {
       const modal = document.getElementById('updateModal');
       modal.classList.add('active');
-      
+
       const stage1 = document.getElementById('updateStage1');
       const stage2 = document.getElementById('updateStage2');
       const stage3 = document.getElementById('updateStage3');
@@ -909,17 +909,17 @@
       const msg2 = document.getElementById('updateMsg2');
       const msg3 = document.getElementById('updateMsg3');
       const closeBtn = document.getElementById('updateCloseBtn');
-      
+
       closeBtn.disabled = true;
       stage1.style.display = 'block';
       stage2.style.display = 'none';
       stage3.style.display = 'none';
       icon1.textContent = '⏳';
-      
+
       try {
         const response = await fetch('/api/system/update', { method: 'POST' });
         const data = await response.json();
-        
+
         if (data.stages) {
           for (const stage of data.stages) {
             if (stage.stage === 'git_pull') {
@@ -951,7 +951,7 @@
             }
           }
         }
-        
+
         if (data.success) {
           setTimeout(() => {
             window.location.reload();
