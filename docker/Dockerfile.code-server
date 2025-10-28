@@ -45,4 +45,6 @@ WORKDIR /workspace
 
 EXPOSE 8080
 
-CMD ["/home/coder/startup.sh"]
+# Override the entrypoint to use our startup script
+ENTRYPOINT []
+CMD ["/bin/bash", "/home/coder/startup.sh"]
