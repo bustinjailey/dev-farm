@@ -782,14 +782,12 @@ def system_update():
         os.chmod(restart_script, 0o755)
         
         # Execute the script directly with bash in background
-        # Use nohup to detach from the process tree
         subprocess.Popen(
             ['bash', restart_script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
-            preexec_fn=os.setpgrp if hasattr(os, 'setpgrp') else None,
             cwd=REPO_PATH
         )
         
