@@ -185,6 +185,11 @@
       color: white;
     }
 
+    .status-starting {
+      background: #ed8936;
+      color: white;
+    }
+
     .env-info {
       display: grid;
       gap: 8px;
@@ -411,7 +416,7 @@
       <div class="env-card">
         <div class="env-header">
           <div class="env-name">{{ env.name }}</div>
-          <div class="status-badge status-{{ env.status }}">
+          <div class="status-badge status-{{ env.status }}" id="status-{{ env.id }}">
             {{ env.status }}
           </div>
         </div>
@@ -458,14 +463,21 @@
 
         <div class="env-actions">
           {% if env.status == 'running' %}
-          <button class="btn btn-open" onclick="window.open('{{ env.url }}', '_blank')">
+          <button class="btn btn-open" id="open-{{ env.id }}" onclick="window.open('{{ env.url }}', '_blank')">
             🚀 Open VS Code
           </button>
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.name }}')">
             ⏸️ Stop
           </button>
+          {% elif env.status == 'starting' %}
+          <button class="btn btn-open" id="open-{{ env.id }}" disabled style="opacity: 0.6;">
+            ⏳ Starting...
+          </button>
+          <button class="btn btn-stop" onclick="stopEnvironment('{{ env.name }}')">
+            ⏸️ Stop
+          </button>
           {% else %}
-          <button class="btn btn-open" onclick="startEnvironment('{{ env.name }}')">
+          <button class="btn btn-open" id="open-{{ env.id }}" onclick="startEnvironment('{{ env.name }}')">
             ▶️ Start
           </button>
           <button class="btn btn-stop" disabled style="opacity: 0.5;">
@@ -1111,8 +1123,45 @@
       const updateModal = document.getElementById('updateModal');
       if (!oauthModal.classList.contains('active') && !updateModal.classList.contains('active')) {
         checkSystemStatus();
+        refreshEnvironments();
       }
     }, 10000);
+
+    // Lightweight environment list refresh to reflect starting->running
+    async function refreshEnvironments() {
+      try {
+        const resp = await fetch('/api/environments');
+        const data = await resp.json();
+        for (const env of data) {
+          const statusEl = document.getElementById(`status-${env.id}`);
+          if (statusEl) {
+            statusEl.textContent = env.status;
+            statusEl.className = `status-badge status-${env.status}`;
+          }
+          const openBtn = document.getElementById(`open-${env.id}`);
+          if (openBtn) {
+            if (env.status === 'running') {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              openBtn.onclick = () => window.open(env.url, '_blank');
+              openBtn.textContent = '🚀 Open VS Code';
+            } else if (env.status === 'starting') {
+              openBtn.disabled = true;
+              openBtn.style.opacity = '0.6';
+              openBtn.onclick = null;
+              openBtn.textContent = '⏳ Starting...';
+            } else {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              openBtn.onclick = () => startEnvironment(env.name);
+              openBtn.textContent = '▶️ Start';
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to refresh environments', e);
+      }
+    }
   </script>
 </body>
 

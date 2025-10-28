@@ -150,6 +150,18 @@ def get_container_stats(container):
     except Exception as e:
         return {'cpu': 0, 'memory': 0, 'memory_mb': 0}
 
+def is_env_ready(container_name):
+    """Probe the environment container to determine readiness.
+    Returns True when HTTP responds successfully.
+    Uses container networking (container:8080) for inter-container probe.
+    """
+    try:
+        # Try a quick GET to the container's internal port 8080 via container name
+        resp = requests.get(f'http://{container_name}:8080', timeout=1.5)
+        return 200 <= resp.status_code < 400
+    except Exception:
+        return False
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -162,18 +174,22 @@ def index():
                 container = client.containers.get(env_data['container_id'])
                 status = container.status
                 stats = get_container_stats(container) if status == 'running' else {}
+                # Determine readiness: even if Docker says running, code-server may still be starting
+                ready = is_env_ready(container.name) if status == 'running' else False
+                display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),  # Use display_name if available
                     'id': env_id,
                     'port': env_data['port'],
-                    'status': status,
+                    'status': display_status,
                     'created': env_data.get('created', 'Unknown'),
                     'project': env_data.get('project', 'general'),
                     'mode': env_data.get('mode', 'workspace'),
                     'ssh_host': env_data.get('ssh_host'),
                     'git_url': env_data.get('git_url'),
                     'stats': stats,
+                    'ready': ready,
                     'url': f"http://{request.host.split(':')[0]}:{env_data['port']}"
                 })
             except docker.errors.NotFound:
@@ -192,12 +208,17 @@ def api_environments():
         for env_id, env_data in registry.items():
             try:
                 container = client.containers.get(env_data['container_id'])
+                status = container.status
+                ready = is_env_ready(container.name) if status == 'running' else False
+                display_status = 'running' if ready else ('starting' if status == 'running' else status)
+                hostname = request.host.split(':')[0]
                 environments.append({
                     'name': env_data.get('display_name', env_id),
                     'id': env_id,
                     'port': env_data['port'],
-                    'status': container.status,
-                    'url': f"http://{request.host.split(':')[0]}:{env_data['port']}"
+                    'status': display_status,
+                    'ready': ready,
+                    'url': f"http://{hostname}:{env_data['port']}"
                 })
             except docker.errors.NotFound:
                 pass
@@ -268,10 +289,8 @@ def create_environment():
             'name': f"devfarm-{env_id}",
             'detach': True,
             'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
-            'volumes': {
-                f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
-            },
             'environment': env_vars,
+            'network': 'devfarm',  # Connect to devfarm network for inter-container communication
             'labels': {
                 'dev-farm': 'true',
                 'dev-farm.id': env_id,
@@ -280,6 +299,13 @@ def create_environment():
                 'dev-farm.mode': mode
             }
         }
+        
+        # For workspace and git modes, create a local volume
+        # For ssh mode, we'll use SSHFS to mount remote storage instead
+        if mode in ['workspace', 'git']:
+            run_kwargs['volumes'] = {
+                f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
+            }
 
         # For ssh mode, enable FUSE for SSHFS mounts
         if mode == 'ssh':

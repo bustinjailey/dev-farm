@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# Fix workspace ownership (volume might be owned by root)
-echo "Ensuring workspace ownership..."
+### Ensure workspace directory exists and is owned by coder
+echo "Preparing workspace directory..."
+mkdir -p /home/coder/workspace || true
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
 echo "Applying VS Code workspace settings..."
@@ -218,22 +219,35 @@ EOF
             # Mount with user mapping and reconnect options
             UID_VAL=$(id -u coder 2>/dev/null || id -u)
             GID_VAL=$(id -g coder 2>/dev/null || id -g)
-            sshfs \
-                -p "${SSH_PORT}" \
-                -o allow_other \
-                -o StrictHostKeyChecking=no \
-                -o UserKnownHostsFile=/dev/null \
-                -o reconnect \
-                -o follow_symlinks \
-                -o uid=${UID_VAL} \
-                -o gid=${GID_VAL} \
-                remote-target:"${SSH_PATH}" \
-                /home/coder/workspace
-
-            if mountpoint -q /home/coder/workspace; then
+            
+            # Run SSHFS with timeout to prevent hanging on authentication failures
+            # Use timeout command to kill after 10 seconds if mount doesn't complete
+            MOUNT_SUCCESS=false
+            if timeout 10 sshfs \
+                    -p "${SSH_PORT}" \
+                    -o allow_other \
+                    -o StrictHostKeyChecking=no \
+                    -o UserKnownHostsFile=/dev/null \
+                    -o reconnect \
+                    -o follow_symlinks \
+                    -o ConnectTimeout=5 \
+                    -o ServerAliveInterval=5 \
+                    -o ServerAliveCountMax=2 \
+                    -o uid=${UID_VAL} \
+                    -o gid=${GID_VAL} \
+                    -o PasswordAuthentication=no \
+                    -o BatchMode=yes \
+                    remote-target:"${SSH_PATH}" \
+                    /home/coder/workspace 2>&1 | tee -a "$LOG_FILE"; then
+                MOUNT_SUCCESS=true
+            fi
+            
+            if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q /home/coder/workspace; then
                 echo "SSHFS mount successful." | tee -a "$LOG_FILE"
             else
-                echo "SSHFS mount failed. Check SSH credentials and container privileges." | tee -a "$LOG_FILE"
+                echo "SSHFS mount failed. Continuing with local workspace. Check credentials and container privileges." | tee -a "$LOG_FILE"
+                # Ensure workspace directory exists and is writable after failed mount
+                mkdir -p /home/coder/workspace 2>/dev/null || true
                 cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
 # SSHFS Mount Failed
 

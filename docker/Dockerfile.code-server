@@ -31,8 +31,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Install additional useful tools
 RUN npm install -g yarn typescript ts-node prettier eslint
 
-# Create workspace directory
-RUN mkdir -p /workspace && chown -R coder:coder /workspace
+# Create workspace directories
+RUN mkdir -p /workspace && chown -R coder:coder /workspace \
+  && mkdir -p /home/coder/workspace && chown -R coder:coder /home/coder/workspace
 
 USER coder
 
@@ -57,7 +58,7 @@ RUN echo "user_allow_other" >> /etc/fuse.conf || true \
   && usermod -aG fuse coder || true
 USER coder
 
-WORKDIR /workspace
+WORKDIR /home/coder/workspace
 
 EXPOSE 8080
 
