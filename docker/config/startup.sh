@@ -372,17 +372,23 @@ EOFERR
                         
                         if [ -n "${SSH_PASSWORD}" ]; then
                             export SSHPASS="${SSH_PASSWORD}"
-                            if timeout 10 sshpass -e sshfs \
+                            RETRY_OUTPUT=$(timeout 10 sshpass -e sshfs \
                                     ${SSHFS_OPTS} \
                                     remote-target:"${SSH_PATH}" \
-                                    "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                                    "$REMOTE_MOUNT_DIR" 2>&1)
+                            RETRY_EXIT=$?
+                            echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
+                            if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                                 MOUNT_SUCCESS=true
                             fi
                         else
-                            if timeout 10 sshfs \
+                            RETRY_OUTPUT=$(timeout 10 sshfs \
                                     ${SSHFS_OPTS} \
                                     remote-target:"${SSH_PATH}" \
-                                    "$REMOTE_MOUNT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+                                    "$REMOTE_MOUNT_DIR" 2>&1)
+                            RETRY_EXIT=$?
+                            echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
+                            if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                                 MOUNT_SUCCESS=true
                             fi
                         fi
