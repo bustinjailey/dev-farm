@@ -377,9 +377,10 @@
         <span class="status-label">� System Version</span>
         <span class="status-value">
           <span id="versionStatus">
-          <span class="status-badge badge-warning">Checking...</span>
+            <span class="status-badge badge-warning">Checking...</span>
           </span>
-          <button class="btn" onclick="updateSystem()" id="updateBtn" style="padding: 8px 16px; font-size: 13px; display: none;">
+          <button class="btn" onclick="updateSystem()" id="updateBtn"
+            style="padding: 8px 16px; font-size: 13px; display: none;">
             ⬆️ Update Now
           </button>
         </span>
@@ -763,12 +764,7 @@
       }
     }
 
-    // Auto-refresh every 30 seconds
-    setInterval(() => {
-      window.location.reload();
-    }, 30000);
-
-    // Check system status on load
+    // Check system status on load and periodically update
     async function checkSystemStatus() {
       try {
         // Check GitHub auth
@@ -829,7 +825,7 @@
               <div class="empty-state-icon" style="font-size: 3em;">🔑</div>
               <p style="margin: 15px 0; color: #333; font-size: 1.1em;">Enter this code on GitHub:</p>
               <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 15px 0;">
-                <div style="font-size: 2em; font-weight: bold; color: #667eea; letter-spacing: 3px;">${data.user_code}</div>
+                <div style="font-size: 2em; font-weight: bold; color: #667eea; letter-spacing: 3px; user-select: all; cursor: text;" onclick="this.focus(); document.execCommand('selectAll', false, null);" tabindex="0">${data.user_code}</div>
               </div>
               <a href="${data.verification_uri}" target="_blank" class="btn" style="text-decoration: none; margin: 15px 0; display: inline-flex;">
                 🚀 Open GitHub
@@ -1013,6 +1009,16 @@
 
     // Run status check on page load
     checkSystemStatus();
+
+    // Periodically update status without reloading page (every 10 seconds)
+    setInterval(() => {
+      // Only update if no modal is open
+      const oauthModal = document.getElementById('oauthModal');
+      const updateModal = document.getElementById('updateModal');
+      if (!oauthModal.classList.contains('active') && !updateModal.classList.contains('active')) {
+        checkSystemStatus();
+      }
+    }, 10000);
   </script>
 </body>
 

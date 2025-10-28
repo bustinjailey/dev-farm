@@ -28,7 +28,7 @@ REGISTRY_FILE = '/data/environments.json'
 BASE_PORT = 8100
 GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
-REPO_PATH = '/opt'
+REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt')
 
 def kebabify(name):
     """Convert any name to kebab-case (Docker-safe ID format)
@@ -641,19 +641,25 @@ def system_update():
         # Configure git to use token
         git_url = f'https://{github_token}@github.com/bustinjailey/dev-farm.git'
         
-        # Change to repo directory and pull
-        os.chdir(REPO_PATH)
+        # Verify the repo path exists and is a git repository
+        if not os.path.exists(REPO_PATH):
+            return jsonify({'error': f'Repository path {REPO_PATH} does not exist'}), 500
         
+        if not os.path.exists(os.path.join(REPO_PATH, '.git')):
+            return jsonify({'error': f'{REPO_PATH} is not a git repository'}), 500
+        
+        # Run git commands in the repo directory
         # Ensure we're on main branch
-        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True)
-        subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True)
+        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
+        subprocess.run(['git', 'checkout', 'main'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
         
         # Pull latest changes
         pull_result = subprocess.run(
             ['git', 'pull', 'origin', 'main'],
             check=True,
             capture_output=True,
-            text=True
+            text=True,
+            cwd=REPO_PATH
         )
         
         result['stages'].append({
@@ -669,7 +675,8 @@ def system_update():
         diff_result = subprocess.run(
             ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
             capture_output=True,
-            text=True
+            text=True,
+            cwd=REPO_PATH
         )
         
         files_changed = diff_result.stdout.split('\n')
@@ -696,12 +703,21 @@ def system_update():
                 'message': 'No Dockerfile changes detected'
             })
         
-        # Stage 3: Restart dashboard
+        # Stage 3: Rebuild and restart dashboard
         result['stages'].append({'stage': 'restart_dashboard', 'status': 'starting'})
         
-        # Trigger restart using docker-compose
+        # Rebuild dashboard image with latest code
+        subprocess.run(
+            ['docker', 'compose', 'build', 'dashboard'],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=REPO_PATH
+        )
+        
+        # Trigger restart using docker-compose up with force-recreate
         subprocess.Popen(
-            ['docker', 'compose', 'restart', 'dashboard'],
+            ['docker', 'compose', 'up', '-d', '--force-recreate', 'dashboard'],
             cwd=REPO_PATH,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
