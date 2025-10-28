@@ -725,6 +725,7 @@ def cleanup_orphans():
 
 def _run_system_update_thread():
     try:
+        _append_stage('init', 'starting', 'Update thread started')
         _append_stage('git_pull', 'starting')
 
         github_token = load_github_token()
@@ -877,6 +878,7 @@ def system_update_start():
         if UPDATE_PROGRESS.get('running'):
             return jsonify({'started': False, 'message': 'Update already in progress'}), 409
         _reset_update_progress()
+        _append_stage('queued', 'info', 'Update request accepted')
 
     threading.Thread(target=_run_system_update_thread, daemon=True).start()
     return jsonify({'started': True})

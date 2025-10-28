@@ -957,6 +957,7 @@
         // Poll for progress
         if (updatePoll) clearInterval(updatePoll);
         let lastRendered = { gitPullLogCount: 0 };
+        const pollStart = Date.now();
         updatePoll = setInterval(async () => {
           try {
             const statusResp = await fetch('/api/system/update/status');
@@ -974,6 +975,12 @@
               const gitFetch = status.stages.filter(s => s.stage === 'git_fetch');
               const gitCheckout = status.stages.filter(s => s.stage === 'git_checkout');
               const gitPull = status.stages.filter(s => s.stage === 'git_pull');
+              const queued = status.stages.find(s => s.stage === 'queued');
+              const init = status.stages.find(s => s.stage === 'init');
+
+              // Show acceptance/init messages early
+              if (queued && queued.message) { msg1.textContent = queued.message; }
+              if (init && init.message) { msg1.textContent = init.message; }
 
               // Render git_fetch
               if (gitFetch.length) {
@@ -1034,6 +1041,14 @@
             } else if (status.success === false) {
               clearInterval(updatePoll);
               closeBtn.disabled = false;
+            } else if (status.running === false && (!status.stages || status.stages.length === 0)) {
+              // If nothing is happening after a few seconds, assume it failed to start
+              if (Date.now() - pollStart > 5000) {
+                clearInterval(updatePoll);
+                icon1.textContent = '❌';
+                msg1.textContent = 'Update did not start. Please try again.';
+                closeBtn.disabled = false;
+              }
             }
           } catch (e) {
             console.error('Update status poll failed:', e);
