@@ -137,28 +137,36 @@ def create_environment():
     port = get_next_port()
     
     try:
-    # Get GitHub configuration from environment
-    github_token = os.environ.get('GITHUB_TOKEN', '')
-    github_username = os.environ.get('GITHUB_USERNAME', 'bustinjailey')
-    github_email = os.environ.get('GITHUB_EMAIL', f'{github_username}@users.noreply.github.com')
-    
-    if not github_token:
-        print("Warning: GITHUB_TOKEN not set. Environments will not have GitHub authentication.")
-    
-    # Create container with environment variables
-    container = client.containers.run(
-        'dev-farm/code-server:latest',
-        name=f"devfarm-{name}",
-        detach=True,
-        ports={f'{port}/tcp': port},
-        volumes={
-            f'devfarm-{name}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
-        },
-        environment={
-            'GITHUB_TOKEN': github_token,
-            'GITHUB_USERNAME': github_username,
-            'GITHUB_EMAIL': github_email
-        },        # Register environment
+        # Get GitHub configuration from environment
+        github_token = os.environ.get('GITHUB_TOKEN', '')
+        github_username = os.environ.get('GITHUB_USERNAME', 'bustinjailey')
+        github_email = os.environ.get('GITHUB_EMAIL', f'{github_username}@users.noreply.github.com')
+        
+        if not github_token:
+            print("Warning: GITHUB_TOKEN not set. Environments will not have GitHub authentication.")
+        
+        # Create container with environment variables
+        container = client.containers.run(
+            'dev-farm/code-server:latest',
+            name=f"devfarm-{env_name}",
+            detach=True,
+            ports={f'{port}/tcp': port},
+            volumes={
+                f'devfarm-{env_name}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
+            },
+            environment={
+                'GITHUB_TOKEN': github_token,
+                'GITHUB_USERNAME': github_username,
+                'GITHUB_EMAIL': github_email
+            },
+            labels={
+                'dev-farm': 'true',
+                'dev-farm.name': env_name,
+                'dev-farm.project': project
+            }
+        )
+        
+        # Register environment
         registry[env_name] = {
             'container_id': container.id,
             'port': port,

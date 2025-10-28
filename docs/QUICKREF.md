@@ -38,15 +38,15 @@ ssh root@eagle.bustinjailey.org 'pct exec 200 -- bash -c "cd /opt && docker comp
 
 ## 📁 Important Files
 
-| File | Purpose | Tracked in Git? |
-|------|---------|-----------------|
-| `.env` | Your actual secrets | ❌ No - Ignored |
-| `.env.example` | Template for .env | ✅ Yes |
-| `PAT` | GitHub token (alternative) | ❌ No - Ignored |
-| `docker-compose.yml` | Container orchestration | ✅ Yes |
-| `scripts/upgrade.sh` | Pull & rebuild | ✅ Yes |
-| `scripts/setup-secrets.sh` | Interactive secret setup | ✅ Yes |
-| `scripts/deploy-to-lxc.sh` | Deploy to Proxmox | ✅ Yes |
+| File                       | Purpose                    | Tracked in Git? |
+| -------------------------- | -------------------------- | --------------- |
+| `.env`                     | Your actual secrets        | ❌ No - Ignored |
+| `.env.example`             | Template for .env          | ✅ Yes          |
+| `PAT`                      | GitHub token (alternative) | ❌ No - Ignored |
+| `docker-compose.yml`       | Container orchestration    | ✅ Yes          |
+| `scripts/upgrade.sh`       | Pull & rebuild             | ✅ Yes          |
+| `scripts/setup-secrets.sh` | Interactive secret setup   | ✅ Yes          |
+| `scripts/deploy-to-lxc.sh` | Deploy to Proxmox          | ✅ Yes          |
 
 ## 🔑 GitHub Token Scopes
 
@@ -54,7 +54,7 @@ When creating your token at https://github.com/settings/tokens/new, select:
 
 - ✅ `repo` - Full control of private repositories
 - ✅ `read:org` - Read org and team membership
-- ✅ `workflow` - Update GitHub Action workflows  
+- ✅ `workflow` - Update GitHub Action workflows
 - ✅ `copilot` - GitHub Copilot access
 
 ## 🐳 Container Management
@@ -168,11 +168,13 @@ sudo lsof -i :8100-8110
 ## 📝 File Locations
 
 ### Local Machine
+
 - Dev Farm source: `~/dev-farm`
 - Secrets: `~/dev-farm/.env` or `~/dev-farm/PAT`
 - Scripts: `~/dev-farm/scripts/`
 
 ### LXC Container
+
 - Installation: `/opt/`
 - Secrets: `/opt/.env`
 - Docker data: Docker volumes (managed by Docker)
@@ -181,6 +183,7 @@ sudo lsof -i :8100-8110
 ## 🔄 Workflow
 
 ### Creating New Environment
+
 1. Open dashboard: `http://<lxc-ip>:5000`
 2. Click "Create New Environment"
 3. Enter name and select project type
@@ -189,12 +192,14 @@ sudo lsof -i :8100-8110
 6. Verify GitHub auth: Run `gh auth status` in terminal
 
 ### Upgrading Dev Farm
+
 1. Local: `./scripts/upgrade.sh`
 2. LXC: `ssh root@host 'pct exec ID -- bash -c "cd /opt && ./scripts/upgrade.sh"'`
 3. Create new environment to use updated image
 4. Old environments continue working with old image
 
 ### Rotating Secrets
+
 1. Generate new GitHub token
 2. Update `.env`: `nano .env`
 3. Restart: `docker compose restart`
