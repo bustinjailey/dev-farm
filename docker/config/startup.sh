@@ -12,11 +12,15 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     git config --global user.name "${GITHUB_USERNAME}"
     git config --global user.email "${GITHUB_EMAIL}"
     
-    # Login to GitHub CLI
-    echo "${GITHUB_TOKEN}" | gh auth login --with-token
+    # Login to GitHub CLI (with explicit stdin and error handling)
+    echo "${GITHUB_TOKEN}" | gh auth login --with-token --hostname github.com 2>&1 || {
+        echo "Warning: gh auth login had issues, but continuing..."
+    }
     
     # Setup git credential helper
-    gh auth setup-git
+    gh auth setup-git 2>&1 || {
+        echo "Warning: gh auth setup-git had issues, but continuing..."
+    }
     
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.local/share/code-server/User/globalStorage/github.vscode-pull-request-github
