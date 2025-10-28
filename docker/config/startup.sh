@@ -288,7 +288,7 @@ EOFERR
                         remote-target:"${SSH_PATH}" \
                         "$REMOTE_MOUNT_DIR" 2>&1)
                 MOUNT_EXIT=$?
-                echo "$MOUNT_OUTPUT" | tee -a "$LOG_FILE"
+                echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
                 if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                     MOUNT_SUCCESS=true
                 fi
@@ -299,7 +299,7 @@ EOFERR
                         remote-target:"${SSH_PATH}" \
                         "$REMOTE_MOUNT_DIR" 2>&1)
                 MOUNT_EXIT=$?
-                echo "$MOUNT_OUTPUT" | tee -a "$LOG_FILE"
+                echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
                 if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                     MOUNT_SUCCESS=true
                 fi
@@ -308,7 +308,7 @@ EOFERR
             # If mount failed, try to enable SFTP subsystem (common issue with minimal SSH servers)
             if [ "$MOUNT_SUCCESS" = false ]; then
                 # Check if error suggests SFTP issue
-                if echo "$MOUNT_OUTPUT" | grep -qi "subsystem\|connection reset"; then
+                if echo "$MOUNT_OUTPUT" | grep -qi "subsystem\|connection reset" 2>/dev/null; then
                     echo "Mount failed - attempting to enable SFTP subsystem on remote host..." | tee -a "$LOG_FILE"
                     SFTP_SETUP_ATTEMPTED=true
                     
