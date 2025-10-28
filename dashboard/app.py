@@ -263,23 +263,23 @@ def create_environment():
             env_vars['GIT_URL'] = git_url
         
         # Container run options
-        run_kwargs = dict(
-            'dev-farm/code-server:latest',
-            name=f"devfarm-{env_id}",
-            detach=True,
-            ports={'8080/tcp': port},  # Map container's internal 8080 to host's external port
-            volumes={
+        run_kwargs = {
+            'image': 'dev-farm/code-server:latest',
+            'name': f"devfarm-{env_id}",
+            'detach': True,
+            'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
+            'volumes': {
                 f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             },
-            environment=env_vars,
-            labels={
+            'environment': env_vars,
+            'labels': {
                 'dev-farm': 'true',
                 'dev-farm.id': env_id,
                 'dev-farm.name': display_name,
                 'dev-farm.project': project,
                 'dev-farm.mode': mode
             }
-        )
+        }
 
         # For ssh mode, enable FUSE for SSHFS mounts
         if mode == 'ssh':
