@@ -55,6 +55,11 @@ if os.path.exists(machine_settings_path):
 existing["security.workspace.trust.enabled"] = False
 existing["security.workspace.trust.startupPrompt"] = "never"
 existing["security.workspace.trust.emptyWindow"] = False
+# Explicitly trust the workspace and parent folder
+existing["security.workspace.trust.trustedFolders"] = [
+    "/home/coder/workspace",
+    "/home/coder"
+]
 with open(machine_settings_path, 'w', encoding='utf-8') as f:
     json.dump(existing, f, indent=2)
 print("Machine-level settings updated for VS Code Server")

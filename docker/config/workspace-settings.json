@@ -17,6 +17,10 @@
   "security.workspace.trust.enabled": false,
   "security.workspace.trust.startupPrompt": "never",
   "security.workspace.trust.emptyWindow": false,
+  "security.workspace.trust.trustedFolders": [
+    "/home/coder/workspace",
+    "/home/coder"
+  ],
   "explorer.confirmDelete": false,
   "typescript.updateImportsOnFileMove.enabled": "always",
   "github.copilot.enable": {
