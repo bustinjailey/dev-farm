@@ -410,6 +410,15 @@ def create_environment():
                 'privileged': True
             })
 
+        # Ensure no stale container exists with this name
+        container_name = f"devfarm-{env_id}"
+        try:
+            existing = client.containers.get(container_name)
+            existing.stop(timeout=5)
+            existing.remove(force=True)
+        except Exception:
+            pass  # No existing container, proceed
+
         container = client.containers.run(**run_kwargs)
         
         # Register environment with both display name and ID
@@ -449,9 +458,30 @@ def delete_environment(env_name):
         return jsonify({'error': 'Environment not found'}), 404
     
     try:
-        container = client.containers.get(registry[env_name]['container_id'])
-        container.stop()
-        container.remove()
+        container_name = f"devfarm-{env_name}"
+        
+        # Try to stop and remove by container ID first
+        try:
+            container = client.containers.get(registry[env_name]['container_id'])
+            container.stop(timeout=10)
+            container.remove(force=True)
+        except Exception:
+            pass  # Container might already be gone
+        
+        # Force remove any container with this name (handles stale containers)
+        try:
+            stale_container = client.containers.get(container_name)
+            stale_container.stop(timeout=5)
+            stale_container.remove(force=True)
+        except Exception:
+            pass  # No stale container found
+        
+        # Remove associated volume
+        try:
+            volume = client.volumes.get(f'devfarm-{env_name}')
+            volume.remove(force=True)
+        except Exception:
+            pass  # Volume might not exist or already removed
         
         # Remove from registry
         del registry[env_name]
@@ -1167,6 +1197,18 @@ def _run_system_update_thread():
                 )
                 if exec_result.exit_code == 0:
                     _append_stage('rebuild_codeserver', 'success', '✅ Code-server image rebuilt successfully')
+                    
+                    # Prune old/dangling images to free space and prevent confusion
+                    _append_stage('rebuild_codeserver', 'progress', '🧹 Cleaning up old images...')
+                    try:
+                        prune_result = updater.exec_run(
+                            cmd=['sh', '-c', 'docker image prune -f'],
+                            demux=False
+                        )
+                        if prune_result.exit_code == 0:
+                            _append_stage('rebuild_codeserver', 'success', '✅ Old images cleaned up')
+                    except Exception:
+                        pass  # Non-critical, continue
                 else:
                     error_output = exec_result.output.decode('utf-8', errors='replace') if exec_result.output else 'unknown error'
                     _append_stage('rebuild_codeserver', 'error', f'❌ Build failed: {error_output[-200:]}')
@@ -1362,8 +1404,7 @@ def _run_system_update_thread():
             _set_update_result(False, f'Dashboard restart error: {str(e)}')
             return
 
-        _append_stage('complete', 'success', '🎉 System update completed successfully!')
-        _set_update_result(True)
+                _append_stage('complete', 'success', '🎉 System update completed successfully!')\n        _append_stage('complete', 'info', 'ℹ️  Existing environments will use new image on next restart/recreate')\n        _set_update_result(True)
     except subprocess.CalledProcessError as e:
         error_msg = 'Command failed'
         if e.stdout:
