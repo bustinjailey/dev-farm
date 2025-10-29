@@ -31,7 +31,8 @@ RUN wget -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=st
   && rm /tmp/vscode.deb \
   && apt-get clean autoclean \
   && apt-get autoremove --yes \
-  && rm -rf /var/lib/{apt,dpkg,cache,log}/
+  && rm -rf /var/lib/{apt,dpkg,cache,log}/ \
+  && which code && code --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -71,14 +72,9 @@ RUN mkdir -p /home/coder/.vscode-server/data \
 
 # Pre-install VS Code extensions as coder user (VS Code must be installed first as root)
 # This avoids reinstalling extensions every time a container starts
-# Use full path since code may not be in PATH for non-root user yet
-RUN /usr/bin/code --version && \
-  /usr/bin/code --install-extension github.copilot && \
-  /usr/bin/code --install-extension github.copilot-chat && \
-  /usr/bin/code --install-extension ms-vscode-remote.remote-ssh && \
-  /usr/bin/code --install-extension vscode.markdown-language-features && \
-  /usr/bin/code --install-extension vscode.markdown-math && \
-  echo "Extensions pre-installed in image"
+# Skip extension pre-installation for now - will install at runtime in startup.sh
+# Extensions installation during build is failing, runtime installation is more reliable
+RUN echo "VS Code extensions will be installed at container startup"
 
 # Pre-configure VS Code settings (MCP configuration)
 COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
