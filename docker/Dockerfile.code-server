@@ -77,14 +77,14 @@ RUN mkdir -p /home/coder/.vscode-server/data \
 # This ensures VS Code Server is fully initialized before extension installation
 
 # Pre-configure VS Code settings (MCP configuration)
-COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
+COPY --chown=coder:coder config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
 
 # Include a workspace settings template to seed per-workspace settings at runtime
 RUN mkdir -p /home/coder/.devfarm
-COPY --chown=coder:coder docker/config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
+COPY --chown=coder:coder config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
 
 # Create startup script for GitHub authentication and configuration
-COPY --chown=coder:coder docker/config/startup.sh /home/coder/startup.sh
+COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh
 RUN chmod +x /home/coder/startup.sh
 
 EXPOSE 8080
