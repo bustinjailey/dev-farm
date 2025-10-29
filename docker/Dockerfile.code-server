@@ -86,6 +86,12 @@ RUN chmod +x /home/coder/startup.sh
 
 EXPOSE 8080
 
+# Add health check to properly detect when VS Code Server web UI is ready
+# This ensures containers show as "running" only when truly ready (fixes "STARTING" status issue)
+# start-period allows time for extension installation before health checks matter
+HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/ || exit 1
+
 # Override the entrypoint to use our startup script
 ENTRYPOINT []
 CMD ["/bin/bash", "/home/coder/startup.sh"]

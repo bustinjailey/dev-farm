@@ -710,7 +710,13 @@
   <!-- Logs Modal -->
   <div class="modal" id="logsModal">
     <div class="modal-content" style="max-width: 900px;">
-      <div class="modal-header">Container Logs</div>
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Container Logs</span>
+        <button class="btn" onclick="copyLogsToClipboard()" id="copyLogsBtn"
+          style="background: #48bb78; color: white; padding: 8px 16px; font-size: 14px;" title="Copy logs to clipboard">
+          📋 Copy
+        </button>
+      </div>
       <div style="margin-bottom: 15px;">
         <strong id="logsEnvName"></strong>
         <span id="logsStatus"
@@ -723,7 +729,8 @@
       </div>
       <div style="display: flex; gap: 10px; margin-top: 20px;">
         <button class="btn btn-cancel" onclick="hideLogsModal()" style="flex: 1;">Close</button>
-        <button class="btn" onclick="refreshLogs()" style="background: #4299e1; color: white; flex: 1;">🔄 Refresh</button>
+        <button class="btn" onclick="refreshLogs()" style="background: #4299e1; color: white; flex: 1;">🔄
+          Refresh</button>
       </div>
     </div>
   </div>
@@ -1492,6 +1499,32 @@
         logsContent.textContent = `Failed to fetch logs: ${error.message}`;
         logsStatus.textContent = 'error';
         logsStatus.className = 'status-badge status-exited';
+      }
+    }
+
+    async function copyLogsToClipboard() {
+      const logsContent = document.getElementById('logsContent');
+      const copyBtn = document.getElementById('copyLogsBtn');
+      const originalText = copyBtn.innerHTML;
+
+      try {
+        await navigator.clipboard.writeText(logsContent.textContent);
+        copyBtn.innerHTML = '✅ Copied!';
+        copyBtn.style.background = '#48bb78';
+
+        setTimeout(() => {
+          copyBtn.innerHTML = originalText;
+          copyBtn.style.background = '#48bb78';
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to copy logs:', error);
+        copyBtn.innerHTML = '❌ Failed';
+        copyBtn.style.background = '#f56565';
+
+        setTimeout(() => {
+          copyBtn.innerHTML = originalText;
+          copyBtn.style.background = '#48bb78';
+        }, 2000);
       }
     }
   </script>

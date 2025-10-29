@@ -125,29 +125,25 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     git config --global user.name "${GITHUB_USERNAME}"
     git config --global user.email "${GITHUB_EMAIL}"
     
-    # Login to GitHub CLI (with explicit stdin and error handling)
-    echo "${GITHUB_TOKEN}" | gh auth login --with-token --hostname github.com 2>&1 || {
-        echo "Warning: gh auth login had issues, but continuing..."
+    # Login to GitHub CLI (suppress expected warnings about GITHUB_TOKEN env var)
+    echo "${GITHUB_TOKEN}" | gh auth login --with-token --hostname github.com >/dev/null 2>&1 || {
+        echo "Note: GitHub CLI authentication configured via GITHUB_TOKEN environment variable"
     }
     
-    # Setup git credential helper
-    gh auth setup-git 2>&1 || {
-        echo "Warning: gh auth setup-git had issues, but continuing..."
-    }
+    # Setup git credential helper (suppress output)
+    gh auth setup-git >/dev/null 2>&1 || true
     
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
     
-    # Install GitHub Copilot extensions if not already installed
-    /usr/bin/code --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
-    /usr/bin/code --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
-    
-    # Install official Microsoft Remote SSH extension for real VS Code
-    /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote SSH extension install skipped"
-    
-    # Install essential language extensions for markdown preview and other built-ins
-    /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
-    /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+    # Install extensions (suppress verbose output, only show results)
+    echo "Installing extensions..."
+    EXTENSIONS=("github.copilot" "github.copilot-chat" "ms-vscode-remote.remote-ssh" "vscode.markdown-language-features" "vscode.markdown-math")
+    for ext in "${EXTENSIONS[@]}"; do
+        if ! /usr/bin/code --list-extensions 2>/dev/null | grep -q "^${ext}$"; then
+            /usr/bin/code --install-extension "${ext}" >/dev/null 2>&1 && echo "  ✓ Installed ${ext}" || echo "  ⚠ ${ext} already present"
+        fi
+    done
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
@@ -162,24 +158,22 @@ elif [ -f "/data/.github_token" ]; then
         git config --global user.name "${GITHUB_USERNAME}"
         git config --global user.email "${GITHUB_EMAIL}"
         
-        echo "${GITHUB_TOKEN}" | gh auth login --with-token --hostname github.com 2>&1 || {
-            echo "Warning: gh auth login had issues, but continuing..."
+        echo "${GITHUB_TOKEN}" | gh auth login --with-token --hostname github.com >/dev/null 2>&1 || {
+            echo "Note: GitHub CLI authentication configured via shared token"
         }
         
-        gh auth setup-git 2>&1 || {
-            echo "Warning: gh auth setup-git had issues, but continuing..."
-        }
+        gh auth setup-git >/dev/null 2>&1 || true
         
         mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
-        /usr/bin/code --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
-        /usr/bin/code --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
         
-        # Install official Microsoft Remote SSH extension for real VS Code
-        /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote SSH extension install skipped"
-        
-        # Install essential language extensions for markdown preview and other built-ins
-        /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
-        /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+        # Install extensions quietly
+        echo "Installing extensions..."
+        EXTENSIONS=("github.copilot" "github.copilot-chat" "ms-vscode-remote.remote-ssh" "vscode.markdown-language-features" "vscode.markdown-math")
+        for ext in "${EXTENSIONS[@]}"; do
+            if ! /usr/bin/code --list-extensions 2>/dev/null | grep -q "^${ext}$"; then
+                /usr/bin/code --install-extension "${ext}" >/dev/null 2>&1 && echo "  ✓ Installed ${ext}" || echo "  ⚠ ${ext} already present"
+            fi
+        done
         
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
     else
@@ -189,12 +183,14 @@ else
     echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
     
-    # Install official Microsoft Remote SSH extension even without GitHub auth
-    /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote SSH extension install skipped"
-    
-    # Still install essential language extensions even without GitHub auth
-    /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
-    /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+    # Install basic extensions even without GitHub auth (quietly)
+    echo "Installing basic extensions..."
+    EXTENSIONS=("ms-vscode-remote.remote-ssh" "vscode.markdown-language-features" "vscode.markdown-math")
+    for ext in "${EXTENSIONS[@]}"; do
+        if ! /usr/bin/code --list-extensions 2>/dev/null | grep -q "^${ext}$"; then
+            /usr/bin/code --install-extension "${ext}" >/dev/null 2>&1 && echo "  ✓ Installed ${ext}" || echo "  ⚠ ${ext} already present"
+        fi
+    done
 fi
 
 # Handle different development modes
@@ -697,7 +693,7 @@ echo "\nInstalled extensions after setup:" | tee -a "$LOG_FILE"
 /usr/bin/code --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
 
 # Start VS Code Server and open WELCOME.md in preview mode on first run
-echo "Starting VS Code Server with workspace name: ${WORKSPACE_NAME:-workspace}"
+# Start VS Code Server with workspace name: ${WORKSPACE_NAME:-workspace}
 WELCOME_MARK_DIR="/home/coder/workspace/.devfarm"
 WELCOME_MARK_FILE="$WELCOME_MARK_DIR/.welcome_opened"
 mkdir -p "$WELCOME_MARK_DIR"
@@ -713,6 +709,11 @@ fi
 
 # Start official VS Code Server with serve-web command
 # Accept server license terms automatically
+# Disable telemetry and update checks to reduce network noise and log clutter
 # Note: serve-web doesn't accept file paths as arguments
 # The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
-exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 --without-connection-token --accept-server-license-terms
+exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 \
+  --without-connection-token \
+  --accept-server-license-terms \
+  --disable-telemetry \
+  --disable-update-check

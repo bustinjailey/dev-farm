@@ -806,10 +806,20 @@ def get_environment_logs(env_name):
     try:
         container = client.containers.get(registry[env_name]['container_id'])
         logs = container.logs(tail=500, timestamps=True).decode('utf-8', errors='replace')
+        
+        # Determine actual status (account for readiness, not just Docker status)
+        status = container.status
+        if status == 'running':
+            # Check if actually ready by probing the web UI
+            ready = is_env_ready(container.name)
+            display_status = 'running' if ready else 'starting'
+        else:
+            display_status = status
+        
         return jsonify({
             'success': True,
             'logs': logs,
-            'status': container.status
+            'status': display_status
         })
     except docker.errors.NotFound:
         # Container was deleted - sync registry
@@ -1245,10 +1255,10 @@ def _run_system_update_thread():
                     )
                     print(f"Remove result: {rm_result.returncode}")
                     
-                    # 3. Start with new image (--no-build uses pre-built image)
-                    print("Step 3: Starting dashboard with new image...")
+                    # 3. Create container with new image (--no-build uses pre-built image)
+                    print("Step 3: Creating dashboard container with new image...")
                     result = subprocess.run(
-                        ['docker', 'compose', 'up', '-d', '--no-build', 'dashboard'],
+                        ['docker', 'compose', 'create', '--no-build', 'dashboard'],
                         cwd='/opt/dev-farm',
                         capture_output=True,
                         text=True,
@@ -1256,11 +1266,35 @@ def _run_system_update_thread():
                     )
                     
                     if result.returncode == 0:
-                        print("Dashboard recreated successfully via docker compose")
+                        print("Dashboard container created successfully")
                         print(result.stdout)
                         
+                        # Now explicitly start the container
+                        print("Step 4: Starting dashboard container...")
+                        start_result = subprocess.run(
+                            ['docker', 'compose', 'start', 'dashboard'],
+                            cwd='/opt/dev-farm',
+                            capture_output=True,
+                            text=True,
+                            timeout=30
+                        )
+                        
+                        if start_result.returncode != 0:
+                            print(f"WARNING: docker compose start failed: {start_result.stderr}")
+                            # Fallback to direct docker start
+                            print("Attempting direct docker start...")
+                            try:
+                                dashboard = client.containers.get('devfarm-dashboard')
+                                dashboard.start()
+                                print("Dashboard started via direct docker API")
+                            except Exception as e:
+                                print(f"ERROR: Failed to start dashboard: {e}")
+                                raise
+                        else:
+                            print("Dashboard started successfully via docker compose")
+                        
                         # Wait for dashboard to be healthy
-                        print("Waiting for dashboard to start...")
+                        print("Waiting for dashboard to be healthy...")
                         for i in range(30):  # Wait up to 30 seconds
                             time.sleep(1)
                             try:
@@ -1268,34 +1302,27 @@ def _run_system_update_thread():
                                 state = dashboard.status
                                 print(f"  Check {i+1}: Status={state}")
                                 
-                                # If stuck in created state, try to start it manually
-                                if state == 'created' and i > 2:
-                                    print(f"  Container stuck in 'created' state, attempting manual start...")
-                                    dashboard.start()
-                                    time.sleep(2)
-                                    dashboard.reload()
-                                    state = dashboard.status
-                                
                                 if state == 'running':
                                     # Check health if healthcheck exists
                                     health = dashboard.attrs.get('State', {}).get('Health', {})
                                     if health and health.get('Status') == 'healthy':
-                                        print(f"Dashboard is healthy after {i+1} seconds")
+                                        print(f"✅ Dashboard is healthy after {i+1} seconds")
                                         break
                                     elif not health:
                                         # No healthcheck, just verify it's running
-                                        print(f"Dashboard is running (no healthcheck) after {i+1} seconds")
+                                        print(f"✅ Dashboard is running (no healthcheck) after {i+1} seconds")
                                         break
+                                elif state == 'created':
+                                    print(f"  WARNING: Container still in 'created' state - this shouldn't happen")
                             except Exception as e:
                                 print(f"  Check {i+1}: Error - {e}")
                         else:
-                            print("WARNING: Dashboard may not be fully healthy yet")
-                            # Try one final manual start attempt
+                            print("⚠️ Dashboard may not be fully healthy yet but continuing...")
+                            # Verify it's at least running
                             try:
                                 dashboard = client.containers.get('devfarm-dashboard')
-                                if dashboard.status == 'created':
-                                    print("FINAL ATTEMPT: Manually starting dashboard...")
-                                    dashboard.start()
+                                if dashboard.status != 'running':
+                                    print(f"❌ CRITICAL: Dashboard is in '{dashboard.status}' state, not running!")
                             except:
                                 pass
                     else:
