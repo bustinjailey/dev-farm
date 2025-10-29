@@ -1157,17 +1157,31 @@
             // Handle completion
             if (status.success === true) {
               clearInterval(updatePoll);
-              // Reload after longer delay to ensure dashboard is fully restarted
+              closeBtn.disabled = false;
+              // Show success message clearly
+              if (!status.stages || status.stages.length === 0) {
+                icon1.textContent = '✅';
+                msg1.textContent = '✅ Update completed successfully!';
+              }
+              // Reload after delay to ensure dashboard is fully restarted
               setTimeout(() => { window.location.reload(); }, 5000);
             } else if (status.success === false) {
+              // Update failed - stop polling and allow close
               clearInterval(updatePoll);
               closeBtn.disabled = false;
-            } else if (status.running === false && (!status.stages || status.stages.length === 0)) {
-              // If nothing is happening after a few seconds, assume it failed to start
-              if (Date.now() - pollStart > 5000) {
-                clearInterval(updatePoll);
-                icon1.textContent = '❌';
-                msg1.textContent = 'Update did not start. Please try again.';
+            } else if (!status.running) {
+              // Update finished running (either success or failure handled above)
+              // If we have stages, don't show error - the stages speak for themselves
+              if (!status.stages || status.stages.length === 0) {
+                // Only show "did not start" error if we waited and got nothing
+                if (Date.now() - pollStart > 5000) {
+                  clearInterval(updatePoll);
+                  icon1.textContent = '❌';
+                  msg1.textContent = 'Update did not start. Please try again.';
+                  closeBtn.disabled = false;
+                }
+              } else {
+                // We have stages but update finished - enable close button
                 closeBtn.disabled = false;
               }
             }
