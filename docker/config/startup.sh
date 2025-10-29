@@ -137,6 +137,9 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     /usr/bin/code --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
     /usr/bin/code --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
     
+    # Install official Microsoft Remote SSH extension for real VS Code
+    /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote SSH extension install skipped"
+    
     # Install essential language extensions for markdown preview and other built-ins
     /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
     /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
@@ -166,6 +169,9 @@ elif [ -f "/data/.github_token" ]; then
         /usr/bin/code --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
         /usr/bin/code --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
         
+        # Install official Microsoft Remote SSH extension for real VS Code
+        /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote SSH extension install skipped"
+        
         # Install essential language extensions for markdown preview and other built-ins
         /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
         /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
@@ -177,6 +183,9 @@ elif [ -f "/data/.github_token" ]; then
 else
     echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
+    
+    # Install official Microsoft Remote SSH extension even without GitHub auth
+    /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 || echo "Remote SSH extension install skipped"
     
     # Still install essential language extensions even without GitHub auth
     /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"

@@ -76,6 +76,11 @@
       border-radius: 12px;
       font-size: 0.85em;
       font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+      display: inline-block;
     }
 
     .badge-success {
@@ -515,28 +520,28 @@
           <button class="btn btn-open" id="open-{{ env.id }}" onclick="window.open('{{ env.url }}', '_blank')">
             🚀 Open VS Code
           </button>
-          <button class="btn btn-stop" onclick="stopEnvironment('{{ env.name }}')">
+          <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
           </button>
           {% elif env.status == 'starting' %}
           <button class="btn btn-open" id="open-{{ env.id }}" disabled style="opacity: 0.6;">
             ⏳ Starting...
           </button>
-          <button class="btn btn-stop" onclick="stopEnvironment('{{ env.name }}')">
+          <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
           </button>
           {% else %}
-          <button class="btn btn-open" id="open-{{ env.id }}" onclick="startEnvironment('{{ env.name }}')">
+          <button class="btn btn-open" id="open-{{ env.id }}" onclick="startEnvironment('{{ env.id }}')">
             ▶️ Start
           </button>
           <button class="btn btn-stop" disabled style="opacity: 0.5;">
             ⏸️ Stop
           </button>
           {% endif %}
-          <button class="btn btn-logs" onclick="showLogs('{{ env.name }}')">
+          <button class="btn btn-logs" onclick="showLogs('{{ env.id }}')">
             📋 Logs
           </button>
-          <button class="btn btn-delete" onclick="deleteEnvironment('{{ env.name }}')">
+          <button class="btn btn-delete" onclick="deleteEnvironment('{{ env.id }}')">
             🗑️ Delete
           </button>
         </div>
@@ -1257,7 +1262,7 @@
             } else {
               openBtn.disabled = false;
               openBtn.style.opacity = '';
-              openBtn.onclick = () => startEnvironment(env.name);
+              openBtn.onclick = () => startEnvironment(env.id);
               openBtn.textContent = '▶️ Start';
             }
           }
