@@ -663,11 +663,36 @@ fi
 
 # (Workspace settings seeding moved earlier to honor template and avoid duplicate writes)
 
-# Install essential extensions
+# Install essential extensions with retry logic
 echo "Installing default extensions..." | tee -a "$LOG_FILE"
-/usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 | tee -a "$LOG_FILE" || echo "Note: Remote-SSH extension installation failed (may already be bundled)" | tee -a "$LOG_FILE"
-/usr/bin/code --install-extension yzhang.markdown-all-in-one 2>&1 | tee -a "$LOG_FILE" || echo "Note: Markdown All in One extension installation failed" | tee -a "$LOG_FILE"
-/usr/bin/code --install-extension github.copilot-chat 2>&1 | tee -a "$LOG_FILE" || echo "Note: GitHub Copilot Chat extension installation failed" | tee -a "$LOG_FILE"
+
+install_extension_with_retry() {
+    local ext_id="$1"
+    local max_attempts=3
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        echo "Installing $ext_id (attempt $attempt/$max_attempts)..." | tee -a "$LOG_FILE"
+        if /usr/bin/code --install-extension "$ext_id" 2>&1 | tee -a "$LOG_FILE"; then
+            echo "✓ Successfully installed $ext_id" | tee -a "$LOG_FILE"
+            return 0
+        else
+            if [ $attempt -lt $max_attempts ]; then
+                echo "Retrying in 2 seconds..." | tee -a "$LOG_FILE"
+                sleep 2
+            fi
+            attempt=$((attempt + 1))
+        fi
+    done
+    
+    echo "⚠ Failed to install $ext_id after $max_attempts attempts" | tee -a "$LOG_FILE"
+    return 1
+}
+
+install_extension_with_retry "ms-vscode-remote.remote-ssh" || true
+install_extension_with_retry "yzhang.markdown-all-in-one" || true
+install_extension_with_retry "github.copilot-chat" || true
+
 echo "Extension installation complete" | tee -a "$LOG_FILE"
 
 # Create keybindings to make Chat/Inline Chat more accessible
@@ -707,6 +732,7 @@ fi
 # Note: serve-web doesn't accept file paths as arguments
 # The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
 exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 \
+  --user-data-dir /home/coder/.vscode-server \
   --without-connection-token \
   --accept-server-license-terms \
   --disable-telemetry

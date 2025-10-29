@@ -421,6 +421,7 @@ def create_environment():
             'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
             'environment': env_vars,
             'network': 'devfarm',  # Connect to devfarm network for inter-container communication
+            'dns': ['8.8.8.8', '8.8.4.4'],  # Use Google DNS to avoid DNS resolution issues
             'labels': {
                 'dev-farm': 'true',
                 'dev-farm.id': env_id,
