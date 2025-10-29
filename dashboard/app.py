@@ -203,15 +203,45 @@ def get_container_stats(container):
     except Exception as e:
         return {'cpu': 0, 'memory': 0, 'memory_mb': 0}
 
-def is_env_ready(container_name):
+def is_env_ready(container_name, port=None):
     """Probe the environment container to determine readiness.
     Returns True when HTTP responds successfully.
-    Uses container networking (container:8080) for inter-container probe.
+    First tries container healthcheck status, then falls back to HTTP probe.
     """
     try:
-        # Try a quick GET to the container's internal port 8080 via container name
-        resp = requests.get(f'http://{container_name}:8080', timeout=1.5)
-        return 200 <= resp.status_code < 400
+        # First check Docker healthcheck status if available
+        if client:
+            try:
+                container = client.containers.get(container_name)
+                health = container.attrs.get('State', {}).get('Health', {})
+                if health:
+                    health_status = health.get('Status', '')
+                    # If healthcheck exists and reports healthy, container is ready
+                    if health_status == 'healthy':
+                        return True
+                    # If unhealthy or starting, definitely not ready
+                    elif health_status in ['unhealthy', 'starting']:
+                        return False
+                    # If no healthcheck or unknown status, fall through to HTTP probe
+            except Exception:
+                pass
+        
+        # Fallback: Try HTTP probe via container network
+        try:
+            resp = requests.get(f'http://{container_name}:8080', timeout=1.5)
+            return 200 <= resp.status_code < 400
+        except Exception:
+            pass
+        
+        # Last resort: Try via mapped port if provided
+        if port:
+            try:
+                resp = requests.get(f'http://localhost:{port}', timeout=1.5)
+                return 200 <= resp.status_code < 400
+            except Exception:
+                pass
+        
+        return False
     except Exception:
         return False
 
@@ -229,7 +259,7 @@ def index():
                 status = container.status
                 stats = get_container_stats(container) if status == 'running' else {}
                 # Determine readiness: even if Docker says running, code-server may still be starting
-                ready = is_env_ready(container.name) if status == 'running' else False
+                ready = is_env_ready(container.name, env_data['port']) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 
                 environments.append({
