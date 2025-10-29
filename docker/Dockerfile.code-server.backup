@@ -1,0 +1,68 @@
+FROM codercom/code-server:latest
+
+USER root
+
+# Install essential development tools
+RUN apt-get update && apt-get install -y \
+  git \
+  curl \
+  wget \
+  build-essential \
+  python3 \
+  python3-pip \
+  nodejs \
+  npm \
+  sudo \
+  sshfs \
+  fuse3 \
+  sshpass \
+  && rm -rf /var/lib/apt/lists/*
+
+# Allow coder user to use sudo without password
+RUN echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+  && apt-get update \
+  && apt-get install -y gh \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install additional useful tools
+RUN npm install -g yarn typescript ts-node prettier eslint
+
+# Create workspace directories
+RUN mkdir -p /workspace && chown -R coder:coder /workspace \
+  && mkdir -p /home/coder/workspace && chown -R coder:coder /home/coder/workspace
+
+USER coder
+
+# Set up default code-server extensions directory
+RUN mkdir -p /home/coder/.local/share/code-server/extensions
+
+# Pre-configure code-server settings (store as template to apply at runtime)
+RUN mkdir -p /home/coder/.local/share/code-server/User
+COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
+
+# Include a workspace settings template to seed per-workspace settings at runtime
+RUN mkdir -p /home/coder/.devfarm
+COPY --chown=coder:coder docker/config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
+
+# Create startup script for GitHub authentication
+COPY --chown=coder:coder docker/config/startup.sh /home/coder/startup.sh
+RUN chmod +x /home/coder/startup.sh
+
+# Enable user_allow_other for FUSE and add coder to fuse group
+USER root
+RUN echo "user_allow_other" >> /etc/fuse.conf || true \
+  && usermod -aG fuse coder || true
+USER coder
+
+WORKDIR /home/coder/workspace
+
+EXPOSE 8080
+
+# Override the entrypoint to use our startup script
+ENTRYPOINT []
+CMD ["/bin/bash", "/home/coder/startup.sh"]

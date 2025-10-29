@@ -7,7 +7,7 @@ mkdir -p /home/coder/workspace || true
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
 echo "Applying VS Code workspace settings..."
-mkdir -p /home/coder/.local/share/code-server/User
+mkdir -p /home/coder/.config/Code/User
 
 # Seed workspace-level settings from template if available (workspace is the only source of truth now)
 mkdir -p /home/coder/workspace/.vscode
@@ -38,7 +38,7 @@ fi
 # Ensure minimal user-level settings for features that require user scope (workspace trust)
 /usr/bin/python3 - <<'PYEOF'
 import json, os
-user_settings_path = "/home/coder/.local/share/code-server/User/settings.json"
+user_settings_path = "/home/coder/.config/Code/User/settings.json"
 os.makedirs(os.path.dirname(user_settings_path), exist_ok=True)
 existing = {}
 if os.path.exists(user_settings_path):
@@ -127,15 +127,15 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     }
     
     # Create directory for GitHub extensions if it doesn't exist
-    mkdir -p /home/coder/.local/share/code-server/User/globalStorage/github.vscode-pull-request-github
+    mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
     
     # Install GitHub Copilot extensions if not already installed
-    /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
-    /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
+    /usr/bin/code --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
+    /usr/bin/code --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
     
     # Install essential language extensions for markdown preview and other built-ins
-    /usr/bin/code-server --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
-    /usr/bin/code-server --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+    /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
+    /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
@@ -158,13 +158,13 @@ elif [ -f "/data/.github_token" ]; then
             echo "Warning: gh auth setup-git had issues, but continuing..."
         }
         
-        mkdir -p /home/coder/.local/share/code-server/User/globalStorage/github.vscode-pull-request-github
-        /usr/bin/code-server --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
-        /usr/bin/code-server --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
+        mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
+        /usr/bin/code --install-extension github.copilot 2>&1 || echo "Copilot extension install skipped"
+        /usr/bin/code --install-extension github.copilot-chat 2>&1 || echo "Copilot Chat extension install skipped"
         
         # Install essential language extensions for markdown preview and other built-ins
-        /usr/bin/code-server --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
-        /usr/bin/code-server --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+        /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
+        /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
         
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
     else
@@ -175,8 +175,8 @@ else
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
     
     # Still install essential language extensions even without GitHub auth
-    /usr/bin/code-server --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
-    /usr/bin/code-server --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
+    /usr/bin/code --install-extension vscode.markdown-language-features 2>&1 || echo "Markdown language features install skipped"
+    /usr/bin/code --install-extension vscode.markdown-math 2>&1 || echo "Markdown math install skipped"
 fi
 
 # Handle different development modes
@@ -659,8 +659,8 @@ fi
 # (Workspace settings seeding moved earlier to honor template and avoid duplicate writes)
 
 # Create keybindings to make Chat/Inline Chat more accessible
-mkdir -p /home/coder/.local/share/code-server/User
-cat > /home/coder/.local/share/code-server/User/keybindings.json <<'EOFKEYS'
+mkdir -p /home/coder/.config/Code/User
+cat > /home/coder/.config/Code/User/keybindings.json <<'EOFKEYS'
 [
   {
     "key": "ctrl+shift+space",
@@ -675,10 +675,10 @@ EOFKEYS
 
 # Persist a snapshot of installed extensions for quick troubleshooting
 echo "\nInstalled extensions after setup:" | tee -a "$LOG_FILE"
-/usr/bin/code-server --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
+/usr/bin/code --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
 
-# Start code-server and open WELCOME.md in preview mode on first run
-echo "Starting code-server with workspace name: ${WORKSPACE_NAME:-workspace}"
+# Start VS Code Server and open WELCOME.md in preview mode on first run
+echo "Starting VS Code Server with workspace name: ${WORKSPACE_NAME:-workspace}"
 WELCOME_MARK_DIR="/home/coder/workspace/.devfarm"
 WELCOME_MARK_FILE="$WELCOME_MARK_DIR/.welcome_opened"
 mkdir -p "$WELCOME_MARK_DIR"
@@ -692,4 +692,6 @@ if [ -f "$WELCOME_PATH" ] && [ ! -f "$WELCOME_MARK_FILE" ]; then
     touch "$WELCOME_MARK_FILE"
 fi
 
-exec /usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth none "${OPEN_PATHS[@]}"
+# Start official VS Code Server with serve-web command
+# Accept server license terms automatically
+exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 --without-connection-token --accept-server-license-terms "${OPEN_PATHS[@]}"
