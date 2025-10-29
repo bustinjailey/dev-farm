@@ -868,12 +868,24 @@
       }
     }
 
+    // Helper function to safely fetch and parse JSON
+    async function safeFetch(url, options = {}) {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const text = await response.text();
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+      return JSON.parse(text);
+    }
+
     // Check system status on load and periodically update
     async function checkSystemStatus() {
       try {
         // Check GitHub auth
-        const githubResp = await fetch('/api/github/auth/status');
-        const githubData = await githubResp.json();
+        const githubData = await safeFetch('/api/github/auth/status');
         const githubStatus = document.getElementById('githubStatus');
         const githubConnectBtn = document.getElementById('githubConnectBtn');
 
@@ -886,8 +898,7 @@
         }
 
         // Check version
-        const versionResp = await fetch('/api/system/status');
-        const versionData = await versionResp.json();
+        const versionData = await safeFetch('/api/system/status');
         const versionStatus = document.getElementById('versionStatus');
         const updateBtn = document.getElementById('updateBtn');
 
@@ -903,8 +914,7 @@
         }
 
         // Check for orphaned containers
-        const orphansResp = await fetch('/api/system/orphans');
-        const orphansData = await orphansResp.json();
+        const orphansData = await safeFetch('/api/system/orphans');
         const orphanRow = document.getElementById('orphanRow');
         const orphanStatus = document.getElementById('orphanStatus');
         const cleanupBtn = document.getElementById('cleanupBtn');
@@ -929,8 +939,7 @@
       content.innerHTML = '<div style="margin: 20px 0;"><div class="empty-state-icon" style="font-size: 3em;">⏳</div><p style="color: #666;">Starting authentication...</p></div>';
 
       try {
-        const response = await fetch('/api/github/auth/start', { method: 'POST' });
-        const data = await response.json();
+        const data = await safeFetch('/api/github/auth/start', { method: 'POST' });
 
         if (data.user_code) {
           content.innerHTML = `
@@ -975,8 +984,7 @@
 
       pollInterval = setInterval(async () => {
         try {
-          const response = await fetch('/api/github/auth/poll', { method: 'POST' });
-          const data = await response.json();
+          const data = await safeFetch('/api/github/auth/poll', { method: 'POST' });
           const pollStatus = document.getElementById('pollStatus');
 
           if (data.status === 'success') {
@@ -1052,8 +1060,7 @@
       msg3.textContent = '';
 
       try {
-        const startResp = await fetch('/api/system/update/start', { method: 'POST' });
-        const startData = await startResp.json();
+        const startData = await safeFetch('/api/system/update/start', { method: 'POST' });
         if (!startResp.ok || !startData.started) {
           icon1.textContent = '❌';
           msg1.textContent = (startData && startData.message) ? startData.message : 'Failed to start update';
@@ -1067,8 +1074,7 @@
         const pollStart = Date.now();
         updatePoll = setInterval(async () => {
           try {
-            const statusResp = await fetch('/api/system/update/status');
-            const status = await statusResp.json();
+            const status = await safeFetch('/api/system/update/status');
 
             // Track what stages we've seen
             const stagesSeen = new Set(status.stages?.map(s => s.stage) || []);
@@ -1329,7 +1335,16 @@
     async function refreshEnvironments() {
       try {
         const resp = await fetch('/api/environments');
-        const data = await resp.json();
+        if (!resp.ok) {
+          console.warn(`Failed to fetch environments: ${resp.status}`);
+          return;
+        }
+        const text = await resp.text();
+        if (!text) {
+          console.warn('Empty response from /api/environments');
+          return;
+        }
+        const data = JSON.parse(text);
         for (const env of data) {
           const statusEl = document.getElementById(`status-${env.id}`);
           if (statusEl) {
@@ -1385,7 +1400,14 @@
         logsStatus.textContent = '';
 
         const response = await fetch(`/api/environments/${currentLogsEnv}/logs`);
-        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const text = await response.text();
+        if (!text) {
+          throw new Error('Empty response from server (possibly restarting)');
+        }
+        const data = JSON.parse(text);
 
         if (data.success) {
           logsContent.textContent = data.logs || 'No logs available';
