@@ -1070,7 +1070,7 @@ def _run_system_update_thread():
 
             _append_stage('rebuild_dashboard', 'progress', '⏳ Building dashboard...')
             exec_result = updater.exec_run(
-                cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t opt-dashboard:latest ./dashboard'],
+                cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t dev-farm-dashboard:latest ./dashboard'],
                 demux=False
             )
             if exec_result.exit_code != 0:
@@ -1114,7 +1114,7 @@ def _run_system_update_thread():
                     
                     # Create new container from updated image
                     new_container = client.containers.run(
-                        'opt-dashboard:latest',
+                        'dev-farm-dashboard:latest',
                         name='devfarm-dashboard',
                         detach=True,
                         ports=ports,
