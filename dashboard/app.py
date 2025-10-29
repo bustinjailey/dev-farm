@@ -323,7 +323,7 @@ def create_environment():
         
         # Container run options
         run_kwargs = {
-            'image': 'opt-code-server:latest',
+            'image': 'dev-farm/code-server:latest',
             'name': f"devfarm-{env_id}",
             'detach': True,
             'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
@@ -1022,7 +1022,7 @@ def _run_system_update_thread():
                 
                 _append_stage('rebuild_codeserver', 'progress', '⏳ Building... (this may take 1-2 minutes)')
                 exec_result = updater.exec_run(
-                    cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t opt-code-server:latest -f docker/Dockerfile.code-server .'],
+                    cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t dev-farm/code-server:latest -f docker/Dockerfile.code-server .'],
                     demux=False
                 )
                 if exec_result.exit_code == 0:
