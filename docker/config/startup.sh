@@ -7,7 +7,9 @@ mkdir -p /home/coder/workspace || true
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
 echo "Applying VS Code workspace settings..."
-mkdir -p /home/coder/.config/Code/User
+# VS Code Server uses ~/.vscode-server/data/ for settings
+mkdir -p /home/coder/.vscode-server/data/Machine
+mkdir -p /home/coder/.vscode-server/data/User
 
 # Seed workspace-level settings from template if available (workspace is the only source of truth now)
 mkdir -p /home/coder/workspace/.vscode
@@ -36,14 +38,16 @@ else
 fi
 
 # Ensure minimal user-level settings for features that require user scope (workspace trust)
+# VS Code Server uses Machine/settings.json for machine-level settings
 /usr/bin/python3 - <<'PYEOF'
 import json, os
-user_settings_path = "/home/coder/.config/Code/User/settings.json"
-os.makedirs(os.path.dirname(user_settings_path), exist_ok=True)
+# Machine-level settings (used by VS Code Server)
+machine_settings_path = "/home/coder/.vscode-server/data/Machine/settings.json"
+os.makedirs(os.path.dirname(machine_settings_path), exist_ok=True)
 existing = {}
-if os.path.exists(user_settings_path):
+if os.path.exists(machine_settings_path):
     try:
-        with open(user_settings_path, 'r', encoding='utf-8') as f:
+        with open(machine_settings_path, 'r', encoding='utf-8') as f:
             existing = json.load(f)
     except Exception:
         existing = {}
@@ -51,9 +55,9 @@ if os.path.exists(user_settings_path):
 existing["security.workspace.trust.enabled"] = False
 existing["security.workspace.trust.startupPrompt"] = "never"
 existing["security.workspace.trust.emptyWindow"] = False
-with open(user_settings_path, 'w', encoding='utf-8') as f:
+with open(machine_settings_path, 'w', encoding='utf-8') as f:
     json.dump(existing, f, indent=2)
-print("User-level settings updated for trust and extension host overrides")
+print("Machine-level settings updated for VS Code Server")
 PYEOF
 
 # Create a friendly WELCOME.md with one-click sign-in links (only if not present or forced)
@@ -659,8 +663,9 @@ fi
 # (Workspace settings seeding moved earlier to honor template and avoid duplicate writes)
 
 # Create keybindings to make Chat/Inline Chat more accessible
-mkdir -p /home/coder/.config/Code/User
-cat > /home/coder/.config/Code/User/keybindings.json <<'EOFKEYS'
+# VS Code Server uses ~/.vscode-server/data/User/ for user data
+mkdir -p /home/coder/.vscode-server/data/User
+cat > /home/coder/.vscode-server/data/User/keybindings.json <<'EOFKEYS'
 [
   {
     "key": "ctrl+shift+space",
@@ -694,4 +699,6 @@ fi
 
 # Start official VS Code Server with serve-web command
 # Accept server license terms automatically
-exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 --without-connection-token --accept-server-license-terms "${OPEN_PATHS[@]}"
+# Note: serve-web doesn't accept file paths as arguments
+# The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
+exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 --without-connection-token --accept-server-license-terms
