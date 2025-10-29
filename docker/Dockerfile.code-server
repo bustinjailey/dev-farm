@@ -28,7 +28,8 @@ RUN apt-get update && apt-get install -y \
 
 # Download and install VS Code directly from official download link
 # This avoids Microsoft repository/GPG issues during Azure outages
-RUN wget --timeout=60 --tries=3 -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64' && \
+# Force IPv4 to avoid connection timeout issues with Azure CDN
+RUN wget --timeout=60 --tries=3 --inet4-only -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64' && \
   apt-get install -y /tmp/vscode.deb && \
   rm /tmp/vscode.deb
 
