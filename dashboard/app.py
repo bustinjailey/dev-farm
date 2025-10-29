@@ -59,6 +59,10 @@ UPDATE_PROGRESS = {
 }
 UPDATE_LOCK = RLock()
 
+# Track last known status of containers for change detection
+LAST_KNOWN_STATUS = {}
+STATUS_LOCK = threading.Lock()
+
 def _reset_update_progress():
     with UPDATE_LOCK:
         UPDATE_PROGRESS.clear()
@@ -1468,6 +1472,52 @@ def system_update_status():
     with UPDATE_LOCK:
         return jsonify(UPDATE_PROGRESS)
 
+def background_status_monitor():
+    """Monitor container status changes and broadcast SSE updates"""
+    import threading
+    import time
+    
+    def monitor_loop():
+        while True:
+            try:
+                time.sleep(2)  # Check every 2 seconds for responsive UI
+                registry = load_registry()
+                
+                if not client:
+                    continue
+                
+                for env_id, env_data in registry.items():
+                    try:
+                        container = client.containers.get(env_data['container_id'])
+                        status = container.status
+                        ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
+                        display_status = 'running' if ready else ('starting' if status == 'running' else status)
+                        
+                        # Check if status changed
+                        with STATUS_LOCK:
+                            last_status = LAST_KNOWN_STATUS.get(env_id)
+                            if last_status != display_status:
+                                LAST_KNOWN_STATUS[env_id] = display_status
+                                # Broadcast status change
+                                broadcast_sse('env-status', {
+                                    'env_id': env_id,
+                                    'status': display_status,
+                                    'port': env_data.get('port')
+                                })
+                    except docker.errors.NotFound:
+                        # Container was deleted
+                        with STATUS_LOCK:
+                            if env_id in LAST_KNOWN_STATUS:
+                                del LAST_KNOWN_STATUS[env_id]
+                    except Exception as e:
+                        # Ignore transient errors
+                        pass
+            except Exception as e:
+                print(f"Background monitor error: {e}")
+    
+    thread = threading.Thread(target=monitor_loop, daemon=True)
+    thread.start()
+
 def background_registry_sync():
     """Background task to keep registry in sync with containers"""
     import threading
@@ -1485,6 +1535,7 @@ def background_registry_sync():
     thread.start()
 
 if __name__ == '__main__':
-    # Start background registry sync
+    # Start background monitoring threads
+    background_status_monitor()
     background_registry_sync()
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('DEBUG', 'false').lower() == 'true')

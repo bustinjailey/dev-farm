@@ -1338,23 +1338,38 @@
           const data = JSON.parse(e.data);
           const env_id = data.env_id;
           const status = data.status;
+          const port = data.port;
 
-          // Update status badge
+          // Update status badge immediately
           const statusEl = document.getElementById(`status-${env_id}`);
           if (statusEl) {
             statusEl.textContent = status;
             statusEl.className = `status-badge status-${status}`;
           }
 
-          // Update open button
+          // Update open button immediately based on status
           const openBtn = document.getElementById(`open-${env_id}`);
-          if (openBtn && status === 'starting') {
-            openBtn.disabled = true;
-            openBtn.style.opacity = '0.6';
-            openBtn.textContent = '⏳ Starting...';
+          if (openBtn) {
+            if (status === 'running') {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              const hostname = window.location.hostname;
+              openBtn.onclick = () => window.open(`http://${hostname}:${port}`, '_blank');
+              openBtn.textContent = '🚀 Open VS Code';
+            } else if (status === 'starting') {
+              openBtn.disabled = true;
+              openBtn.style.opacity = '0.6';
+              openBtn.onclick = null;
+              openBtn.textContent = '⏳ Starting...';
+            } else {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              openBtn.onclick = () => startEnvironment(env_id);
+              openBtn.textContent = '▶️ Start';
+            }
           }
 
-          // Debounced refresh - cancel previous timeout if exists
+          // Still do a debounced full refresh to ensure consistency
           if (refreshTimeout) clearTimeout(refreshTimeout);
           refreshTimeout = setTimeout(refreshEnvironments, 2000);
         } catch (err) {
