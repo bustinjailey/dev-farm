@@ -1089,13 +1089,14 @@ def _run_system_update_thread():
                     print("Restarting dashboard using docker compose...")
                     
                     # Use docker compose (V2) to recreate the dashboard service
+                    # --build ensures we use the latest image even if separate build failed
                     # This ensures all compose labels and healthchecks are properly maintained
                     result = subprocess.run(
-                        ['docker', 'compose', 'up', '-d', '--force-recreate', 'dashboard'],
+                        ['docker', 'compose', 'up', '-d', '--build', '--force-recreate', 'dashboard'],
                         cwd='/opt/dev-farm',
                         capture_output=True,
                         text=True,
-                        timeout=60
+                        timeout=90  # Increased timeout to account for build time
                     )
                     
                     if result.returncode == 0:
