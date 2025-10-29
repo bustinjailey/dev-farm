@@ -667,6 +667,7 @@ fi
 echo "Installing default extensions..." | tee -a "$LOG_FILE"
 /usr/bin/code --install-extension ms-vscode-remote.remote-ssh 2>&1 | tee -a "$LOG_FILE" || echo "Note: Remote-SSH extension installation failed (may already be bundled)" | tee -a "$LOG_FILE"
 /usr/bin/code --install-extension yzhang.markdown-all-in-one 2>&1 | tee -a "$LOG_FILE" || echo "Note: Markdown All in One extension installation failed" | tee -a "$LOG_FILE"
+/usr/bin/code --install-extension github.copilot-chat 2>&1 | tee -a "$LOG_FILE" || echo "Note: GitHub Copilot Chat extension installation failed" | tee -a "$LOG_FILE"
 echo "Extension installation complete" | tee -a "$LOG_FILE"
 
 # Create keybindings to make Chat/Inline Chat more accessible
