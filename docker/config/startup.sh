@@ -62,11 +62,22 @@ if [ ! -f "$WELCOME_PATH" ] || [ "${DEVFARM_FORCE_WELCOME}" = "true" ]; then
     cat > "$WELCOME_PATH" <<'EOWELCOME'
 # 👋 Welcome to Dev Farm
 
-You're ready to code! A few helpful shortcuts:
+You're ready to code!
 
-- Sign in to GitHub: [Click here](command:github.signin)
-- Sign in to GitHub Copilot: [Click here](command:github.copilot.signIn)
-- Manage Accounts: [Open Accounts](command:workbench.action.manageAccounts)
+## 🔐 Sign In to GitHub
+
+To get started with GitHub and Copilot:
+
+1. **Open Command Palette**: Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+2. **Type**: `GitHub: Sign In`
+3. **Select** the command and follow the prompts
+
+Or use the **Accounts** menu in the bottom left corner (👤 icon)
+
+### Quick Commands
+- **GitHub Sign In**: `Ctrl+Shift+P` → `GitHub: Sign In`
+- **Copilot Sign In**: `Ctrl+Shift+P` → `GitHub Copilot: Sign In`
+- **Manage Accounts**: Click the **Account icon** (👤) in the bottom-left corner
 
 ## 📁 Your Workspace
 
@@ -74,9 +85,12 @@ You're ready to code! A few helpful shortcuts:
 - **SSH Mode**: Your remote filesystem is mounted at `remote/`
 - **Workspace Mode**: Use this directory directly for your code
 
-Notes:
-- Git and the GitHub CLI (gh) are already authenticated if you connected GitHub in the dashboard.
-- These links run VS Code commands in your browser session.
+## 💡 Tips
+
+- Git and the GitHub CLI (gh) are pre-authenticated if you connected GitHub in the dashboard
+- Press `Ctrl+`` (backtick) to open the integrated terminal
+- Press `Ctrl+Shift+E` to focus the file explorer
+- Press `Ctrl+P` to quickly open files
 
 Happy hacking!
 EOWELCOME
