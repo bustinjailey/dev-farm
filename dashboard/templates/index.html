@@ -1260,16 +1260,70 @@
     // Run status check on page load
     checkSystemStatus();
 
-    // Periodically update status without reloading page (every 10 seconds)
+    // Set up Server-Sent Events for real-time updates
+    let eventSource = null;
+    function setupSSE() {
+      if (eventSource) {
+        eventSource.close();
+      }
+      
+      eventSource = new EventSource('/api/stream');
+      
+      eventSource.onopen = () => {
+        console.log('SSE connected');
+      };
+      
+      eventSource.addEventListener('registry-update', (e) => {
+        // Registry changed - refresh environment list
+        refreshEnvironments();
+      });
+      
+      eventSource.addEventListener('env-status', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const env_id = data.env_id;
+          const status = data.status;
+          
+          // Update status badge
+          const statusEl = document.getElementById(`status-${env_id}`);
+          if (statusEl) {
+            statusEl.textContent = status;
+            statusEl.className = `status-badge status-${status}`;
+          }
+          
+          // Update open button
+          const openBtn = document.getElementById(`open-${env_id}`);
+          if (openBtn && status === 'starting') {
+            openBtn.disabled = true;
+            openBtn.style.opacity = '0.6';
+            openBtn.textContent = '⏳ Starting...';
+          }
+          
+          // Refresh full state after a moment to get accurate info
+          setTimeout(refreshEnvironments, 2000);
+        } catch (err) {
+          console.error('Error handling env-status event:', err);
+        }
+      });
+      
+      eventSource.onerror = (err) => {
+        console.error('SSE error:', err);
+        eventSource.close();
+        // Reconnect after 5 seconds
+        setTimeout(setupSSE, 5000);
+      };
+    }
+    
+    setupSSE();
+
+    // Fallback: Still check system status periodically for updates not covered by SSE
     setInterval(() => {
-      // Only update if no modal is open
       const oauthModal = document.getElementById('oauthModal');
       const updateModal = document.getElementById('updateModal');
       if (!oauthModal.classList.contains('active') && !updateModal.classList.contains('active')) {
         checkSystemStatus();
-        refreshEnvironments();
       }
-    }, 10000);
+    }, 30000); // Reduced to 30 seconds since SSE handles environment updates
 
     // Lightweight environment list refresh to reflect starting->running
     async function refreshEnvironments() {

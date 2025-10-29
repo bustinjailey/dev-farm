@@ -3,7 +3,7 @@
 Dev Farm Dashboard - Mobile-friendly web interface for managing development environments
 """
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response, stream_with_context
 import docker
 import os
 import json
@@ -15,6 +15,7 @@ import time
 import requests
 import threading
 from threading import RLock
+import queue
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
@@ -31,6 +32,23 @@ BASE_PORT = 8100
 GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
 REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt/dev-farm')
+
+# Server-Sent Events support
+SSE_CLIENTS = []
+SSE_LOCK = threading.Lock()
+
+def broadcast_sse(event_type, data):
+    """Broadcast an SSE message to all connected clients"""
+    with SSE_LOCK:
+        dead_clients = []
+        for client_queue in SSE_CLIENTS:
+            try:
+                client_queue.put({'event': event_type, 'data': data}, block=False)
+            except queue.Full:
+                dead_clients.append(client_queue)
+        # Clean up disconnected clients
+        for dead in dead_clients:
+            SSE_CLIENTS.remove(dead)
 
 # In-memory system update progress (polled by UI)
 UPDATE_PROGRESS = {
@@ -88,10 +106,12 @@ def load_registry():
     return {}
 
 def save_registry(registry):
-    """Save the registry of dev environments"""
+    """Save the registry of dev environments and broadcast update"""
     os.makedirs(os.path.dirname(REGISTRY_FILE), exist_ok=True)
     with open(REGISTRY_FILE, 'w') as f:
         json.dump(registry, f, indent=2)
+    # Broadcast registry change to all connected clients
+    broadcast_sse('registry-update', {'timestamp': time.time()})
 
 def load_github_token():
     """Load GitHub token from shared storage"""
@@ -231,6 +251,44 @@ def index():
                 pass
     
     return render_template('index.html', environments=environments)
+
+@app.route('/api/stream')
+def stream():
+    """Server-Sent Events endpoint for real-time updates"""
+    def event_stream():
+        client_queue = queue.Queue(maxsize=10)
+        with SSE_LOCK:
+            SSE_CLIENTS.append(client_queue)
+        
+        try:
+            # Send initial connection success
+            yield f"data: {json.dumps({'type': 'connected'})}\n\n"
+            
+            while True:
+                try:
+                    # Get message from queue with timeout
+                    message = client_queue.get(timeout=30)
+                    event_type = message.get('event', 'message')
+                    data = message.get('data', {})
+                    yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+                except queue.Empty:
+                    # Send heartbeat to keep connection alive
+                    yield f": heartbeat\n\n"
+        except GeneratorExit:
+            # Client disconnected
+            with SSE_LOCK:
+                if client_queue in SSE_CLIENTS:
+                    SSE_CLIENTS.remove(client_queue)
+    
+    return Response(
+        stream_with_context(event_stream()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
 
 @app.route('/api/environments')
 def api_environments():
@@ -417,6 +475,7 @@ def start_environment(env_name):
     try:
         container = client.containers.get(registry[env_name]['container_id'])
         container.start()
+        broadcast_sse('env-status', {'env_id': env_name, 'status': 'starting'})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -435,6 +494,7 @@ def stop_environment(env_name):
     try:
         container = client.containers.get(registry[env_name]['container_id'])
         container.stop()
+        broadcast_sse('env-status', {'env_id': env_name, 'status': 'exited'})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
