@@ -76,11 +76,11 @@ RUN mkdir -p /home/coder/.vscode-server/data \
 # Pre-install VS Code extensions in the image to speed up container startup
 # This avoids reinstalling extensions every time a container starts
 RUN /usr/bin/code --install-extension github.copilot && \
-    /usr/bin/code --install-extension github.copilot-chat && \
-    /usr/bin/code --install-extension ms-vscode-remote.remote-ssh && \
-    /usr/bin/code --install-extension vscode.markdown-language-features && \
-    /usr/bin/code --install-extension vscode.markdown-math && \
-    echo "Extensions pre-installed in image"
+  /usr/bin/code --install-extension github.copilot-chat && \
+  /usr/bin/code --install-extension ms-vscode-remote.remote-ssh && \
+  /usr/bin/code --install-extension vscode.markdown-language-features && \
+  /usr/bin/code --install-extension vscode.markdown-math && \
+  echo "Extensions pre-installed in image"
 
 # Pre-configure VS Code settings (MCP configuration)
 COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
