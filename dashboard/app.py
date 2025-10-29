@@ -813,6 +813,72 @@ def cleanup_orphans():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/system/recover-registry', methods=['POST'])
+def recover_registry():
+    """Rebuild registry from existing containers and volumes"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    try:
+        registry = {}
+        recovered_count = 0
+        
+        # Find all containers with dev-farm label or devfarm- prefix
+        all_containers = client.containers.list(all=True)
+        
+        for container in all_containers:
+            name = container.name
+            # Skip dashboard and updater
+            if name in ['devfarm-dashboard', 'devfarm-updater']:
+                continue
+            
+            # Check if it's a devfarm environment container
+            if not name.startswith('devfarm-'):
+                continue
+            
+            # Extract environment ID from container name
+            env_id = name.replace('devfarm-', '').replace('_', '-')
+            
+            # Get container details
+            try:
+                ports = container.attrs['NetworkSettings']['Ports']
+                port = None
+                for container_port, host_bindings in (ports or {}).items():
+                    if host_bindings and '8080/tcp' in container_port:
+                        port = int(host_bindings[0]['HostPort'])
+                        break
+                
+                if not port:
+                    continue  # Skip containers without port mapping
+                
+                status = container.status
+                
+                # Add to registry
+                registry[env_id] = {
+                    'name': env_id.replace('-', ' ').title(),
+                    'container_id': container.id,
+                    'container_name': name,
+                    'port': port,
+                    'status': status,
+                    'volume_name': f'devfarm-{env_id}'
+                }
+                recovered_count += 1
+                
+            except Exception as e:
+                print(f"Error processing container {name}: {e}")
+                continue
+        
+        # Save the recovered registry
+        save_registry(registry)
+        
+        return jsonify({
+            'success': True,
+            'recovered': recovered_count,
+            'environments': registry
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 def _run_system_update_thread():
     try:
         _append_stage('init', 'starting', '🚀 Initializing system update...')
