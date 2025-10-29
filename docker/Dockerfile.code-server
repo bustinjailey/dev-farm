@@ -25,16 +25,10 @@ RUN apt-get update && apt-get install -y \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-# Add the Microsoft GPG key and repository (download, verify, then install)
-RUN mkdir -p /etc/apt/keyrings \
-  && wget -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc \
-  && gpg --dearmor < /tmp/microsoft.asc > /etc/apt/keyrings/packages.microsoft.gpg \
-  && chmod a+r /etc/apt/keyrings/packages.microsoft.gpg \
-  && rm /tmp/microsoft.asc \
-  && echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
-
-# Install official VS Code CLI (code)
-RUN apt-get update && apt-get install -y code \
+# Install VS Code CLI directly from .deb package (more reliable than apt repository)
+RUN wget -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64' \
+  && apt-get install -y /tmp/vscode.deb \
+  && rm /tmp/vscode.deb \
   && apt-get clean autoclean \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
