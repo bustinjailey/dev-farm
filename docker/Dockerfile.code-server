@@ -25,10 +25,12 @@ RUN apt-get update && apt-get install -y \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-# Add the Microsoft GPG key and repository (updated method for Debian Bookworm)
+# Add the Microsoft GPG key and repository (download, verify, then install)
 RUN mkdir -p /etc/apt/keyrings \
-  && wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/keyrings/packages.microsoft.gpg \
+  && wget -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc \
+  && gpg --dearmor < /tmp/microsoft.asc > /etc/apt/keyrings/packages.microsoft.gpg \
   && chmod a+r /etc/apt/keyrings/packages.microsoft.gpg \
+  && rm /tmp/microsoft.asc \
   && echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
 
 # Install official VS Code CLI (code)
