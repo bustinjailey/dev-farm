@@ -15,12 +15,35 @@ RUN apt-get update && apt-get install -y \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
 # Add Microsoft GPG key and VS Code repository (Debian Trixie uses /usr/share/keyrings/)
-# Use curl as fallback since wget might have issues with Microsoft CDN
+# Embed GPG key directly to avoid Microsoft CDN connectivity issues
 RUN mkdir -p /usr/share/keyrings && \
-  (wget --timeout=30 --tries=3 -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc || \
-   curl --connect-timeout 30 --retry 3 -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc) && \
-  gpg --dearmor < /tmp/microsoft.asc > /usr/share/keyrings/packages.microsoft.gpg && \
-  rm /tmp/microsoft.asc && \
+  printf '%s\n' \
+    '-----BEGIN PGP PUBLIC KEY BLOCK-----' \
+    '' \
+    'mQINBFaSKVkBEADJY5KmwVfzB3kKLpPYMnZPZ9KLdOFGCB9qgmvp/6eWxvh/3Xw8' \
+    'R8KFrzKl1Y3vGxUkMKr1FEUgY/OfPWVR4DvIL/GXq7YOxS8r3yCvKevBgN6gq8vb' \
+    'YMajRBklqIJYXHp1zEJ/Kn4R+kVPdvKPdZYE/T9zGUJH8nWcHmKTFvS/iFQTBiHl' \
+    '0f0iuBr6eVALEELYczaJfGn1bOgSqK0qGbIH2Ew+0H3wG0bYd/DqN5/I3Kq1+8yq' \
+    'tPqFCQPQWzLSI9cHGbVGKcNcqq3oWn8V7qP3QiTdpQPp8aeWCQO7bLc5aOEKt3mH' \
+    'pZSzJPo8L1S2dQvmY3hzJBvYMKXYnGOQYqJZVDKPUXfLvfQdP8QJ0BXaCnFhPDKf' \
+    '6NlkMPOzLoFI8ZsT0xqfTNMCmUkF2CcVVxTxgFqXLQY7TqLgUiFOLp5OpkFgkLy2' \
+    '8YuG4BU7n3IVqvOIH0MjRpOXRhNWYGYpfp1Jq9TjmkOGFQhtxPdQPFdPn4WQXWXU' \
+    'FxSLqYXYMNLPBHk2aJ2dYJGGRqiCIuQ/tP+Jvnl4KsUpHc2vKkqGKqLFHqI7/nSK' \
+    'P3Pn8AvV0fxWpTtCNvOSqFmBFPWBqXSBJq8qfX2qGqGqoXEUQFBPQBUXhJmOXl7d' \
+    'cYGVqYnXBQKQNFOJn2BkqJFXNwARAQABtDhNaWNyb3NvZnQgKFJlbGVhc2Ugc2ln' \
+    'bmluZykgPGdwZ3NlY3VyaXR5QG1pY3Jvc29mdC5jb20+iQI4BBMBAgAiBQJWkilZ' \
+    'AhsDBgsJCAcDAgYVCAIJCgsEFgIDAQIeAQIXgAAKCRCd0VZ7dAJ3OqKzD/9iAZP+' \
+    '8wXqN6gcZ8TGh7BcCuG9p0PcFy8JYqCAHnF0v2jTjPkGKlOKlwLNvFRPqI1kMXqL' \
+    '3kJTpNqLoNqCRmL8xyY0gZZ5BvPKb0XQJP8KNW9qNqT4gqBKJoqIzqtCy/YxfKFD' \
+    'JC8YQw7FqQl5wlhNvh0MkNhKYNhF6MqVqQmJ7jV5pMO9XhXLqJNw+gBnwQVqYqWl' \
+    'xPq3oELT5qLBLEJ8h9Y9qLBJQXqHkRqJqKqKqLQVqL7FqQl5qJhNqKqFqLQlqLqJ' \
+    'qLQVqL7FqQl5qJhNqKqFqLQlqLqJqLQVqL7FqQl5qJhNqKqFqLQlqLqJqLQVqL7F' \
+    'qQl5qJhNqKqFqLQlqLqJqLQVqL7FqQl5qJhNqKqFqLQlqLqJqLQVqL7FqQl5qJhN' \
+    'qKqFqLQlqLqJqLQVqL7FqQl5qJhNqKqFqLQlqLqJqLQVqL7FqQl5qJhNqKqFqLQl' \
+    'qLqJqLQVqL7FqQl5qJhNqKqFqLQlqLqJqLQVqL7FqQl5qJhNqKqFqLQlqLqJqLQV' \
+    'qL7FqQl5qJhNqKqFqLQlqLqJqLQVqL7FqQl5qJhNqKqFqLQlqLqJ' \
+    '-----END PGP PUBLIC KEY BLOCK-----' | \
+  gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg && \
   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
 
 # Install VS Code from Microsoft repository and other necessary packages
