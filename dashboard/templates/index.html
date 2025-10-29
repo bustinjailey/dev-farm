@@ -1107,6 +1107,9 @@
           return;
         }
 
+        // Wait 500ms for backend thread to initialize before starting to poll
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Poll for progress with new detailed stages
         if (updatePoll) clearInterval(updatePoll);
         const pollStart = Date.now();
@@ -1233,7 +1236,7 @@
                 closeBtn.style.display = 'inline-block';
               } else {
                 // Only show "did not start" error if we waited and got nothing
-                if (Date.now() - pollStart > 5000) {
+                if (Date.now() - pollStart > 10000) {
                   clearInterval(updatePoll);
                   icon1.textContent = '❌';
                   msg1.textContent = 'Update did not start. Please try again.';

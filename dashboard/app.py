@@ -990,13 +990,16 @@ def _run_system_update_thread():
             _append_stage('version_check', 'error', f'⚠️ Could not determine current version: {e.stderr}')
             current_sha = 'unknown'
 
-        # Clean any local changes that might block pull
-        _append_stage('git_clean', 'starting', '🧹 Resetting any local changes...')
+        # Clean any local changes that might block pull - stash everything
+        _append_stage('git_clean', 'starting', '🧹 Stashing local changes...')
         try:
+            # Stash any uncommitted changes (including untracked files)
+            subprocess.run(['git', 'stash', 'push', '-u', '-m', 'Auto-stash before update'], capture_output=True, text=True, cwd=REPO_PATH)
+            # Hard reset to ensure clean state
             subprocess.run(['git', 'reset', '--hard', 'HEAD'], check=True, capture_output=True, text=True, cwd=REPO_PATH)
             _append_stage('git_clean', 'success', '✅ Working directory clean')
         except subprocess.CalledProcessError as e:
-            _append_stage('git_clean', 'warning', f'⚠️ Reset warning: {e.stderr.strip() if e.stderr else "unknown"}')
+            _append_stage('git_clean', 'warning', f'⚠️ Clean warning (continuing): {e.stderr.strip() if e.stderr else "unknown"}')
 
         # Fetch latest changes
         _append_stage('git_fetch', 'starting', '📥 Fetching latest changes from GitHub...')
@@ -1128,10 +1131,11 @@ def _run_system_update_thread():
             for f in files_changed
         )
         
-        _append_stage('check_changes', 'success', f'✅ Code-server rebuild: {"YES" if codeserver_changed else "NO"}, Dashboard rebuild: {"YES" if dashboard_changed else "NO"}')
+        _append_stage('check_changes', 'success', f'✅ Code-server changes: {"YES" if codeserver_changed else "NO"}, Dashboard changes: {"YES" if dashboard_changed else "NO"}')
+        _append_stage('check_changes', 'info', '📦 Rebuilding both images to ensure everything is up to date...')
 
-        # Stage 3: Rebuild code-server if needed
-        if codeserver_changed:
+        # Stage 3: Always rebuild code-server to ensure latest updates
+        if True:  # Always rebuild
             _append_stage('rebuild_codeserver', 'starting', '🔨 Rebuilding code-server image...')
             try:
                 # Ensure updater exists
@@ -1172,14 +1176,9 @@ def _run_system_update_thread():
                 _append_stage('rebuild_codeserver', 'error', f'❌ Error: {str(e)}')
                 _set_update_result(False, f'Code-server rebuild error: {str(e)}')
                 return
-        else:
-            _append_stage('rebuild_codeserver', 'skipped', '⏭️ No code-server changes detected')
 
         # Stage 4: Always rebuild and restart dashboard (it's quick and ensures latest code)
-        if dashboard_changed:
-            _append_stage('rebuild_dashboard', 'starting', '🔨 Rebuilding dashboard image...')
-        else:
-            _append_stage('rebuild_dashboard', 'starting', '🔨 Rebuilding dashboard to ensure latest code...')
+        _append_stage('rebuild_dashboard', 'starting', '🔨 Rebuilding dashboard image...')
         
         try:
             # Ensure updater exists and is running
