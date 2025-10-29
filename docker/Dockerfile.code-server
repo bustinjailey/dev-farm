@@ -1,28 +1,23 @@
-# Use Debian bookworm-slim as the base image (stable and lightweight)
-FROM debian:bookworm-slim
+# Use Debian Trixie (latest stable) as the base image
+FROM debian:trixie-slim
 
 USER root
 
-# Install necessary packages including gnupg2 for GPG key handling
+# Install necessary packages including gpg for GPG key handling
 RUN apt-get update && apt-get install -y \
   apt-transport-https \
   wget \
   curl \
-  gnupg2 \
+  gpg \
   ca-certificates \
   && apt-get clean autoclean \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-# Add Microsoft GPG key and VS Code repository (following nerasse/my-code-server approach)
-# Split into separate steps for better error visibility
-RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/packages.microsoft.gpg
+# Add Microsoft GPG key and VS Code repository (Debian Trixie uses /usr/share/keyrings/)
+RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg
 
-RUN install -D -o root -g root -m 644 /tmp/packages.microsoft.gpg /etc/apt/trusted.gpg.d/packages.microsoft.gpg
-
-RUN echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
-
-RUN rm -f /tmp/packages.microsoft.gpg
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
 
 # Install VS Code from Microsoft repository and other necessary packages
 RUN apt-get update && apt-get install -y \
