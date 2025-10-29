@@ -1084,6 +1084,9 @@ def _run_system_update_thread():
 
             def delayed_recreate():
                 time.sleep(3)  # Give time for status response to be sent
+                dashboard = None
+                dashboard_config = None
+                
                 try:
                     # Get the existing dashboard container to extract its configuration
                     dashboard = client.containers.get('devfarm-dashboard')
@@ -1092,49 +1095,93 @@ def _run_system_update_thread():
                     volumes = dashboard.attrs['HostConfig']['Binds']
                     env_vars = dashboard.attrs['Config']['Env']
                     
+                    # Save configuration for potential rollback
+                    dashboard_config = {
+                        'image': dashboard.image.tags[0] if dashboard.image.tags else 'dev-farm-dashboard:latest',
+                        'ports': {},
+                        'volumes': {},
+                        'env_vars': env_vars,
+                        'network': networks[0] if networks else 'devfarm'
+                    }
+                    
+                    # Parse port bindings
+                    for container_port, host_configs in port_bindings.items():
+                        if host_configs:
+                            dashboard_config['ports'][container_port] = int(host_configs[0]['HostPort'])
+                    
+                    # Parse volume bindings
+                    for bind in volumes or []:
+                        parts = bind.split(':')
+                        if len(parts) >= 2:
+                            dashboard_config['volumes'][parts[0]] = {'bind': parts[1], 'mode': parts[2] if len(parts) > 2 else 'rw'}
+                    
                     # Stop the old container gracefully
                     dashboard.stop(timeout=10)
                     time.sleep(2)  # Wait for full cleanup
                     dashboard.remove()
                     time.sleep(1)  # Wait for port release
                     
-                    # Recreate from new image with same configuration
-                    # Parse port bindings
-                    ports = {}
-                    for container_port, host_configs in port_bindings.items():
-                        if host_configs:
-                            ports[container_port] = int(host_configs[0]['HostPort'])
-                    
-                    # Parse volume bindings
-                    volume_dict = {}
-                    for bind in volumes or []:
-                        parts = bind.split(':')
-                        if len(parts) >= 2:
-                            volume_dict[parts[0]] = {'bind': parts[1], 'mode': parts[2] if len(parts) > 2 else 'rw'}
-                    
-                    # Create new container from updated image
-                    new_container = client.containers.run(
-                        'dev-farm-dashboard:latest',
-                        name='devfarm-dashboard',
-                        detach=True,
-                        ports=ports,
-                        volumes=volume_dict,
-                        environment=env_vars,
-                        network=networks[0] if networks else 'devfarm',
-                        restart_policy={'Name': 'unless-stopped'}
-                    )
-                    
-                    # Wait for container to be healthy (give it up to 30 seconds)
-                    for i in range(30):
-                        new_container.reload()
-                        if new_container.status == 'running':
-                            break
-                        time.sleep(1)
+                    # Try to create new container from updated image
+                    try:
+                        new_container = client.containers.run(
+                            'dev-farm-dashboard:latest',
+                            name='devfarm-dashboard',
+                            detach=True,
+                            ports=dashboard_config['ports'],
+                            volumes=dashboard_config['volumes'],
+                            environment=dashboard_config['env_vars'],
+                            network=dashboard_config['network'],
+                            restart_policy={'Name': 'unless-stopped'}
+                        )
+                        
+                        # Wait for container to be healthy (give it up to 30 seconds)
+                        for i in range(30):
+                            new_container.reload()
+                            if new_container.status == 'running':
+                                print("Dashboard successfully recreated and running")
+                                break
+                            time.sleep(1)
+                        else:
+                            print("Warning: Dashboard container started but may not be fully healthy")
+                            
+                    except Exception as create_error:
+                        print(f"Failed to create new dashboard container: {create_error}")
+                        # Try to recreate with the old image as fallback
+                        print(f"Attempting fallback with image: {dashboard_config['image']}")
+                        client.containers.run(
+                            dashboard_config['image'],
+                            name='devfarm-dashboard',
+                            detach=True,
+                            ports=dashboard_config['ports'],
+                            volumes=dashboard_config['volumes'],
+                            environment=dashboard_config['env_vars'],
+                            network=dashboard_config['network'],
+                            restart_policy={'Name': 'unless-stopped'}
+                        )
+                        print("Dashboard recreated with fallback image")
                     
                 except Exception as e:
-                    print(f"Error during dashboard recreation: {e}")
+                    print(f"Critical error during dashboard recreation: {e}")
                     import traceback
                     traceback.print_exc()
+                    # If we have the config and the container was stopped, try to restart with old image
+                    if dashboard_config:
+                        try:
+                            print("Attempting emergency recovery...")
+                            client.containers.run(
+                                dashboard_config.get('image', 'dev-farm-dashboard:latest'),
+                                name='devfarm-dashboard',
+                                detach=True,
+                                ports=dashboard_config['ports'],
+                                volumes=dashboard_config['volumes'],
+                                environment=dashboard_config['env_vars'],
+                                network=dashboard_config['network'],
+                                restart_policy={'Name': 'unless-stopped'}
+                            )
+                            print("Emergency recovery successful")
+                        except Exception as recovery_error:
+                            print(f"Emergency recovery failed: {recovery_error}")
+                            print("Dashboard is DOWN - manual intervention required")
 
             threading.Thread(target=delayed_recreate, daemon=True).start()
             _append_stage('restart_dashboard', 'success', '✅ Dashboard recreation initiated (reloading in 5s...)')
