@@ -1223,7 +1223,7 @@ def _run_system_update_thread():
                 
                 _append_stage('rebuild_codeserver', 'progress', '⏳ Building... (this may take 1-2 minutes)')
                 exec_result = updater.exec_run(
-                    cmd=['sh', '-c', f'cd {REPO_PATH}/docker && docker build --no-cache -t dev-farm/code-server:latest -f Dockerfile.code-server .'],
+                    cmd=['sh', '-c', f'docker build --no-cache -t dev-farm/code-server:latest -f {REPO_PATH}/docker/Dockerfile.code-server {REPO_PATH}/docker'],
                     demux=False
                 )
                 if exec_result.exit_code == 0:
