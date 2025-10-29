@@ -1268,6 +1268,11 @@
 
     // Set up Server-Sent Events for real-time updates
     let eventSource = null;
+    let refreshTimeout = null;
+    let isRefreshing = false;
+    let reconnectAttempts = 0;
+    let reconnectTimeout = null;
+    
     function setupSSE() {
       if (eventSource) {
         eventSource.close();
@@ -1277,6 +1282,7 @@
 
       eventSource.onopen = () => {
         console.log('SSE connected');
+        reconnectAttempts = 0; // Reset on successful connection
       };
 
       eventSource.addEventListener('registry-update', (e) => {
@@ -1305,8 +1311,9 @@
             openBtn.textContent = '⏳ Starting...';
           }
 
-          // Refresh full state after a moment to get accurate info
-          setTimeout(refreshEnvironments, 2000);
+          // Debounced refresh - cancel previous timeout if exists
+          if (refreshTimeout) clearTimeout(refreshTimeout);
+          refreshTimeout = setTimeout(refreshEnvironments, 2000);
         } catch (err) {
           console.error('Error handling env-status event:', err);
         }
@@ -1315,12 +1322,31 @@
       eventSource.onerror = (err) => {
         console.error('SSE error:', err);
         eventSource.close();
-        // Reconnect after 5 seconds
-        setTimeout(setupSSE, 5000);
+        
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+        console.log(`SSE will reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
+        
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(setupSSE, delay);
       };
     }
 
     setupSSE();
+
+    // Clean up SSE connection when page is unloading
+    window.addEventListener('beforeunload', () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    });
 
     // Fallback: Still check system status periodically for updates not covered by SSE
     setInterval(() => {
@@ -1333,6 +1359,11 @@
 
     // Lightweight environment list refresh to reflect starting->running
     async function refreshEnvironments() {
+      if (isRefreshing) {
+        console.log('Refresh already in progress, skipping');
+        return;
+      }
+      isRefreshing = true;
       try {
         const resp = await fetch('/api/environments');
         if (!resp.ok) {
@@ -1373,6 +1404,8 @@
         }
       } catch (e) {
         console.warn('Failed to refresh environments', e);
+      } finally {
+        isRefreshing = false;
       }
     }
 
