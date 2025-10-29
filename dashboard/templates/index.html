@@ -1171,8 +1171,11 @@
               closeBtn.disabled = false;
             } else if (!status.running) {
               // Update finished running (either success or failure handled above)
-              // If we have stages, don't show error - the stages speak for themselves
-              if (!status.stages || status.stages.length === 0) {
+              // If we have stages, the update ran - stop polling
+              if (status.stages && status.stages.length > 0) {
+                clearInterval(updatePoll);
+                closeBtn.disabled = false;
+              } else {
                 // Only show "did not start" error if we waited and got nothing
                 if (Date.now() - pollStart > 5000) {
                   clearInterval(updatePoll);
@@ -1180,10 +1183,11 @@
                   msg1.textContent = 'Update did not start. Please try again.';
                   closeBtn.disabled = false;
                 }
-              } else {
-                // We have stages but update finished - enable close button
-                closeBtn.disabled = false;
               }
+            }
+            // While update is running, keep the close button disabled
+            if (status.running && closeBtn.disabled === false) {
+              closeBtn.disabled = true;
             }
           } catch (e) {
             console.error('Update status poll failed:', e);
