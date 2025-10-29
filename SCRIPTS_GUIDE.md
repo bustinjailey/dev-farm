@@ -15,22 +15,27 @@ This is the **ONLY** script you need for managing Dev Farm. All overlapping scri
 ### Available Commands
 
 #### Initial Setup
+
 ```bash
 ./scripts/devfarm.sh setup
 ```
+
 - Builds the code-server image
 - Creates Docker network
 - Starts the dashboard
 - **Use this for first-time setup**
 
 #### Build Commands
+
 ```bash
 ./scripts/devfarm.sh build
 ```
+
 - Rebuilds the code-server image
 - **Use this after updating Dockerfile.code-server**
 
 #### Dashboard Management
+
 ```bash
 ./scripts/devfarm.sh start    # Start dashboard
 ./scripts/devfarm.sh stop     # Stop dashboard
@@ -39,6 +44,7 @@ This is the **ONLY** script you need for managing Dev Farm. All overlapping scri
 ```
 
 #### Environment Management
+
 ```bash
 ./scripts/devfarm.sh create <name> [project]   # Create new environment
 ./scripts/devfarm.sh delete <name>             # Delete environment
@@ -46,6 +52,7 @@ This is the **ONLY** script you need for managing Dev Farm. All overlapping scri
 ```
 
 **Examples:**
+
 ```bash
 ./scripts/devfarm.sh create my-python-app python
 ./scripts/devfarm.sh create my-web-project nodejs
@@ -59,6 +66,7 @@ This is the **ONLY** script you need for managing Dev Farm. All overlapping scri
 When you pull changes from GitHub, use the dashboard's built-in **self-update feature**:
 
 1. **Via Dashboard UI** (Recommended):
+
    - Go to http://localhost:5000
    - Click the "Update" button in the UI
    - The system will automatically:
@@ -75,6 +83,7 @@ When you pull changes from GitHub, use the dashboard's built-in **self-update fe
 ### Why Not a Separate Upgrade Script?
 
 The self-updater in the dashboard is superior because:
+
 - ✅ Handles git operations safely (stash, pull, restore)
 - ✅ Always rebuilds both dashboard and code-server images
 - ✅ Manages container lifecycle correctly (stop → remove → create → start)
@@ -89,6 +98,7 @@ The self-updater in the dashboard is superior because:
 ### GitHub Token Setup
 
 **Option 1: Using .env file** (Recommended)
+
 ```bash
 cp .env.example .env
 nano .env  # Add your GITHUB_TOKEN
@@ -96,13 +106,16 @@ docker compose restart dashboard
 ```
 
 **Option 2: Using environment variables**
+
 ```bash
 export GITHUB_TOKEN="your_token_here"
 ./scripts/devfarm.sh restart
 ```
 
 ### GitHub PAT Scopes Required
+
 Your GitHub Personal Access Token needs:
+
 - `repo` - Full repository access
 - `read:org` - Read organization data
 - `workflow` - Update GitHub Actions
@@ -115,11 +128,13 @@ Get a token at: https://github.com/settings/tokens/new
 For deploying to a Proxmox LXC container, use the dashboard's deployment features or manually:
 
 1. **Create LXC container on Proxmox** with:
+
    - Nesting enabled (`features: nesting=1`)
    - At least 4 cores, 8GB RAM
    - Ubuntu 22.04 or 24.04 template
 
 2. **Install Docker inside LXC**:
+
    ```bash
    curl -fsSL https://get.docker.com | sh
    apt-get install -y docker-compose-plugin
@@ -139,44 +154,47 @@ For deploying to a Proxmox LXC container, use the dashboard's deployment feature
 
 The following scripts have been **removed** because they duplicated functionality:
 
-| Removed Script | Replacement |
-|----------------|-------------|
-| `scripts/upgrade.sh` | Dashboard self-updater (click "Update" button) |
-| `scripts/deploy-lxc.sh` | Manual deployment instructions above |
-| `scripts/deploy-lxc-auto.sh` | Manual deployment instructions above |
-| `scripts/deploy-to-lxc.sh` | Manual deployment instructions above |
-| `scripts/update-config.sh` | Edit `.env` directly + `docker compose restart` |
+| Removed Script                 | Replacement                                     |
+| ------------------------------ | ----------------------------------------------- |
+| `scripts/upgrade.sh`           | Dashboard self-updater (click "Update" button)  |
+| `scripts/deploy-lxc.sh`        | Manual deployment instructions above            |
+| `scripts/deploy-lxc-auto.sh`   | Manual deployment instructions above            |
+| `scripts/deploy-to-lxc.sh`     | Manual deployment instructions above            |
+| `scripts/update-config.sh`     | Edit `.env` directly + `docker compose restart` |
 | `scripts/setup-github-auth.sh` | Edit `.env` directly + `docker compose restart` |
-| `scripts/setup-secrets.sh` | Edit `.env` directly + `docker compose restart` |
-| `start.sh` | `./scripts/devfarm.sh start` |
-| `test-setup.sh` | Not needed - setup is simpler now |
+| `scripts/setup-secrets.sh`     | Edit `.env` directly + `docker compose restart` |
+| `start.sh`                     | `./scripts/devfarm.sh start`                    |
+| `test-setup.sh`                | Not needed - setup is simpler now               |
 
 ## Quick Reference
 
-| Task | Command |
-|------|---------|
-| First time setup | `./scripts/devfarm.sh setup` |
-| Update from GitHub | Use dashboard "Update" button |
+| Task               | Command                              |
+| ------------------ | ------------------------------------ |
+| First time setup   | `./scripts/devfarm.sh setup`         |
+| Update from GitHub | Use dashboard "Update" button        |
 | Create environment | `./scripts/devfarm.sh create <name>` |
-| List environments | `./scripts/devfarm.sh list` |
-| View logs | `./scripts/devfarm.sh logs` |
-| Configure GitHub | Edit `.env` + restart |
-| Restart dashboard | `./scripts/devfarm.sh restart` |
+| List environments  | `./scripts/devfarm.sh list`          |
+| View logs          | `./scripts/devfarm.sh logs`          |
+| Configure GitHub   | Edit `.env` + restart                |
+| Restart dashboard  | `./scripts/devfarm.sh restart`       |
 
 ## Troubleshooting
 
 ### Dashboard won't start
+
 ```bash
 docker compose logs dashboard
 ./scripts/devfarm.sh restart
 ```
 
 ### Environment stuck in "STARTING"
+
 - Wait 60 seconds for healthcheck
 - Check logs: `docker logs <container-name>`
 - Verify code-server image: `docker images | grep code-server`
 
 ### GitHub auth not working
+
 ```bash
 # Check .env file
 cat .env | grep GITHUB_TOKEN
@@ -186,6 +204,7 @@ docker compose restart dashboard
 ```
 
 ### Update failed
+
 ```bash
 # View update logs
 docker logs devfarm-dashboard

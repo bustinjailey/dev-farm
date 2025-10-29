@@ -1,0 +1,4 @@
+# Ignore core dump files in workspace
+core.*
+*.core
+vgcore.*

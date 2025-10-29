@@ -3,7 +3,7 @@ FROM debian:trixie-slim
 
 USER root
 
-# Install necessary packages
+# Install necessary packages including locales to fix locale warnings
 RUN apt-get update && apt-get install -y \
   wget \
   curl \
@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
   sshfs \
   fuse3 \
   sshpass \
+  locales \
+  && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
+  && locale-gen \
   && apt-get clean autoclean \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/

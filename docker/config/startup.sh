@@ -1,10 +1,29 @@
 #!/bin/bash
 set -e
 
+# Disable core dumps to prevent large core.* files in workspace
+ulimit -c 0
+
 ### Ensure workspace directory exists and is owned by coder
 echo "Preparing workspace directory..."
 mkdir -p /home/coder/workspace || true
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
+
+# Create .gitignore for workspace to exclude core dumps and other unwanted files
+cat > /home/coder/workspace/.gitignore <<'GITIGNORE'
+# Core dumps and debug files
+core.*
+*.core
+vgcore.*
+
+# VS Code workspace files (user-specific)
+.vscode/
+.devfarm/
+
+# OS files
+.DS_Store
+Thumbs.db
+GITIGNORE
 
 echo "Applying VS Code workspace settings..."
 # VS Code Server uses ~/.vscode-server/data/ for settings
