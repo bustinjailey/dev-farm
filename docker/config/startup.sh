@@ -125,13 +125,12 @@ EOWELCOME
     echo "WELCOME.md created at $WELCOME_PATH"
 fi
 
-# Log helper
-LOG_FILE="/home/coder/workspace/STARTUP_LOG.txt"
+# Log helper - store in .devfarm to keep workspace root clean
+LOG_FILE="/home/coder/workspace/.devfarm/startup.log"
+mkdir -p /home/coder/workspace/.devfarm
 {
     echo "==== Dev Farm startup $(date -Is) ===="
 } >> "$LOG_FILE" 2>/dev/null || true
-
-# (Removed Open Remote - SSH extension installation; switching to server-side SSHFS for SSH mode)
 
 # Setup GitHub authentication if token is provided
 if [ -n "${GITHUB_TOKEN}" ]; then
@@ -584,7 +583,7 @@ The system detected that SFTP was not enabled on the remote host and attempted t
    \`\`\`bash
    ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "grep sftp /etc/ssh/sshd_config"
    \`\`\`
-5. **Check Logs**: See STARTUP_LOG.txt for detailed error messages
+5. **Check Logs**: See .devfarm/startup.log for detailed error messages
 
 ## Current Status
 Your workspace is running with **local storage only**. Once SFTP is enabled, recreate this environment to mount the remote filesystem at \`workspace/remote/\`.
@@ -615,7 +614,7 @@ We attempted to mount **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** to \`workspace/rem
    ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST}
    \`\`\`
 2. **Verify Authentication**: Ensure your SSH key or password is correct
-3. **Check Logs**: See STARTUP_LOG.txt for detailed error messages
+3. **Check Logs**: See .devfarm/startup.log for detailed error messages
 4. **Manual SFTP Setup** (if needed): SSH to remote host and run:
    \`\`\`bash
    echo 'Subsystem sftp /usr/lib/openssh/sftp-server' | sudo tee -a /etc/ssh/sshd_config
@@ -651,7 +650,7 @@ EOF
 
 The remote filesystem is being mounted in the background...
 
-This may take a few moments. Check this file again in a moment, or see STARTUP_LOG.txt for details.
+This may take a few moments. Check this file again in a moment, or see .devfarm/startup.log for details.
 
 **VS Code is ready to use!** The mount process won't block your workspace.
 EOF
@@ -679,10 +678,6 @@ cat > /home/coder/.vscode-server/data/User/keybindings.json <<'EOFKEYS'
   }
 ]
 EOFKEYS
-
-# Persist a snapshot of installed extensions for quick troubleshooting
-echo "\nInstalled extensions after setup:" | tee -a "$LOG_FILE"
-/usr/bin/code --list-extensions 2>&1 | tee -a "$LOG_FILE" || true
 
 # Start VS Code Server and open WELCOME.md in preview mode on first run
 # Start VS Code Server with workspace name: ${WORKSPACE_NAME:-workspace}
