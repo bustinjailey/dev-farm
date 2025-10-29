@@ -15,9 +15,10 @@ RUN apt-get update && apt-get install -y \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
 # Add Microsoft GPG key and VS Code repository (Debian Trixie uses /usr/share/keyrings/)
-# Download to file first with timeout, then process it
+# Use curl as fallback since wget might have issues with Microsoft CDN
 RUN mkdir -p /usr/share/keyrings && \
-  wget --timeout=30 --tries=3 -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc && \
+  (wget --timeout=30 --tries=3 -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc || \
+   curl --connect-timeout 30 --retry 3 -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc) && \
   gpg --dearmor < /tmp/microsoft.asc > /usr/share/keyrings/packages.microsoft.gpg && \
   rm /tmp/microsoft.asc && \
   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
