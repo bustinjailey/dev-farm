@@ -682,11 +682,10 @@ fi
 
 # Start official VS Code Server with serve-web command
 # Accept server license terms automatically
-# Disable telemetry and update checks to reduce network noise and log clutter
+# Disable telemetry to reduce network noise and log clutter
 # Note: serve-web doesn't accept file paths as arguments
 # The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
 exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 \
   --without-connection-token \
   --accept-server-license-terms \
-  --disable-telemetry \
-  --disable-update-check
+  --disable-telemetry
