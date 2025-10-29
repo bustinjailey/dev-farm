@@ -1222,16 +1222,37 @@ def _run_system_update_thread():
                 try:
                     print("Restarting dashboard using docker compose...")
                     
-                    # Use docker compose (V2) to recreate the dashboard service
-                    # --no-build: We already built the image above, don't rebuild
-                    # --force-recreate: Ensure fresh container with new image
-                    # This ensures all compose labels and healthchecks are properly maintained
-                    result = subprocess.run(
-                        ['docker', 'compose', 'up', '-d', '--no-build', '--force-recreate', 'dashboard'],
+                    # Two-step approach for reliability:
+                    # 1. Stop the current dashboard
+                    print("Step 1: Stopping current dashboard...")
+                    stop_result = subprocess.run(
+                        ['docker', 'compose', 'stop', 'dashboard'],
                         cwd='/opt/dev-farm',
                         capture_output=True,
                         text=True,
-                        timeout=30  # Reduced since we're not building
+                        timeout=15
+                    )
+                    print(f"Stop result: {stop_result.returncode}")
+                    
+                    # 2. Remove the old container
+                    print("Step 2: Removing old container...")
+                    rm_result = subprocess.run(
+                        ['docker', 'compose', 'rm', '-f', 'dashboard'],
+                        cwd='/opt/dev-farm',
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    print(f"Remove result: {rm_result.returncode}")
+                    
+                    # 3. Start with new image (--no-build uses pre-built image)
+                    print("Step 3: Starting dashboard with new image...")
+                    result = subprocess.run(
+                        ['docker', 'compose', 'up', '-d', '--no-build', 'dashboard'],
+                        cwd='/opt/dev-farm',
+                        capture_output=True,
+                        text=True,
+                        timeout=30
                     )
                     
                     if result.returncode == 0:
@@ -1239,12 +1260,23 @@ def _run_system_update_thread():
                         print(result.stdout)
                         
                         # Wait for dashboard to be healthy
-                        print("Waiting for dashboard to become healthy...")
+                        print("Waiting for dashboard to start...")
                         for i in range(30):  # Wait up to 30 seconds
                             time.sleep(1)
                             try:
                                 dashboard = client.containers.get('devfarm-dashboard')
-                                if dashboard.status == 'running':
+                                state = dashboard.status
+                                print(f"  Check {i+1}: Status={state}")
+                                
+                                # If stuck in created state, try to start it manually
+                                if state == 'created' and i > 2:
+                                    print(f"  Container stuck in 'created' state, attempting manual start...")
+                                    dashboard.start()
+                                    time.sleep(2)
+                                    dashboard.reload()
+                                    state = dashboard.status
+                                
+                                if state == 'running':
                                     # Check health if healthcheck exists
                                     health = dashboard.attrs.get('State', {}).get('Health', {})
                                     if health and health.get('Status') == 'healthy':
@@ -1254,10 +1286,18 @@ def _run_system_update_thread():
                                         # No healthcheck, just verify it's running
                                         print(f"Dashboard is running (no healthcheck) after {i+1} seconds")
                                         break
-                            except:
-                                pass
+                            except Exception as e:
+                                print(f"  Check {i+1}: Error - {e}")
                         else:
                             print("WARNING: Dashboard may not be fully healthy yet")
+                            # Try one final manual start attempt
+                            try:
+                                dashboard = client.containers.get('devfarm-dashboard')
+                                if dashboard.status == 'created':
+                                    print("FINAL ATTEMPT: Manually starting dashboard...")
+                                    dashboard.start()
+                            except:
+                                pass
                     else:
                         print(f"docker compose restart failed with code {result.returncode}")
                         print(f"stdout: {result.stdout}")
