@@ -1084,104 +1084,53 @@ def _run_system_update_thread():
 
             def delayed_recreate():
                 time.sleep(3)  # Give time for status response to be sent
-                dashboard = None
-                dashboard_config = None
                 
                 try:
-                    # Get the existing dashboard container to extract its configuration
-                    dashboard = client.containers.get('devfarm-dashboard')
-                    port_bindings = dashboard.attrs['HostConfig']['PortBindings']
-                    networks = list(dashboard.attrs['NetworkSettings']['Networks'].keys())
-                    volumes = dashboard.attrs['HostConfig']['Binds']
-                    env_vars = dashboard.attrs['Config']['Env']
+                    print("Restarting dashboard using docker compose...")
                     
-                    # Save configuration for potential rollback
-                    dashboard_config = {
-                        'image': dashboard.image.tags[0] if dashboard.image.tags else 'dev-farm-dashboard:latest',
-                        'ports': {},
-                        'volumes': {},
-                        'env_vars': env_vars,
-                        'network': networks[0] if networks else 'devfarm'
-                    }
+                    # Use docker compose (V2) to recreate the dashboard service
+                    # This ensures all compose labels and healthchecks are properly maintained
+                    result = subprocess.run(
+                        ['docker', 'compose', 'up', '-d', '--force-recreate', 'dashboard'],
+                        cwd='/opt/dev-farm',
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
                     
-                    # Parse port bindings
-                    for container_port, host_configs in port_bindings.items():
-                        if host_configs:
-                            dashboard_config['ports'][container_port] = int(host_configs[0]['HostPort'])
-                    
-                    # Parse volume bindings
-                    for bind in volumes or []:
-                        parts = bind.split(':')
-                        if len(parts) >= 2:
-                            dashboard_config['volumes'][parts[0]] = {'bind': parts[1], 'mode': parts[2] if len(parts) > 2 else 'rw'}
-                    
-                    # Stop the old container gracefully
-                    dashboard.stop(timeout=10)
-                    time.sleep(2)  # Wait for full cleanup
-                    dashboard.remove()
-                    time.sleep(1)  # Wait for port release
-                    
-                    # Try to create new container from updated image
-                    try:
-                        new_container = client.containers.run(
-                            'dev-farm-dashboard:latest',
-                            name='devfarm-dashboard',
-                            detach=True,
-                            ports=dashboard_config['ports'],
-                            volumes=dashboard_config['volumes'],
-                            environment=dashboard_config['env_vars'],
-                            network=dashboard_config['network'],
-                            restart_policy={'Name': 'unless-stopped'}
+                    if result.returncode == 0:
+                        print("Dashboard recreated successfully via docker compose")
+                        print(result.stdout)
+                    else:
+                        print(f"docker compose restart failed with code {result.returncode}")
+                        print(f"stdout: {result.stdout}")
+                        print(f"stderr: {result.stderr}")
+                        
+                        # Fallback: try docker compose restart (less disruptive)
+                        print("Attempting fallback with docker compose restart...")
+                        fallback_result = subprocess.run(
+                            ['docker', 'compose', 'restart', 'dashboard'],
+                            cwd='/opt/dev-farm',
+                            capture_output=True,
+                            text=True,
+                            timeout=30
                         )
                         
-                        # Wait for container to be healthy (give it up to 30 seconds)
-                        for i in range(30):
-                            new_container.reload()
-                            if new_container.status == 'running':
-                                print("Dashboard successfully recreated and running")
-                                break
-                            time.sleep(1)
+                        if fallback_result.returncode == 0:
+                            print("Dashboard restarted successfully via docker compose restart")
                         else:
-                            print("Warning: Dashboard container started but may not be fully healthy")
-                            
-                    except Exception as create_error:
-                        print(f"Failed to create new dashboard container: {create_error}")
-                        # Try to recreate with the old image as fallback
-                        print(f"Attempting fallback with image: {dashboard_config['image']}")
-                        client.containers.run(
-                            dashboard_config['image'],
-                            name='devfarm-dashboard',
-                            detach=True,
-                            ports=dashboard_config['ports'],
-                            volumes=dashboard_config['volumes'],
-                            environment=dashboard_config['env_vars'],
-                            network=dashboard_config['network'],
-                            restart_policy={'Name': 'unless-stopped'}
-                        )
-                        print("Dashboard recreated with fallback image")
+                            print(f"Fallback restart also failed: {fallback_result.stderr}")
+                            raise Exception("Both docker compose up and restart failed")
                     
+                except subprocess.TimeoutExpired:
+                    print("ERROR: docker compose command timed out")
+                    print("Dashboard may be in an inconsistent state - manual intervention required")
                 except Exception as e:
                     print(f"Critical error during dashboard recreation: {e}")
                     import traceback
                     traceback.print_exc()
-                    # If we have the config and the container was stopped, try to restart with old image
-                    if dashboard_config:
-                        try:
-                            print("Attempting emergency recovery...")
-                            client.containers.run(
-                                dashboard_config.get('image', 'dev-farm-dashboard:latest'),
-                                name='devfarm-dashboard',
-                                detach=True,
-                                ports=dashboard_config['ports'],
-                                volumes=dashboard_config['volumes'],
-                                environment=dashboard_config['env_vars'],
-                                network=dashboard_config['network'],
-                                restart_policy={'Name': 'unless-stopped'}
-                            )
-                            print("Emergency recovery successful")
-                        except Exception as recovery_error:
-                            print(f"Emergency recovery failed: {recovery_error}")
-                            print("Dashboard is DOWN - manual intervention required")
+                    print("Dashboard is likely DOWN - manual intervention required")
+                    print("To recover, run: cd /opt/dev-farm && docker compose up -d dashboard")
 
             threading.Thread(target=delayed_recreate, daemon=True).start()
             _append_stage('restart_dashboard', 'success', '✅ Dashboard recreation initiated (reloading in 5s...)')
