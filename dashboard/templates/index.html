@@ -599,7 +599,11 @@
         </div>
       </div>
       <div style="text-align: center; margin-top: 20px;">
-        <button class="btn btn-cancel" onclick="hideUpdateModal()" id="updateCloseBtn" disabled>Close</button>
+        <div id="updateSpinner" style="display: none;">
+          <div class="spinner"></div>
+          <div style="margin-top: 10px; color: #666;">Update in progress...</div>
+        </div>
+        <button class="btn btn-cancel" onclick="hideUpdateModal()" id="updateCloseBtn" style="display: none;">Close</button>
       </div>
     </div>
   </div>
@@ -1031,8 +1035,11 @@
       const msg2 = document.getElementById('updateMsg2');
       const msg3 = document.getElementById('updateMsg3');
       const closeBtn = document.getElementById('updateCloseBtn');
+      const spinner = document.getElementById('updateSpinner');
 
-      closeBtn.disabled = true;
+      // Show spinner, hide close button
+      closeBtn.style.display = 'none';
+      spinner.style.display = 'block';
       stage1.style.display = 'block';
       stage2.style.display = 'none';
       stage3.style.display = 'none';
@@ -1049,7 +1056,8 @@
         if (!startResp.ok || !startData.started) {
           icon1.textContent = '❌';
           msg1.textContent = (startData && startData.message) ? startData.message : 'Failed to start update';
-          closeBtn.disabled = false;
+          spinner.style.display = 'none';
+          closeBtn.style.display = 'inline-block';
           return;
         }
 
@@ -1157,7 +1165,8 @@
             // Handle completion
             if (status.success === true) {
               clearInterval(updatePoll);
-              closeBtn.disabled = false;
+              spinner.style.display = 'none';
+              closeBtn.style.display = 'inline-block';
               // Show success message clearly
               if (!status.stages || status.stages.length === 0) {
                 icon1.textContent = '✅';
@@ -1166,28 +1175,34 @@
               // Reload after delay to ensure dashboard is fully restarted
               setTimeout(() => { window.location.reload(); }, 5000);
             } else if (status.success === false) {
-              // Update failed - stop polling and allow close
+              // Update failed - stop polling and show close button
               clearInterval(updatePoll);
-              closeBtn.disabled = false;
+              spinner.style.display = 'none';
+              closeBtn.style.display = 'inline-block';
             } else if (!status.running) {
               // Update finished running (either success or failure handled above)
               // If we have stages, the update ran - stop polling
               if (status.stages && status.stages.length > 0) {
                 clearInterval(updatePoll);
-                closeBtn.disabled = false;
+                spinner.style.display = 'none';
+                closeBtn.style.display = 'inline-block';
               } else {
                 // Only show "did not start" error if we waited and got nothing
                 if (Date.now() - pollStart > 5000) {
                   clearInterval(updatePoll);
                   icon1.textContent = '❌';
                   msg1.textContent = 'Update did not start. Please try again.';
-                  closeBtn.disabled = false;
+                  spinner.style.display = 'none';
+                  closeBtn.style.display = 'inline-block';
                 }
               }
             }
-            // While update is running, keep the close button disabled
-            if (status.running && closeBtn.disabled === false) {
-              closeBtn.disabled = true;
+            // While update is running, ensure spinner is shown and button is hidden
+            if (status.running) {
+              if (spinner.style.display !== 'block') {
+                spinner.style.display = 'block';
+                closeBtn.style.display = 'none';
+              }
             }
           } catch (e) {
             console.error('Update status poll failed:', e);
@@ -1196,7 +1211,8 @@
       } catch (error) {
         icon1.textContent = '❌';
         msg1.textContent = 'Error: ' + error.message;
-        closeBtn.disabled = false;
+        spinner.style.display = 'none';
+        closeBtn.style.display = 'inline-block';
       }
     }
 
