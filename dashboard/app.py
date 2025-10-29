@@ -331,7 +331,7 @@ def api_environments():
             try:
                 container = client.containers.get(env_data['container_id'])
                 status = container.status
-                ready = is_env_ready(container.name) if status == 'running' else False
+                ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 hostname = request.host.split(':')[0]
                 environments.append({
@@ -871,7 +871,7 @@ def get_environment_logs(env_name):
         status = container.status
         if status == 'running':
             # Check if actually ready by probing the web UI
-            ready = is_env_ready(container.name)
+            ready = is_env_ready(container.name, env_data.get('port'))
             display_status = 'running' if ready else 'starting'
         else:
             display_status = status
