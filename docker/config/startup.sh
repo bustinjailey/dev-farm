@@ -136,15 +136,6 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
     
-    # Install extensions (suppress verbose output, only show results)
-    echo "Installing extensions..."
-    EXTENSIONS=("github.copilot" "github.copilot-chat" "ms-vscode-remote.remote-ssh" "vscode.markdown-language-features" "vscode.markdown-math")
-    for ext in "${EXTENSIONS[@]}"; do
-        if ! /usr/bin/code --list-extensions 2>/dev/null | grep -q "^${ext}$"; then
-            /usr/bin/code --install-extension "${ext}" >/dev/null 2>&1 && echo "  ✓ Installed ${ext}" || echo "  ⚠ ${ext} already present"
-        fi
-    done
-    
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
     # Try to read token from shared storage file
@@ -166,15 +157,6 @@ elif [ -f "/data/.github_token" ]; then
         
         mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
         
-        # Install extensions quietly
-        echo "Installing extensions..."
-        EXTENSIONS=("github.copilot" "github.copilot-chat" "ms-vscode-remote.remote-ssh" "vscode.markdown-language-features" "vscode.markdown-math")
-        for ext in "${EXTENSIONS[@]}"; do
-            if ! /usr/bin/code --list-extensions 2>/dev/null | grep -q "^${ext}$"; then
-                /usr/bin/code --install-extension "${ext}" >/dev/null 2>&1 && echo "  ✓ Installed ${ext}" || echo "  ⚠ ${ext} already present"
-            fi
-        done
-        
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
     else
         echo "Warning: Shared GitHub token file is empty."
@@ -182,15 +164,6 @@ elif [ -f "/data/.github_token" ]; then
 else
     echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
-    
-    # Install basic extensions even without GitHub auth (quietly)
-    echo "Installing basic extensions..."
-    EXTENSIONS=("ms-vscode-remote.remote-ssh" "vscode.markdown-language-features" "vscode.markdown-math")
-    for ext in "${EXTENSIONS[@]}"; do
-        if ! /usr/bin/code --list-extensions 2>/dev/null | grep -q "^${ext}$"; then
-            /usr/bin/code --install-extension "${ext}" >/dev/null 2>&1 && echo "  ✓ Installed ${ext}" || echo "  ⚠ ${ext} already present"
-        fi
-    done
 fi
 
 # Handle different development modes
