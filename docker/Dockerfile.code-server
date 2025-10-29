@@ -3,12 +3,26 @@ FROM debian:bookworm-slim
 
 USER root
 
-# Install necessary packages
+# Install necessary packages including gnupg2 for GPG key handling
 RUN apt-get update && apt-get install -y \
   apt-transport-https \
   wget \
   curl \
   gnupg2 \
+  ca-certificates \
+  && apt-get clean autoclean \
+  && apt-get autoremove --yes \
+  && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+# Add Microsoft GPG key and VS Code repository (following nerasse/my-code-server approach)
+RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/packages.microsoft.gpg && \
+  install -o root -g root -m 644 /tmp/packages.microsoft.gpg /etc/apt/trusted.gpg.d/ && \
+  echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list && \
+  rm /tmp/packages.microsoft.gpg
+
+# Install VS Code from Microsoft repository and other necessary packages
+RUN apt-get update && apt-get install -y \
+  code \
   git \
   sudo \
   nano \
@@ -20,19 +34,9 @@ RUN apt-get update && apt-get install -y \
   sshfs \
   fuse3 \
   sshpass \
-  ca-certificates \
   && apt-get clean autoclean \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
-
-# Install VS Code CLI directly from .deb package (more reliable than apt repository)
-RUN wget -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64' \
-  && dpkg -i /tmp/vscode.deb || apt-get install -y -f \
-  && rm /tmp/vscode.deb \
-  && apt-get clean autoclean \
-  && apt-get autoremove --yes \
-  && rm -rf /var/lib/{apt,dpkg,cache,log}/ \
-  && which code && code --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -70,11 +74,8 @@ RUN mkdir -p /home/coder/.vscode-server/data \
   && mkdir -p /home/coder/.vscode-server/extensions \
   && mkdir -p /home/coder/.config/Code/User
 
-# Pre-install VS Code extensions as coder user (VS Code must be installed first as root)
-# This avoids reinstalling extensions every time a container starts
-# Skip extension pre-installation for now - will install at runtime in startup.sh
-# Extensions installation during build is failing, runtime installation is more reliable
-RUN echo "VS Code extensions will be installed at container startup"
+# Extensions will be installed at runtime via startup.sh
+# This ensures VS Code Server is fully initialized before extension installation
 
 # Pre-configure VS Code settings (MCP configuration)
 COPY --chown=coder:coder docker/config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
