@@ -864,7 +864,8 @@ def get_environment_logs(env_name):
         return jsonify({'error': 'Environment not found'}), 404
     
     try:
-        container = client.containers.get(registry[env_name]['container_id'])
+        env_data = registry[env_name]
+        container = client.containers.get(env_data['container_id'])
         logs = container.logs(tail=500, timestamps=True).decode('utf-8', errors='replace')
         
         # Determine actual status (account for readiness, not just Docker status)
