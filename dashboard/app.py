@@ -1206,7 +1206,15 @@ def _run_system_update_thread():
                 return
             
             _append_stage('rebuild_dashboard', 'success', '✅ Dashboard image rebuilt')
-            _append_stage('restart_dashboard', 'starting', '🔄 Recreating dashboard container...')
+            
+            # Verify the image exists before attempting restart
+            try:
+                client.images.get('dev-farm-dashboard:latest')
+                _append_stage('restart_dashboard', 'starting', '🔄 Recreating dashboard container...')
+            except docker.errors.ImageNotFound:
+                _append_stage('restart_dashboard', 'error', '❌ Dashboard image not found - aborting restart')
+                _set_update_result(False, 'Dashboard image verification failed')
+                return
 
             def delayed_recreate():
                 time.sleep(3)  # Give time for status response to be sent
@@ -1215,19 +1223,41 @@ def _run_system_update_thread():
                     print("Restarting dashboard using docker compose...")
                     
                     # Use docker compose (V2) to recreate the dashboard service
-                    # --build ensures we use the latest image even if separate build failed
+                    # --no-build: We already built the image above, don't rebuild
+                    # --force-recreate: Ensure fresh container with new image
                     # This ensures all compose labels and healthchecks are properly maintained
                     result = subprocess.run(
-                        ['docker', 'compose', 'up', '-d', '--build', '--force-recreate', 'dashboard'],
+                        ['docker', 'compose', 'up', '-d', '--no-build', '--force-recreate', 'dashboard'],
                         cwd='/opt/dev-farm',
                         capture_output=True,
                         text=True,
-                        timeout=90  # Increased timeout to account for build time
+                        timeout=30  # Reduced since we're not building
                     )
                     
                     if result.returncode == 0:
                         print("Dashboard recreated successfully via docker compose")
                         print(result.stdout)
+                        
+                        # Wait for dashboard to be healthy
+                        print("Waiting for dashboard to become healthy...")
+                        for i in range(30):  # Wait up to 30 seconds
+                            time.sleep(1)
+                            try:
+                                dashboard = client.containers.get('devfarm-dashboard')
+                                if dashboard.status == 'running':
+                                    # Check health if healthcheck exists
+                                    health = dashboard.attrs.get('State', {}).get('Health', {})
+                                    if health and health.get('Status') == 'healthy':
+                                        print(f"Dashboard is healthy after {i+1} seconds")
+                                        break
+                                    elif not health:
+                                        # No healthcheck, just verify it's running
+                                        print(f"Dashboard is running (no healthcheck) after {i+1} seconds")
+                                        break
+                            except:
+                                pass
+                        else:
+                            print("WARNING: Dashboard may not be fully healthy yet")
                     else:
                         print(f"docker compose restart failed with code {result.returncode}")
                         print(f"stdout: {result.stdout}")
