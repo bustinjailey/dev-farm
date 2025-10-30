@@ -211,6 +211,7 @@ def is_env_ready(container_name, port=None):
     """Probe the environment container to determine readiness.
     Returns True when HTTP responds successfully.
     First tries container healthcheck status, then falls back to HTTP probe.
+    VS Code Insiders Server runs on port 8080.
     """
     try:
         # First check Docker healthcheck status if available
@@ -413,9 +414,11 @@ def create_environment():
         elif mode == 'git':
             env_vars['GIT_URL'] = git_url
         
-        # Container run options
+        # Container run options - use terminal image for terminal mode
+        image_name = 'dev-farm/terminal:latest' if mode == 'terminal' else 'dev-farm/code-server:latest'
+        
         run_kwargs = {
-            'image': 'dev-farm/code-server:latest',
+            'image': image_name,
             'name': f"devfarm-{env_id}",
             'detach': True,
             'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
@@ -433,7 +436,8 @@ def create_environment():
         
         # For workspace and git modes, create a local volume
         # For ssh mode, we'll use SSHFS to mount remote storage instead
-        if mode in ['workspace', 'git']:
+        # For terminal mode, create a volume for persistent workspace
+        if mode in ['workspace', 'git', 'terminal']:
             run_kwargs['volumes'] = {
                 f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             }

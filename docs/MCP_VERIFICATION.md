@@ -10,6 +10,7 @@ Dev Farm automatically configures MCP servers in **two formats** to support mult
 2. **Cline Extension**: Extension-specific configuration file
 
 Both tools have access to the same three MCP servers:
+
 - **filesystem**: Browse and read workspace files
 - **github**: GitHub API integration (requires `GITHUB_TOKEN`)
 - **brave-search**: Web search capabilities (requires `BRAVE_API_KEY`)
@@ -19,11 +20,13 @@ Both tools have access to the same three MCP servers:
 ### GitHub Copilot (Primary)
 
 **Global Configuration**:
+
 ```
-~/.vscode-server/data/User/settings.json
+~/.vscode-server-insiders/data/User/settings.json
 ```
 
 Structure:
+
 ```json
 {
   "github.copilot.chat.mcp.servers": {
@@ -53,6 +56,7 @@ Structure:
 ```
 
 **Workspace Configuration** (optional override):
+
 ```
 /workspace/.vscode/mcp.json
 ```
@@ -62,11 +66,13 @@ Same structure as global, but uses `"servers"` key at root (not `github.copilot.
 ### Cline Extension (Secondary)
 
 **Extension Configuration**:
+
 ```
-~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 ```
 
 Structure:
+
 ```json
 {
   "mcpServers": {
@@ -94,10 +100,10 @@ Structure:
 docker exec -it devfarm-<name> bash
 
 # Check GitHub Copilot config (global)
-cat ~/.vscode-server/data/User/settings.json | grep -A 20 "github.copilot.chat.mcp.servers"
+cat ~/.vscode-server-insiders/data/User/settings.json | grep -A 20 "github.copilot.chat.mcp.servers"
 
 # Check Cline config
-cat ~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+cat ~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 
 # Check workspace template (optional)
 cat /workspace/.vscode/mcp.json
@@ -125,17 +131,21 @@ cat /workspace/.vscode/mcp.json
 ### 4. Test MCP Functionality
 
 **Filesystem Server**:
+
 ```
 @copilot Can you read the package.json file in my workspace?
 ```
+
 Should successfully read and summarize the file.
 
 **GitHub Server** (if `GITHUB_TOKEN` is set):
+
 ```
 @copilot Show me my recent GitHub repositories
 ```
 
 **Brave Search Server** (if `BRAVE_API_KEY` is set):
+
 ```
 @copilot Search the web for "Docker best practices"
 ```
@@ -149,21 +159,24 @@ Should successfully read and summarize the file.
 **Solution**: Containers created before 2025-10-29 won't have MCP configured. Options:
 
 1. **Recreate the environment** (destroys workspace data):
+
    ```bash
    # From dashboard UI: Delete environment and create new one
    ```
 
 2. **Manually trigger startup script** (preserves data):
+
    ```bash
    docker exec -it devfarm-<name> bash -c "cd ~ && bash startup.sh"
    ```
 
 3. **Manual configuration** (advanced):
+
    ```bash
    # Copy templates
    docker exec devfarm-<name> cp /home/coder/.devfarm/mcp-cline.json \
-     ~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
-   
+     ~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+
    # Run Python script to merge Copilot config into settings.json
    # (see startup.sh lines 45-65 for exact script)
    ```
@@ -173,17 +186,19 @@ Should successfully read and summarize the file.
 **Symptom**: "MCP: List Servers" shows empty or errors.
 
 **Possible Causes**:
+
 1. VS Code Server not reloaded after config change
 2. Syntax error in settings.json
 3. Missing `npx` command (Node.js not installed)
 
 **Solutions**:
+
 ```bash
 # 1. Reload VS Code Server
 # Command Palette → "Developer: Reload Window"
 
 # 2. Check settings.json syntax
-docker exec devfarm-<name> python3 -m json.tool ~/.vscode-server/data/User/settings.json
+docker exec devfarm-<name> python3 -m json.tool ~/.vscode-server-insiders/data/User/settings.json
 
 # 3. Verify Node.js/npx available
 docker exec devfarm-<name> which npx
@@ -197,6 +212,7 @@ docker exec devfarm-<name> node --version
 **Cause**: `GITHUB_TOKEN` or `BRAVE_API_KEY` not set in environment.
 
 **Solution**:
+
 ```bash
 # Check environment variables in container
 docker exec devfarm-<name> env | grep -E 'GITHUB_TOKEN|BRAVE_API_KEY'
@@ -213,14 +229,15 @@ docker exec devfarm-<name> bash -c 'export GITHUB_TOKEN=ghp_xxx'
 **Cause**: Format differences or separate configuration paths.
 
 **Debug**:
+
 ```bash
 # Compare configurations
 docker exec devfarm-<name> bash -c '
   echo "=== Copilot Config ===" &&
-  cat ~/.vscode-server/data/User/settings.json | grep -A 30 github.copilot &&
+  cat ~/.vscode-server-insiders/data/User/settings.json | grep -A 30 github.copilot &&
   echo "" &&
   echo "=== Cline Config ===" &&
-  cat ~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+  cat ~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 '
 ```
 
@@ -238,12 +255,12 @@ MCP configuration happens in `/home/coder/startup.sh` (lines 29-100):
 
 ### Format Differences
 
-| Aspect | GitHub Copilot | Cline |
-|--------|---------------|-------|
-| **Config Key** | `github.copilot.chat.mcp.servers` | `mcpServers` |
-| **Server Structure** | `{"servers": {...}}` | `{"mcpServers": {...}}` |
-| **Type Field** | `"stdio"` | `"local"` |
-| **Additional Fields** | None | `"tools": ["*"]` |
+| Aspect                | GitHub Copilot                    | Cline                   |
+| --------------------- | --------------------------------- | ----------------------- |
+| **Config Key**        | `github.copilot.chat.mcp.servers` | `mcpServers`            |
+| **Server Structure**  | `{"servers": {...}}`              | `{"mcpServers": {...}}` |
+| **Type Field**        | `"stdio"`                         | `"local"`               |
+| **Additional Fields** | None                              | `"tools": ["*"]`        |
 
 ### Environment Variable Substitution
 

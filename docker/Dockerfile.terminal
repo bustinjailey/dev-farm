@@ -1,0 +1,94 @@
+# Terminal-only environment with CLI AI tools
+FROM debian:trixie-slim
+
+USER root
+
+# Install necessary packages including locales and terminal tools
+RUN apt-get update && apt-get install -y \
+  wget \
+  curl \
+  ca-certificates \
+  git \
+  sudo \
+  nano \
+  vim \
+  build-essential \
+  python3 \
+  python3-pip \
+  nodejs \
+  npm \
+  locales \
+  tmux \
+  zsh \
+  && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
+  && locale-gen \
+  && apt-get clean autoclean \
+  && apt-get autoremove --yes \
+  && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+  chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+  apt-get update && \
+  apt-get install -y gh && \
+  rm -rf /var/lib/apt/lists/*
+
+# Install ttyd (web-based terminal)
+RUN wget https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -O /usr/local/bin/ttyd && \
+  chmod +x /usr/local/bin/ttyd
+
+# Install CLI AI tools
+RUN npm install -g @agentic/cli
+
+# Install aichat (Rust-based CLI AI tool)
+RUN curl -fsSL https://raw.githubusercontent.com/sigoden/aichat/main/scripts/install.sh | sh -s -- --to /usr/local/bin
+
+# Create a non-root user 'coder'
+RUN useradd -m -s /bin/zsh coder \
+  && echo 'coder ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/coder \
+  && chmod 0440 /etc/sudoers.d/coder \
+  && usermod -aG sudo coder
+
+# Create workspace directories
+RUN mkdir -p /workspace && chown -R coder:coder /workspace \
+  && mkdir -p /home/coder/workspace && chown -R coder:coder /home/coder/workspace
+
+USER coder
+
+# Set the home directory for the non-root user
+ENV HOME=/home/coder
+WORKDIR /home/coder/workspace
+
+# Install Oh My Zsh for better terminal experience
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# Configure zsh with helpful aliases
+RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
+  echo 'alias ll="ls -alh"' >> ~/.zshrc && \
+  echo 'alias gs="git status"' >> ~/.zshrc && \
+  echo 'alias gp="git pull"' >> ~/.zshrc && \
+  echo 'alias ai="aichat"' >> ~/.zshrc && \
+  echo 'echo "🤖 CLI AI Tools Available:"' >> ~/.zshrc && \
+  echo 'echo "  • gh copilot - GitHub Copilot CLI"' >> ~/.zshrc && \
+  echo 'echo "  • aichat or ai - Multi-model AI chat CLI"' >> ~/.zshrc && \
+  echo 'echo ""' >> ~/.zshrc && \
+  echo 'echo "💡 Type commands for help:"' >> ~/.zshrc && \
+  echo 'echo "  • gh copilot explain <command>"' >> ~/.zshrc && \
+  echo 'echo "  • gh copilot suggest <task>"' >> ~/.zshrc && \
+  echo 'echo "  • aichat --help"' >> ~/.zshrc && \
+  echo 'echo ""' >> ~/.zshrc
+
+# Create startup script
+COPY --chown=coder:coder config/startup-terminal.sh /home/coder/startup.sh
+RUN chmod +x /home/coder/startup.sh
+
+EXPOSE 8080
+
+# Health check for ttyd web terminal
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/ || exit 1
+
+# Override the entrypoint to use our startup script
+ENTRYPOINT []
+CMD ["/bin/bash", "/home/coder/startup.sh"]

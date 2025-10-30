@@ -26,11 +26,11 @@ RUN apt-get update && apt-get install -y \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-# Download and install VS Code + GitHub CLI in one step
+# Download and install VS Code Insiders + GitHub CLI in one step
 # VS Code postinst script adds Microsoft repo - remove ALL possible repo files before apt-get update
 # Must remove both old .list format AND new deb822 .sources format
 # Force IPv4 for VS Code download to avoid Azure CDN timeout issues
-RUN wget --timeout=60 --tries=3 --inet4-only -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64' && \
+RUN wget --timeout=60 --tries=3 --inet4-only -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=insider&os=linux-deb-x64' && \
   apt-get install -y /tmp/vscode.deb && \
   rm /tmp/vscode.deb && \
   rm -f /etc/apt/sources.list.d/vscode.list && \
@@ -65,16 +65,16 @@ USER coder
 ENV HOME=/home/coder
 WORKDIR /home/coder/workspace
 
-# Set up VS Code data directories
-RUN mkdir -p /home/coder/.vscode-server/data \
-  && mkdir -p /home/coder/.vscode-server/extensions \
-  && mkdir -p /home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings
+# Set up VS Code Insiders Server data directories
+RUN mkdir -p /home/coder/.vscode-server-insiders/data \
+  && mkdir -p /home/coder/.vscode-server-insiders/extensions \
+  && mkdir -p /home/coder/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings
 
 # Extensions will be installed at runtime via startup.sh
 # This ensures VS Code Server is fully initialized before extension installation
 
-# Pre-configure MCP settings for Cline extension (VS Code Server web uses ~/.vscode-server/data)
-COPY --chown=coder:coder config/mcp.json /home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+# Pre-configure MCP settings for Cline extension (VS Code Insiders Server web uses ~/.vscode-server-insiders/data)
+COPY --chown=coder:coder config/mcp.json /home/coder/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 
 # Include templates for runtime initialization (both Cline and Copilot formats)
 RUN mkdir -p /home/coder/.devfarm

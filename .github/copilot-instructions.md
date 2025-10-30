@@ -5,6 +5,7 @@
 Dev Farm is a **self-hosted development environment orchestrator** running on Proxmox LXC #200 (`eagle.bustinjailey.org`). It manages isolated VS Code Server containers via a Flask dashboard.
 
 **Critical: ALL commands must be executed through the LXC container:**
+
 ```bash
 ssh root@eagle "pct exec 200 -- <command>"
 ```
@@ -55,6 +56,7 @@ ssh root@eagle "pct exec 200 -- bash -c 'cd /opt/dev-farm && git pull && docker 
 ### Update System (Self-Update Flow)
 
 Dashboard has built-in self-update via `/api/system/update/start` endpoint:
+
 1. Validates prerequisites (repo path exists, GitHub token optional for public repos)
 2. Pulls latest code (`git pull origin main`)
 3. Rebuilds images (`docker compose build`)
@@ -78,7 +80,7 @@ Dashboard has built-in self-update via `/api/system/update/start` endpoint:
    - Configures GitHub CLI (`gh auth login`)
    - Clones repo (git mode) or mounts SSH (ssh mode)
    - Applies VS Code settings from `docker/config/workspace-settings.json`
-   - Starts official VS Code Server: `code serve-web --host 0.0.0.0 --port 8080 --server-data-dir /home/coder/.vscode-server --without-connection-token`
+   - Starts official VS Code Insiders Server: `code-insiders serve-web --host 0.0.0.0 --port 8080 --server-data-dir /home/coder/.vscode-server-insiders --without-connection-token`
 
 ## Project-Specific Conventions
 
@@ -92,14 +94,23 @@ Dashboard has built-in self-update via `/api/system/update/start` endpoint:
 ### Status State Machine
 
 Container states (from Docker API):
+
 - `created` → `starting` (while health check pending) → `running` (HTTP 200 on port 8080)
 - `exited` (startup failure or stopped)
 - `paused`, `restarting`, `removing`, `dead` (rare)
 
 **Frontend Issue**: Must handle ALL Docker states. CSS classes required:
+
 ```css
-.status-running, .status-stopped, .status-starting, .status-exited,
-.status-created, .status-paused, .status-restarting, .status-removing, .status-dead
+.status-running,
+.status-stopped,
+.status-starting,
+.status-exited,
+.status-created,
+.status-paused,
+.status-restarting,
+.status-removing,
+.status-dead;
 ```
 
 **Location**: `dashboard/templates/index.html` lines 183-221
@@ -109,12 +120,12 @@ Container states (from Docker API):
 Real-time updates via Server-Sent Events (`/api/stream`):
 
 ```javascript
-eventSource.addEventListener('env-status', (e) => {
+eventSource.addEventListener("env-status", (e) => {
   // Immediate UI update when container status changes
   // Payload: {env_id, status, port}
 });
 
-eventSource.addEventListener('registry-update', (e) => {
+eventSource.addEventListener("registry-update", (e) => {
   // Debounced refresh when environments added/removed
 });
 ```
@@ -163,6 +174,7 @@ def save_registry(registry):
 **Frontend**: `dashboard/templates/index.html` lines 978-1157
 
 **Flow**:
+
 1. User clicks "Connect GitHub" → `POST /api/github/oauth/start`
 2. Backend calls GitHub API → gets `device_code` + `user_code`
 3. Frontend polls `GET /api/github/oauth/poll` every 5 seconds (GitHub enforces minimum)
@@ -179,6 +191,7 @@ def save_registry(registry):
 **Network**: Caddy reverse proxy at `farm.bustinjailey.org` → `192.168.1.126:5000`
 
 **Caddy configuration for SSE support**:
+
 ```caddy
 farm.bustinjailey.org {
     reverse_proxy 192.168.1.126:5000 {
@@ -232,13 +245,13 @@ curl -N http://192.168.1.126:5000/api/stream
 ## Recent Breaking Changes
 
 - **2025-10-29**: Added cross-tool MCP support for GitHub Copilot + Cline (commit PENDING)
-  - **Copilot**: Global config in `~/.vscode-server/data/User/settings.json` with `github.copilot.chat.mcp.servers` key
-  - **Cline**: Extension-specific config in `~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+  - **Copilot**: Global config in `~/.vscode-server-insiders/data/User/settings.json` with `github.copilot.chat.mcp.servers` key
+  - **Cline**: Extension-specific config in `~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - **Format differences**: Copilot uses `{"servers": {...}}`, Cline uses `{"mcpServers": {...}}`
   - **Shared servers**: filesystem, github, brave-search configured for both tools
   - **Runtime init**: startup.sh initializes both configs, workspace mcp.json created as template
 - **2025-10-29**: Fixed MCP server configuration for Cline extension (commit fbb77cc)
-  - Path: `~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+  - Path: `~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - Includes: filesystem, github, brave-search servers
   - Runtime initialization in startup.sh ensures settings persist
 - **2025-10-29**: Fixed dashboard restart after updates using updater container (commit 20e2a5d)
@@ -246,6 +259,6 @@ curl -N http://192.168.1.126:5000/api/stream
   - New: Restart script runs in devfarm-updater container
 - **2025-10-29**: Fixed background monitoring threads for SSE (commit aca2acc)
   - Moved thread initialization outside `__main__` block (works with gunicorn)
-- **2025-10-29**: VS Code Server flag changed from `--user-data-dir` to `--server-data-dir` (commit c659251)
+- **2025-10-29**: VS Code Insiders Server flag changed from `--user-data-dir` to `--server-data-dir` (commit c659251)
 - **2025-10-29**: Added CSS for all 7 Docker states (commit 1cb0467)
 - **2025-10-29**: Made GitHub token optional for public repo updates (commit ead2e1a)

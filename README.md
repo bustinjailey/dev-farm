@@ -9,10 +9,11 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 ## ✨ Features
 
 - 🎯 **On-Demand Environments** - Create and destroy dev environments instantly
-- 📦 **Three Environment Modes**:
+- 📦 **Four Environment Modes**:
   - 💻 **Workspace Mode** - Empty folder for new projects
   - 📦 **Git Mode** - Clone from GitHub with repository browser
   - 🔌 **SSH Mode** - Connect to remote servers with Remote-SSH
+  - ⌨️ **Terminal Mode** - Lightweight CLI with AI tools (Copilot CLI, AIChat)
 - **Mobile Dashboard** - Touch-optimized interface for managing from your phone
 - 🔄 **Self-Update System** - Update Dev Farm with one click from the dashboard
 - 🔐 **GitHub OAuth Integration** - Web-based authentication, no manual token setup
@@ -202,7 +203,7 @@ No manual login required! Just open your environment and start coding.
 
 ### Environment Modes
 
-Dev Farm supports three different modes for different workflows:
+Dev Farm supports four different modes for different workflows:
 
 1. **💻 Workspace Mode** (Default)
 
@@ -218,12 +219,21 @@ Dev Farm supports three different modes for different workflows:
    - Perfect for contributing to existing projects
 
 3. **🔌 Remote SSH Mode**
+
    - Connect to remote servers via SSH
    - Remote-SSH extension pre-installed
    - Edit files directly on remote systems
    - Perfect for server management
 
-**See [docs/ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md) for detailed documentation.**
+4. **⌨️ Terminal Mode** (NEW)
+   - Lightweight web-based terminal
+   - GitHub Copilot CLI for command suggestions
+   - AIChat for general AI assistance
+   - No IDE overhead (~150MB vs 500+ MB)
+   - Perfect for CLI-focused work
+
+**See [docs/ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md) for workspace/git/ssh modes.**  
+**See [docs/TERMINAL_MODE.md](docs/TERMINAL_MODE.md) for terminal mode.**
 
 ### Copilot MCP Servers
 
@@ -368,6 +378,7 @@ docker system prune
 ## 📚 Documentation
 
 - **[docs/ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md)** - Detailed guide to workspace, git, and SSH modes
+- **[docs/TERMINAL_MODE.md](docs/TERMINAL_MODE.md)** - Terminal mode with CLI AI tools
 - **[docs/SECRETS.md](docs/SECRETS.md)** - Secret management and GitHub authentication
 - **[docs/QUICKREF.md](docs/QUICKREF.md)** - Quick reference for common commands
 

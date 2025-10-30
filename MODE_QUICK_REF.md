@@ -44,6 +44,21 @@ curl -X POST http://192.168.1.126:5000/create \
   -d '{"name":"server","mode":"ssh","ssh_host":"192.168.1.100","ssh_user":"root"}'
 ```
 
+### ⌨️ Terminal Mode
+
+**When to use**: CLI-focused work, quick tasks, lightweight operations
+
+- Web-based terminal (ttyd)
+- GitHub Copilot CLI
+- AIChat CLI tool
+- No IDE overhead
+
+```bash
+curl -X POST http://192.168.1.126:5000/create \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"cli-workspace","mode":"terminal"}'
+```
+
 ## 🚀 Deploying Updates
 
 ```bash
@@ -65,6 +80,7 @@ All environments open in **trusted mode** automatically. No prompts, ever.
 
 ## 📚 Full Documentation
 
-- **[ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md)** - Complete mode guide
+- **[ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md)** - Complete mode guide (workspace/git/ssh)
+- **[TERMINAL_MODE.md](docs/TERMINAL_MODE.md)** - Terminal mode guide (CLI AI tools)
 - **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - What was implemented
 - **[README.md](README.md)** - Main documentation

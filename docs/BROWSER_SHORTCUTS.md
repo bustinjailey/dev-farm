@@ -5,6 +5,7 @@ This guide explains how to make VS Code keyboard shortcuts work properly in the 
 ## Problem
 
 Browser keyboard shortcuts often conflict with VS Code shortcuts:
+
 - **Ctrl+P**: Browser tries to print instead of opening Quick Open
 - **Ctrl+Shift+P**: Browser opens private window instead of Command Palette
 - **Ctrl+W**: Browser closes tab instead of closing editor
@@ -17,6 +18,7 @@ Browser keyboard shortcuts often conflict with VS Code shortcuts:
 **Best solution** - Gives you a native-like experience with zero conflicts.
 
 #### Chrome/Edge:
+
 1. Open your Dev Farm environment: `https://farm.bustinjailey.org`
 2. Click environment to open VS Code Server
 3. Look for install icon (⊕) in address bar
@@ -24,6 +26,7 @@ Browser keyboard shortcuts often conflict with VS Code shortcuts:
 5. App opens in standalone window
 
 #### Benefits:
+
 - ✅ **All VS Code shortcuts work** without conflicts
 - ✅ Runs in own window (no browser tabs/chrome)
 - ✅ Appears in app launcher/taskbar
@@ -32,6 +35,7 @@ Browser keyboard shortcuts often conflict with VS Code shortcuts:
 - ✅ Separate from browser session
 
 #### Firefox:
+
 Firefox doesn't support PWA installation, use Option 2 or 3 instead.
 
 ---
@@ -41,11 +45,13 @@ Firefox doesn't support PWA installation, use Option 2 or 3 instead.
 Override browser shortcuts for specific domains.
 
 #### Chrome/Edge:
+
 1. Install [Shortcut Manager](https://chrome.google.com/webstore/detail/shortcut-manager/mgjjeipcdnnjhgodgjpfkffcejoljijf)
 2. Configure exceptions for `farm.bustinjailey.org`
 3. Disable conflicting shortcuts when on Dev Farm
 
 #### Firefox:
+
 1. Navigate to `about:config`
 2. Search: `permissions.default.shortcuts`
 3. Set value to **2** (allow sites to override shortcuts)
@@ -66,6 +72,7 @@ Dev Farm environments now include browser-optimized settings by default.
 ```
 
 **What this does**:
+
 - `keyboard.dispatch: "keyCode"`: Captures raw key codes before browser interprets them
 - `window.titleBarStyle: "custom"`: Uses VS Code's custom title bar (better keyboard handling)
 
@@ -78,12 +85,14 @@ Dev Farm environments now include browser-optimized settings by default.
 If you can't use PWA or extensions, these browser flags help:
 
 #### Chrome/Edge:
+
 1. Navigate to `chrome://flags`
 2. Search: **"Override site keyboard shortcuts"**
 3. Enable
 4. Restart browser
 
 #### Brave:
+
 1. Settings → Shields → Advanced View
 2. Enable **"Site-specific keybinding override"**
 
@@ -93,15 +102,15 @@ If you can't use PWA or extensions, these browser flags help:
 
 With PWA or proper configuration, these shortcuts work natively:
 
-| Shortcut | VS Code Action | Browser Conflict |
-|----------|---------------|------------------|
-| `Ctrl+P` | Quick Open | Print Dialog |
-| `Ctrl+Shift+P` | Command Palette | New Private Window |
-| `Ctrl+B` | Toggle Sidebar | Bookmarks |
-| `Ctrl+W` | Close Editor | Close Tab |
-| `Ctrl+Tab` | Switch Editors | Switch Browser Tabs |
-| `Ctrl+Shift+T` | Reopen Closed Editor | Reopen Browser Tab |
-| `F11` | Toggle Fullscreen | Browser Fullscreen |
+| Shortcut       | VS Code Action       | Browser Conflict    |
+| -------------- | -------------------- | ------------------- |
+| `Ctrl+P`       | Quick Open           | Print Dialog        |
+| `Ctrl+Shift+P` | Command Palette      | New Private Window  |
+| `Ctrl+B`       | Toggle Sidebar       | Bookmarks           |
+| `Ctrl+W`       | Close Editor         | Close Tab           |
+| `Ctrl+Tab`     | Switch Editors       | Switch Browser Tabs |
+| `Ctrl+Shift+T` | Reopen Closed Editor | Reopen Browser Tab  |
+| `F11`          | Toggle Fullscreen    | Browser Fullscreen  |
 
 ---
 
@@ -122,6 +131,7 @@ After applying any solution, test these shortcuts:
 ## Deployment Status
 
 **Workspace settings** already include browser-optimized keyboard configuration:
+
 - ✅ **Existing environments**: Apply settings via Command Palette → "Preferences: Open Workspace Settings" → reload
 - ✅ **New environments**: Automatically configured in `workspace-settings.json`
 
@@ -134,6 +144,7 @@ After applying any solution, test these shortcuts:
 **Symptoms**: Shortcuts open browser actions instead of VS Code actions.
 
 **Solutions**:
+
 1. **Try PWA installation** (most reliable)
 2. **Check browser extensions** aren't blocking shortcuts
 3. **Verify VS Code settings**:
@@ -148,11 +159,13 @@ After applying any solution, test these shortcuts:
 **Symptoms**: No install icon in address bar.
 
 **Causes**:
+
 - Browser doesn't support PWA (Firefox)
 - Site not served over HTTPS (Dev Farm uses HTTPS via Caddy)
 - VS Code Server not configured as PWA
 
 **Solutions**:
+
 - Use Chrome/Edge/Brave (best PWA support)
 - Ensure accessing via `https://farm.bustinjailey.org` (not IP)
 - Use browser extension method instead
@@ -162,6 +175,7 @@ After applying any solution, test these shortcuts:
 **Symptoms**: Settings applied but shortcuts still conflict.
 
 **Debug**:
+
 ```bash
 # Check if settings applied
 docker exec devfarm-<name> cat /workspace/.vscode/settings.json | grep dispatch
@@ -180,16 +194,17 @@ docker exec devfarm-<name> cat /workspace/.vscode/settings.json | grep dispatch
 
 VS Code Server uses different keyboard event handling modes:
 
-| Mode | Behavior | Best For |
-|------|----------|----------|
-| `"code"` (default) | Uses `event.code` (physical key location) | Desktop apps |
-| `"keyCode"` | Uses `event.keyCode` (raw key codes) | **Browser environments** |
+| Mode               | Behavior                                  | Best For                 |
+| ------------------ | ----------------------------------------- | ------------------------ |
+| `"code"` (default) | Uses `event.code` (physical key location) | Desktop apps             |
+| `"keyCode"`        | Uses `event.keyCode` (raw key codes)      | **Browser environments** |
 
 **Browser mode (`keyCode`)**: Captures events earlier in browser event chain, before many browser shortcuts trigger.
 
 ### Why PWA Works Better
 
 Progressive Web Apps run in **standalone mode**:
+
 - Separate process from browser
 - No browser UI (tabs, address bar, bookmarks)
 - OS treats as native app
@@ -199,6 +214,7 @@ Progressive Web Apps run in **standalone mode**:
 ### VS Code Server Manifest
 
 VS Code Server includes PWA manifest (`manifest.json`):
+
 ```json
 {
   "name": "VS Code Server",

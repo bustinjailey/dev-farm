@@ -1,8 +1,8 @@
-# VS Code Server Migration Guide
+# VS Code Insiders Server Migration Guide
 
 ## What Changed
 
-Dev Farm now uses **official VS Code Server** instead of code-server! 🎉
+Dev Farm now uses **official VS Code Insiders Server** instead of code-server! 🎉
 
 ### Before
 
@@ -12,9 +12,10 @@ Dev Farm now uses **official VS Code Server** instead of code-server! 🎉
 
 ### After
 
-- Uses **official Microsoft VS Code CLI** (`code serve-web`)
+- Uses **official Microsoft VS Code Insiders CLI** (`code-insiders serve-web`)
 - **ALL extensions work** (including GitHub Copilot Chat)
 - Official support and updates from Microsoft
+- **Latest features** from VS Code Insiders builds
 - Better compatibility with VS Code ecosystem
 
 ## Technical Changes
@@ -27,14 +28,15 @@ Dev Farm now uses **official VS Code Server** instead of code-server! 🎉
 
 ### Startup Script
 
-- **Command**: Changed from `code-server --bind-addr 0.0.0.0:8080 --auth none` to `code serve-web --host 0.0.0.0 --port 8080 --without-connection-token --accept-server-license-terms`
-- **Extension Installation**: Changed from `code-server --install-extension` to `code --install-extension`
-- **Settings Paths**: Updated all references to match official VS Code structure
+- **Command**: Changed from `code-server --bind-addr 0.0.0.0:8080 --auth none` to `code-insiders serve-web --host 0.0.0.0 --port 8080 --without-connection-token --accept-server-license-terms`
+- **Extension Installation**: Changed from `code-server --install-extension` to `code-insiders --install-extension`
+- **Settings Paths**: Updated all references to match official VS Code Insiders structure (`~/.vscode-server-insiders`)
 
 ## What Works Now
 
 ✅ **GitHub Copilot Chat** - Full support, no more compatibility issues  
 ✅ **All VS Code Extensions** - 100% compatibility with VS Code marketplace  
+✅ **Latest Features** - Access to newest VS Code features before stable release  
 ✅ **Markdown Preview** - Built-in language features work perfectly  
 ✅ **GitHub Authentication** - Seamless sign-in experience  
 ✅ **All Dev Farm Modes** - Workspace, Git, and SSH modes unchanged  
@@ -91,7 +93,7 @@ docker build -t opt-code-server:latest -f docker/Dockerfile.code-server .
 
 - Extensions install during container startup
 - Check `STARTUP_LOG.txt` for installation status
-- Run `/usr/bin/code --list-extensions` in terminal to verify
+- Run `/usr/bin/code-insiders --list-extensions` in terminal to verify
 
 ### GitHub Sign-In Issues
 

@@ -25,10 +25,10 @@ vgcore.*
 Thumbs.db
 GITIGNORE
 
-echo "Applying VS Code workspace settings..."
-# VS Code Server uses ~/.vscode-server/data/ for settings
-mkdir -p /home/coder/.vscode-server/data/Machine
-mkdir -p /home/coder/.vscode-server/data/User
+echo "Applying VS Code Insiders workspace settings..."
+# VS Code Insiders Server uses ~/.vscode-server-insiders/data/ for settings
+mkdir -p /home/coder/.vscode-server-insiders/data/Machine
+mkdir -p /home/coder/.vscode-server-insiders/data/User
 
 # ============================================================================
 # Configure MCP Servers for Multiple Tools (Cline + GitHub Copilot)
@@ -36,7 +36,7 @@ mkdir -p /home/coder/.vscode-server/data/User
 
 # --- Cline Extension ---
 # Cline uses: cline_mcp_settings.json with "mcpServers" key
-CLINE_MCP_DIR="/home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings"
+CLINE_MCP_DIR="/home/coder/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings"
 CLINE_MCP_FILE="$CLINE_MCP_DIR/cline_mcp_settings.json"
 mkdir -p "$CLINE_MCP_DIR"
 
@@ -49,15 +49,15 @@ fi
 
 # --- GitHub Copilot (Global Settings) ---
 # Copilot uses: settings.json with "github.copilot.chat.mcp.servers" key
-VSCODE_SETTINGS_FILE="/home/coder/.vscode-server/data/User/settings.json"
+VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/User/settings.json"
 
 # Create or update VS Code settings.json with Copilot MCP configuration
 if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
-    echo "Configuring GitHub Copilot MCP servers in VS Code settings..."
+    echo "Configuring GitHub Copilot MCP servers in VS Code Insiders settings..."
     /usr/bin/python3 - <<'PYEOF'
 import json, os
 
-settings_path = "/home/coder/.vscode-server/data/User/settings.json"
+settings_path = "/home/coder/.vscode-server-insiders/data/User/settings.json"
 copilot_mcp_path = "/home/coder/.devfarm/mcp-copilot.json"
 
 # Load existing settings or create empty dict
@@ -129,8 +129,8 @@ fi
 # VS Code Server uses Machine/settings.json for machine-level settings
 /usr/bin/python3 - <<'PYEOF'
 import json, os
-# Machine-level settings (used by VS Code Server)
-machine_settings_path = "/home/coder/.vscode-server/data/Machine/settings.json"
+# Machine-level settings (used by VS Code Insiders Server)
+machine_settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
 os.makedirs(os.path.dirname(machine_settings_path), exist_ok=True)
 existing = {}
 if os.path.exists(machine_settings_path):
@@ -742,7 +742,7 @@ install_extension_with_retry() {
     
     while [ $attempt -le $max_attempts ]; do
         echo "Installing $ext_id (attempt $attempt/$max_attempts)..." | tee -a "$LOG_FILE"
-        if /usr/bin/code --install-extension "$ext_id" 2>&1 | tee -a "$LOG_FILE"; then
+        if /usr/bin/code-insiders --install-extension "$ext_id" 2>&1 | tee -a "$LOG_FILE"; then
             echo "✓ Successfully installed $ext_id" | tee -a "$LOG_FILE"
             return 0
         else
@@ -761,13 +761,14 @@ install_extension_with_retry() {
 install_extension_with_retry "ms-vscode-remote.remote-ssh" || true
 install_extension_with_retry "yzhang.markdown-all-in-one" || true
 install_extension_with_retry "github.copilot-chat" || true
+install_extension_with_retry "openai.chatgpt" || true
 
 echo "Extension installation complete" | tee -a "$LOG_FILE"
 
 # Create keybindings to make Chat/Inline Chat more accessible
-# VS Code Server uses ~/.vscode-server/data/User/ for user data
-mkdir -p /home/coder/.vscode-server/data/User
-cat > /home/coder/.vscode-server/data/User/keybindings.json <<'EOFKEYS'
+# VS Code Insiders Server uses ~/.vscode-server-insiders/data/User/ for user data
+mkdir -p /home/coder/.vscode-server-insiders/data/User
+cat > /home/coder/.vscode-server-insiders/data/User/keybindings.json <<'EOFKEYS'
 [
   {
     "key": "ctrl+shift+space",
@@ -795,13 +796,13 @@ if [ -f "$WELCOME_PATH" ] && [ ! -f "$WELCOME_MARK_FILE" ]; then
     touch "$WELCOME_MARK_FILE"
 fi
 
-# Start official VS Code Server with serve-web command
+# Start official VS Code Insiders Server with serve-web command
 # Accept server license terms automatically
 # Disable telemetry to reduce network noise and log clutter
 # Note: serve-web doesn't accept file paths as arguments
 # The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
-exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 \
-  --server-data-dir /home/coder/.vscode-server \
+exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
+  --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
   --disable-telemetry
