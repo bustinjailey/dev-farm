@@ -1017,8 +1017,32 @@
     }
 
     let pollInterval = null;
+    let oauthFocusHandler = null;
+    
     async function pollForOAuth() {
       if (pollInterval) clearInterval(pollInterval);
+      if (oauthFocusHandler) window.removeEventListener('focus', oauthFocusHandler);
+
+      const handleAuthSuccess = (data) => {
+        clearInterval(pollInterval);
+        if (oauthFocusHandler) {
+          window.removeEventListener('focus', oauthFocusHandler);
+          oauthFocusHandler = null;
+        }
+        const content = document.getElementById('oauthContent');
+        content.innerHTML = `
+          <div style="margin: 20px 0;">
+            <div class="empty-state-icon" style="font-size: 3em;">✅</div>
+            <p style="margin: 15px 0; color: #48bb78; font-size: 1.2em; font-weight: bold;">Successfully connected!</p>
+            <p style="color: #666;">GitHub account: <strong>${data.username || 'Connected'}</strong></p>
+            <p style="margin-top: 15px; color: #666; font-size: 0.9em;">The page will reload in a moment...</p>
+          </div>
+        `;
+        setTimeout(() => {
+          hideOAuthModal();
+          window.location.reload();
+        }, 2000);
+      };
 
       pollInterval = setInterval(async () => {
         try {
@@ -1026,20 +1050,7 @@
           const pollStatus = document.getElementById('pollStatus');
 
           if (data.status === 'success') {
-            clearInterval(pollInterval);
-            const content = document.getElementById('oauthContent');
-            content.innerHTML = `
-              <div style="margin: 20px 0;">
-                <div class="empty-state-icon" style="font-size: 3em;">✅</div>
-                <p style="margin: 15px 0; color: #48bb78; font-size: 1.2em; font-weight: bold;">Successfully connected!</p>
-                <p style="color: #666;">GitHub account: <strong>${data.username || 'Connected'}</strong></p>
-                <p style="margin-top: 15px; color: #666; font-size: 0.9em;">The page will reload in a moment...</p>
-              </div>
-            `;
-            setTimeout(() => {
-              hideOAuthModal();
-              window.location.reload();
-            }, 2000);
+            handleAuthSuccess(data);
           } else if (data.status === 'pending') {
             if (pollStatus) pollStatus.textContent = '⏳ Waiting for authorization...';
           } else if (data.status === 'expired') {
@@ -1055,7 +1066,20 @@
         } catch (error) {
           console.error('Poll error:', error);
         }
-      }, 5000); // Poll every 5 seconds
+      }, 2000); // Poll every 2 seconds
+      
+      // Also check immediately when window regains focus (user returns from GitHub)
+      oauthFocusHandler = async () => {
+        try {
+          const data = await safeFetch('/api/github/auth/poll', { method: 'POST' });
+          if (data.status === 'success') {
+            handleAuthSuccess(data);
+          }
+        } catch (error) {
+          console.error('Focus poll error:', error);
+        }
+      };
+      window.addEventListener('focus', oauthFocusHandler);
     }
 
     function hideOAuthModal() {
@@ -1063,6 +1087,10 @@
       if (pollInterval) {
         clearInterval(pollInterval);
         pollInterval = null;
+      }
+      if (oauthFocusHandler) {
+        window.removeEventListener('focus', oauthFocusHandler);
+        oauthFocusHandler = null;
       }
     }
 
