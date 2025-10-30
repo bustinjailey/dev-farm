@@ -1002,4 +1002,5 @@ exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
   --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
-  --disable-telemetry
+  --disable-telemetry \
+  --default-folder "${WORKSPACE_ROOT}"
