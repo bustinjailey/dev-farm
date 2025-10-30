@@ -343,7 +343,7 @@ fi
 echo "Setting up Aggregate MCP Server..." | tee -a "$LOG_FILE"
 
 MCP_INSTALL_DIR="/home/coder/.local/bin/aggregate-mcp-server"
-MCP_REPO_URL="https://github.com/bustinjailey/aggregate-mcp-server.git"
+MCP_REPO_URL="git@github.com:bustinjailey/aggregate-mcp-server.git"
 
 # Check if GitHub token is available (required for private repo)
 if [ -z "${GITHUB_TOKEN}" ]; then
@@ -376,8 +376,7 @@ else
         cd /home/coder
     else
         echo "Installing aggregate MCP server from private GitHub repo..." | tee -a "$LOG_FILE"
-        # Clone private repo using gh CLI authentication
-        # Note: This requires a Personal Access Token with 'repo' scope, not OAuth token
+        # Clone private repo using SSH (gh auth login automatically uploaded public key)
         git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
         
         if [ -d "$MCP_INSTALL_DIR" ]; then
@@ -387,9 +386,9 @@ else
             echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
             cd /home/coder
         else
-            echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
-            echo "   This requires a Personal Access Token (PAT) with 'repo' scope" | tee -a "$LOG_FILE"
-            echo "   OAuth tokens from dashboard may not have access to private repos" | tee -a "$LOG_FILE"
+            echo "⚠ Failed to clone aggregate MCP server repository via SSH" | tee -a "$LOG_FILE"
+            echo "   Verify that 'gh auth login' was successful and chose SSH protocol" | tee -a "$LOG_FILE"
+            echo "   SSH public key should have been automatically uploaded to GitHub" | tee -a "$LOG_FILE"
         fi
     fi
 fi
