@@ -276,6 +276,10 @@ mkdir -p /home/coder/workspace/.devfarm
 } >> "$LOG_FILE" 2>/dev/null || true
 
 # Setup GitHub authentication if token is provided
+# Note: GITHUB_TOKEN is used by:
+#   - gh CLI (GitHub's official CLI tool)
+#   - GitHub Copilot extension
+#   - git via gh CLI's credential helper
 if [ -n "${GITHUB_TOKEN}" ]; then
     echo "Setting up GitHub authentication..."
     
@@ -294,8 +298,8 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Setup git credential helper (suppress output)
     gh auth setup-git >/dev/null 2>&1 || true
     
-    # Authenticate GitHub Copilot CLI with the same token
-    export GH_TOKEN="${GITHUB_TOKEN}"
+    # Note: gh CLI and GitHub Copilot both use GITHUB_TOKEN environment variable
+    # No need to set GH_TOKEN separately - it's just an alias gh CLI also checks
     
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
@@ -319,8 +323,7 @@ elif [ -f "/data/.github_token" ]; then
         
         gh auth setup-git >/dev/null 2>&1 || true
         
-        # Authenticate GitHub Copilot CLI with the token
-        export GH_TOKEN="${GITHUB_TOKEN}"
+        # Note: GITHUB_TOKEN is already set and used by gh CLI and GitHub Copilot
         
         mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
         
