@@ -826,7 +826,7 @@ def github_auth_start():
         response = requests.post(
             'https://github.com/login/device/code',
             headers={'Accept': 'application/json'},
-            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org workflow copilot'}
+            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org gist copilot'}
         )
         
         if response.status_code == 200:
@@ -946,48 +946,7 @@ def github_auth_poll():
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/github/auth/pat', methods=['POST'])
-def github_auth_pat():
-    """Save Personal Access Token"""
-    try:
-        data = request.get_json()
-        token = data.get('token', '').strip()
-        
-        if not token:
-            return jsonify({'success': False, 'error': 'Token is required'}), 400
-        
-        if not token.startswith('ghp_') and not token.startswith('github_pat_'):
-            return jsonify({'success': False, 'error': 'Invalid token format'}), 400
-        
-        # Verify token with GitHub API
-        import requests
-        headers = {
-            'Authorization': f'token {token}',
-            'Accept': 'application/vnd.github.v3+json'
-        }
-        response = requests.get('https://api.github.com/user', headers=headers, timeout=10)
-        
-        if response.status_code != 200:
-            return jsonify({'success': False, 'error': 'Invalid token or insufficient permissions'}), 401
-        
-        user_data = response.json()
-        username = user_data.get('login')
-        
-        # Save token
-        save_github_token(token)
-        
-        print(f"[GitHub Auth] PAT saved for user: {username}")
-        
-        return jsonify({
-            'success': True,
-            'username': username,
-            'message': 'Token saved successfully'
-        })
-    except requests.exceptions.Timeout:
-        return jsonify({'success': False, 'error': 'GitHub API timeout'}), 500
-    except Exception as e:
-        print(f"[GitHub Auth] Error saving PAT: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/github/auth/logout', methods=['POST'])
 def github_auth_logout():

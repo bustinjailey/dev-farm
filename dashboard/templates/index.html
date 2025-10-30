@@ -661,45 +661,51 @@
     </div>
   </div>
 
-  <!-- GitHub PAT Auth Modal -->
+  <!-- GitHub OAuth Device Flow Modal -->
   <div class="modal" id="githubAuthModal">
     <div class="modal-content">
-      <div class="modal-header">Connect GitHub (Personal Access Token)</div>
-      <div style="padding: 20px;">
+      <div class="modal-header">Connect GitHub Account</div>
+      <div id="oauthContent" style="padding: 20px;">
         <div
           style="margin-bottom: 20px; padding: 15px; background: #eef2ff; border-left: 4px solid #667eea; border-radius: 4px;">
-          <p style="margin: 0 0 10px 0; color: #333; font-weight: 600;">Why Personal Access Token (PAT)?</p>
+          <p style="margin: 0 0 10px 0; color: #333; font-weight: 600;">OAuth Device Flow</p>
           <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Full repository access (clone, pull,
-            <strong>push</strong>)</p>
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Access to private repositories</p>
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Works with all git operations</p>
-          <p style="margin: 0; color: #667eea; font-size: 0.9em; font-weight: 500;">OAuth tokens have limited push
-            access</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Personal Access
-            Token</label>
-          <input type="password" id="githubPAT" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-            style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px;"
-            onkeypress="if(event.key==='Enter') saveGitHubPAT()">
-          <p style="margin: 8px 0 0 0; color: #666; font-size: 0.85em;">
-            Token will be shared with all new environments for git operations
+            <strong>push</strong>)
           </p>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Access to private repositories</p>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Secure, no passwords stored</p>
+          <p style="margin: 0; color: #667eea; font-size: 0.9em; font-weight: 500;">Uses GitHub's official device
+            authorization</p>
         </div>
 
-        <div
-          style="margin-bottom: 20px; padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
-          <p style="margin: 0 0 8px 0; color: #92400e; font-weight: 600; font-size: 0.9em;">📝 How to create a PAT:</p>
-          <ol style="margin: 0; padding-left: 20px; color: #78350f; font-size: 0.85em;">
-            <li>Go to <a href="https://github.com/settings/tokens" target="_blank"
-                style="color: #667eea;">github.com/settings/tokens</a></li>
-            <li>Click "Generate new token (classic)"</li>
-            <li>Select scopes: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">repo</code>, <code
-                style="background: #fff; padding: 2px 4px; border-radius: 3px;">read:org</code>, <code
-                style="background: #fff; padding: 2px 4px; border-radius: 3px;">workflow</code></li>
-            <li>Copy the token and paste it above</li>
-          </ol>
+        <div id="oauthInstructions" style="display: none; text-align: center;">
+          <div
+            style="margin-bottom: 20px; padding: 20px; background: #fff; border: 2px solid #667eea; border-radius: 8px;">
+            <p style="margin: 0 0 10px 0; color: #333; font-weight: 600; font-size: 1.1em;">Enter this code on GitHub:
+            </p>
+            <div id="userCode"
+              style="font-size: 2em; font-weight: bold; color: #667eea; font-family: 'Courier New', monospace; letter-spacing: 0.2em; margin: 10px 0;">
+            </div>
+            <button onclick="copyUserCode()" class="btn"
+              style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">📋 Copy Code</button>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <a id="verificationLink" href="" target="_blank" class="btn"
+              style="display: inline-block; padding: 12px 24px; font-size: 1em; background: #667eea; text-decoration: none;">�
+              Open GitHub Authorization</a>
+          </div>
+
+          <p style="color: #666; font-size: 0.9em; margin: 15px 0;">
+            <span id="oauthTimer"></span>
+          </p>
+
+          <p style="color: #999; font-size: 0.85em; margin-top: 10px;">Waiting for authorization...</p>
+        </div>
+
+        <div id="oauthLoading" style="text-align: center;">
+          <div style="font-size: 3em; margin-bottom: 15px;">🔐</div>
+          <p style="color: #666;">Initiating GitHub authentication...</p>
         </div>
 
         <div id="githubAuthError"
@@ -711,7 +717,6 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-cancel" onclick="hideGitHubAuthModal()">Cancel</button>
-        <button class="btn" onclick="saveGitHubPAT()" style="background: #667eea;">💾 Save Token</button>
       </div>
     </div>
   </div>
@@ -1149,62 +1154,131 @@
       }
     }
 
+    let oauthPollInterval = null;
+    let oauthExpiresAt = null;
+
     async function showGitHubAuthModal() {
       document.getElementById('githubAuthModal').classList.add('active');
-      document.getElementById('githubPAT').value = '';
-      document.getElementById('githubPAT').focus();
       document.getElementById('githubAuthError').style.display = 'none';
       document.getElementById('githubAuthSuccess').style.display = 'none';
+      document.getElementById('oauthLoading').style.display = 'block';
+      document.getElementById('oauthInstructions').style.display = 'none';
+
+      startOAuthFlow();
     }
 
     function hideGitHubAuthModal() {
       document.getElementById('githubAuthModal').classList.remove('active');
+      if (oauthPollInterval) {
+        clearInterval(oauthPollInterval);
+        oauthPollInterval = null;
+      }
     }
 
-    async function saveGitHubPAT() {
-      const token = document.getElementById('githubPAT').value.trim();
+    async function startOAuthFlow() {
       const errorDiv = document.getElementById('githubAuthError');
-      const successDiv = document.getElementById('githubAuthSuccess');
-
-      errorDiv.style.display = 'none';
-      successDiv.style.display = 'none';
-
-      if (!token) {
-        errorDiv.textContent = '❌ Please enter a token';
-        errorDiv.style.display = 'block';
-        return;
-      }
-
-      if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-        errorDiv.textContent = '⚠️ Token should start with "ghp_" or "github_pat_"';
-        errorDiv.style.display = 'block';
-        return;
-      }
 
       try {
-        const response = await fetch('/api/github/auth/pat', {
+        const response = await fetch('/api/github/auth/start', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: token })
+          headers: { 'Content-Type': 'application/json' }
         });
 
         const data = await response.json();
 
-        if (response.ok && data.success) {
+        if (response.ok) {
+          document.getElementById('oauthLoading').style.display = 'none';
+          document.getElementById('oauthInstructions').style.display = 'block';
+          document.getElementById('userCode').textContent = data.user_code;
+          document.getElementById('verificationLink').href = data.verification_uri;
+
+          oauthExpiresAt = Date.now() + (data.expires_in * 1000);
+          updateOAuthTimer();
+
+          // Start polling
+          const pollInterval = Math.max(data.interval * 1000, 5000);
+          oauthPollInterval = setInterval(() => pollOAuthStatus(pollInterval), pollInterval);
+        } else {
+          errorDiv.textContent = data.error || '❌ Failed to start OAuth flow';
+          errorDiv.style.display = 'block';
+          document.getElementById('oauthLoading').style.display = 'block';
+          document.getElementById('oauthInstructions').style.display = 'none';
+        }
+      } catch (error) {
+        errorDiv.textContent = '❌ ' + error.message;
+        errorDiv.style.display = 'block';
+        document.getElementById('oauthLoading').style.display = 'block';
+        document.getElementById('oauthInstructions').style.display = 'none';
+      }
+    }
+
+    async function pollOAuthStatus(currentInterval) {
+      const errorDiv = document.getElementById('githubAuthError');
+      const successDiv = document.getElementById('githubAuthSuccess');
+
+      try {
+        const response = await fetch('/api/github/auth/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          clearInterval(oauthPollInterval);
+          oauthPollInterval = null;
+
           successDiv.textContent = `✅ Connected as ${data.username}! Reloading...`;
           successDiv.style.display = 'block';
+          document.getElementById('oauthInstructions').style.display = 'none';
+
           setTimeout(() => {
             hideGitHubAuthModal();
             window.location.reload();
           }, 1500);
-        } else {
-          errorDiv.textContent = `❌ ${data.error || 'Failed to save token'}`;
+        } else if (data.status === 'slow_down') {
+          // GitHub wants us to slow down - increase interval
+          clearInterval(oauthPollInterval);
+          const newInterval = currentInterval + 5000;
+          oauthPollInterval = setInterval(() => pollOAuthStatus(newInterval), newInterval);
+        } else if (data.status === 'expired' || data.status === 'access_denied') {
+          clearInterval(oauthPollInterval);
+          oauthPollInterval = null;
+
+          errorDiv.textContent = data.status === 'expired' ? '⏱️ Code expired. Please try again.' : '❌ Access denied';
           errorDiv.style.display = 'block';
+          document.getElementById('oauthInstructions').style.display = 'none';
         }
       } catch (error) {
-        errorDiv.textContent = `❌ Error: ${error.message}`;
-        errorDiv.style.display = 'block';
+        console.error('OAuth poll error:', error);
       }
+    }
+
+    function updateOAuthTimer() {
+      const timerDiv = document.getElementById('oauthTimer');
+      if (!oauthExpiresAt) return;
+
+      const remaining = Math.max(0, Math.floor((oauthExpiresAt - Date.now()) / 1000));
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+
+      timerDiv.textContent = `Code expires in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+      if (remaining > 0) {
+        setTimeout(updateOAuthTimer, 1000);
+      } else {
+        timerDiv.textContent = 'Code expired';
+      }
+    }
+
+    function copyUserCode() {
+      const code = document.getElementById('userCode').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => btn.textContent = originalText, 2000);
+      });
     }
 
     async function logoutGitHub() {
