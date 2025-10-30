@@ -1006,19 +1006,19 @@ cat > /home/coder/.vscode-server-insiders/data/User/keybindings.json <<'EOFKEYS'
 ]
 EOFKEYS
 
-# Start VS Code Server with mode-specific workspace root
-echo "Starting VS Code Server with workspace: ${WORKSPACE_ROOT}" | tee -a "$LOG_FILE"
+# Start VS Code Server
+echo "Starting VS Code Server (workspace will be set via URL parameter)" | tee -a "$LOG_FILE"
 
 # Ensure workspace directory exists
 mkdir -p "${WORKSPACE_ROOT}"
 
 # Start official VS Code Insiders Server with serve-web command
+# NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
+# Users access workspace via URL: http://host:port/?folder=/path/to/folder
 # Accept server license terms automatically
 # Disable telemetry to reduce network noise and log clutter
-# Pass workspace folder as positional argument at end
 exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
   --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
-  --disable-telemetry \
-  "${WORKSPACE_ROOT}"
+  --disable-telemetry

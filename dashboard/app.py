@@ -116,6 +116,16 @@ def save_registry(registry):
     # Broadcast registry change to all connected clients
     broadcast_sse('registry-update', {'timestamp': time.time()})
 
+def get_workspace_path(mode):
+    """Get the container workspace path based on environment mode"""
+    workspace_paths = {
+        'git': '/home/coder/repo',
+        'workspace': '/home/coder/workspace',
+        'ssh': '/home/coder/remote',
+        'terminal': '/home/coder/remote'
+    }
+    return workspace_paths.get(mode, '/home/coder/workspace')
+
 def load_github_token():
     """Load GitHub token from shared storage"""
     # Try file storage first (persistent across restarts)
@@ -266,6 +276,9 @@ def index():
                 ready = is_env_ready(container.name, env_data['port']) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 
+                mode = env_data.get('mode', 'workspace')
+                workspace_path = get_workspace_path(mode)
+                
                 environments.append({
                     'name': env_data.get('display_name', env_id),  # Use display_name if available
                     'id': env_id,
@@ -273,12 +286,12 @@ def index():
                     'status': display_status,
                     'created': env_data.get('created', 'Unknown'),
                     'project': env_data.get('project', 'general'),
-                    'mode': env_data.get('mode', 'workspace'),
+                    'mode': mode,
                     'ssh_host': env_data.get('ssh_host'),
                     'git_url': env_data.get('git_url'),
                     'stats': stats,
                     'ready': ready,
-                    'url': f"http://{request.host.split(':')[0]}:{env_data['port']}?folder=/home/coder/workspace"
+                    'url': f"http://{request.host.split(':')[0]}:{env_data['port']}?folder={workspace_path}"
                 })
             except docker.errors.NotFound:
                 # Container no longer exists
@@ -338,13 +351,16 @@ def api_environments():
                 ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 hostname = request.host.split(':')[0]
+                mode = env_data.get('mode', 'workspace')
+                workspace_path = get_workspace_path(mode)
+                
                 environments.append({
                     'name': env_data.get('display_name', env_id),
                     'id': env_id,
                     'port': env_data['port'],
                     'status': display_status,
                     'ready': ready,
-                    'url': f"http://{hostname}:{env_data['port']}?folder=/home/coder/workspace"
+                    'url': f"http://{hostname}:{env_data['port']}?folder={workspace_path}"
                 })
             except docker.errors.NotFound:
                 pass
@@ -369,6 +385,12 @@ def create_environment():
     ssh_path = data.get('ssh_path', '/home')
     ssh_password = data.get('ssh_password', '')  # Optional password for SSH authentication
     git_url = data.get('git_url', '')
+    
+    # Convert SSH URLs to HTTPS for credential helper compatibility
+    if git_url.startswith('git@github.com:'):
+        # Convert git@github.com:user/repo.git to https://github.com/user/repo.git
+        git_url = git_url.replace('git@github.com:', 'https://github.com/')
+        print(f"Converted SSH URL to HTTPS: {git_url}")
     
     # Parent-child tracking parameters
     parent_env_id = data.get('parent_env_id')
@@ -518,12 +540,13 @@ def create_environment():
         
         save_registry(registry)
         
+        workspace_path = get_workspace_path(mode)
         return jsonify({
             'success': True,
             'env_id': env_id,
             'display_name': display_name,
             'port': port,
-            'url': f"http://{request.host.split(':')[0]}:{port}?folder=/home/coder/workspace",
+            'url': f"http://{request.host.split(':')[0]}:{port}?folder={workspace_path}",
             'mode': mode,
             'project': project
         })
@@ -835,7 +858,7 @@ def github_auth_start():
         response = requests.post(
             'https://github.com/login/device/code',
             headers={'Accept': 'application/json'},
-            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org gist copilot write:public_key'}
+            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org gist workflow'}
         )
         
         if response.status_code == 200:
