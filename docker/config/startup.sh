@@ -732,7 +732,7 @@ fi
 # Note: serve-web doesn't accept file paths as arguments
 # The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
 exec /usr/bin/code serve-web --host 0.0.0.0 --port 8080 \
-  --user-data-dir /home/coder/.vscode-server \
+  --server-data-dir /home/coder/.vscode-server \
   --without-connection-token \
   --accept-server-license-terms \
   --disable-telemetry
