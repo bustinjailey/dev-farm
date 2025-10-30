@@ -76,10 +76,11 @@ RUN mkdir -p /home/coder/.vscode-server/data \
 # Pre-configure MCP settings for Cline extension (VS Code Server web uses ~/.vscode-server/data)
 COPY --chown=coder:coder config/mcp.json /home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 
-# Include templates for runtime initialization
+# Include templates for runtime initialization (both Cline and Copilot formats)
 RUN mkdir -p /home/coder/.devfarm
 COPY --chown=coder:coder config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
-COPY --chown=coder:coder config/mcp.json /home/coder/.devfarm/mcp.json
+COPY --chown=coder:coder config/mcp.json /home/coder/.devfarm/mcp-cline.json
+COPY --chown=coder:coder config/mcp-copilot.json /home/coder/.devfarm/mcp-copilot.json
 
 # Create startup script for GitHub authentication and configuration
 COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh

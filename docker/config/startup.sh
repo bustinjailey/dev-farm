@@ -30,18 +30,74 @@ echo "Applying VS Code workspace settings..."
 mkdir -p /home/coder/.vscode-server/data/Machine
 mkdir -p /home/coder/.vscode-server/data/User
 
-# Ensure Cline MCP settings directory exists and copy template if needed
-MCP_SETTINGS_DIR="/home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings"
-MCP_SETTINGS_FILE="$MCP_SETTINGS_DIR/cline_mcp_settings.json"
-mkdir -p "$MCP_SETTINGS_DIR"
+# ============================================================================
+# Configure MCP Servers for Multiple Tools (Cline + GitHub Copilot)
+# ============================================================================
 
-# Copy MCP template if settings file doesn't exist
-if [ -f /home/coder/.devfarm/mcp.json ] && [ ! -f "$MCP_SETTINGS_FILE" ]; then
+# --- Cline Extension ---
+# Cline uses: cline_mcp_settings.json with "mcpServers" key
+CLINE_MCP_DIR="/home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings"
+CLINE_MCP_FILE="$CLINE_MCP_DIR/cline_mcp_settings.json"
+mkdir -p "$CLINE_MCP_DIR"
+
+if [ -f /home/coder/.devfarm/mcp-cline.json ] && [ ! -f "$CLINE_MCP_FILE" ]; then
     echo "Initializing Cline MCP settings from template..."
-    cp /home/coder/.devfarm/mcp.json "$MCP_SETTINGS_FILE"
-    chown coder:coder "$MCP_SETTINGS_FILE"
-    echo "MCP settings initialized at $MCP_SETTINGS_FILE"
+    cp /home/coder/.devfarm/mcp-cline.json "$CLINE_MCP_FILE"
+    chown coder:coder "$CLINE_MCP_FILE"
+    echo "✓ Cline MCP settings initialized at $CLINE_MCP_FILE"
 fi
+
+# --- GitHub Copilot (Global Settings) ---
+# Copilot uses: settings.json with "github.copilot.chat.mcp.servers" key
+VSCODE_SETTINGS_FILE="/home/coder/.vscode-server/data/User/settings.json"
+
+# Create or update VS Code settings.json with Copilot MCP configuration
+if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
+    echo "Configuring GitHub Copilot MCP servers in VS Code settings..."
+    /usr/bin/python3 - <<'PYEOF'
+import json, os
+
+settings_path = "/home/coder/.vscode-server/data/User/settings.json"
+copilot_mcp_path = "/home/coder/.devfarm/mcp-copilot.json"
+
+# Load existing settings or create empty dict
+if os.path.exists(settings_path):
+    with open(settings_path, 'r') as f:
+        settings = json.load(f)
+else:
+    settings = {}
+
+# Load Copilot MCP configuration
+with open(copilot_mcp_path, 'r') as f:
+    copilot_config = json.load(f)
+
+# Merge into settings under github.copilot.chat.mcp.servers
+settings["github.copilot.chat.mcp.servers"] = copilot_config["servers"]
+
+# Write back
+os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+
+print("✓ GitHub Copilot MCP settings configured in settings.json")
+PYEOF
+    chown coder:coder "$VSCODE_SETTINGS_FILE"
+fi
+
+# --- Workspace .vscode/mcp.json (Optional) ---
+# GitHub Copilot also supports workspace-level mcp.json as alternative to global settings
+# We'll use global settings by default, but copy template for reference
+if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
+    mkdir -p /home/coder/workspace/.vscode
+    if [ ! -f /home/coder/workspace/.vscode/mcp.json ]; then
+        echo "Creating workspace mcp.json template for GitHub Copilot..."
+        cp /home/coder/.devfarm/mcp-copilot.json /home/coder/workspace/.vscode/mcp.json
+        chown coder:coder /home/coder/workspace/.vscode/mcp.json
+        echo "✓ Workspace mcp.json template created (for reference/override)"
+    fi
+fi
+
+echo "MCP configuration complete - supports Cline and GitHub Copilot"
 
 # Seed workspace-level settings from template if available (workspace is the only source of truth now)
 mkdir -p /home/coder/workspace/.vscode

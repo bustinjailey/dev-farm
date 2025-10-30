@@ -231,6 +231,12 @@ curl -N http://192.168.1.126:5000/api/stream
 
 ## Recent Breaking Changes
 
+- **2025-10-29**: Added cross-tool MCP support for GitHub Copilot + Cline (commit PENDING)
+  - **Copilot**: Global config in `~/.vscode-server/data/User/settings.json` with `github.copilot.chat.mcp.servers` key
+  - **Cline**: Extension-specific config in `~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+  - **Format differences**: Copilot uses `{"servers": {...}}`, Cline uses `{"mcpServers": {...}}`
+  - **Shared servers**: filesystem, github, brave-search configured for both tools
+  - **Runtime init**: startup.sh initializes both configs, workspace mcp.json created as template
 - **2025-10-29**: Fixed MCP server configuration for Cline extension (commit fbb77cc)
   - Path: `~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - Includes: filesystem, github, brave-search servers
