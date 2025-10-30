@@ -541,6 +541,8 @@
               🔌 Remote SSH{% if env.ssh_host %} ({{ env.ssh_host }}){% endif %}
               {% elif env.mode == 'git' %}
               📦 Git Repository{% if env.git_url %} ({{ env.git_url|truncate(40) }}){% endif %}
+              {% elif env.mode == 'terminal' %}
+              ⌨️ Terminal (CLI AI)
               {% else %}
               💻 Workspace
               {% endif %}
@@ -572,7 +574,7 @@
         <div class="env-actions">
           {% if env.status == 'running' %}
           <button class="btn btn-open" id="open-{{ env.id }}" onclick="window.open('{{ env.url }}', '_blank')">
-            🚀 Open VS Code
+            {% if env.mode == 'terminal' %}🚀 Open Terminal{% else %}🚀 Open VS Code{% endif %}
           </button>
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
