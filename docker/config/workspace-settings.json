@@ -50,5 +50,10 @@
     "*.md": "vscode.markdown.preview.editor"
   },
   "notifications.silent": false,
-  "workbench.statusBar.suppressInSecureWarning": true
+  "workbench.statusBar.suppressInSecureWarning": true,
+  "keyboard.dispatch": "keyCode",
+  "window.titleBarStyle": "custom",
+  "workbench.list.smoothScrolling": true,
+  "editor.smoothScrolling": true,
+  "terminal.integrated.smoothScrolling": true
 }
