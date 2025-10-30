@@ -906,10 +906,25 @@ install_extension_with_retry() {
     
     while [ $attempt -le $max_attempts ]; do
         echo "Installing $ext_id (attempt $attempt/$max_attempts)..." | tee -a "$LOG_FILE"
-        if /usr/bin/code-insiders --install-extension "$ext_id" 2>&1 | tee -a "$LOG_FILE"; then
+        
+        # Capture output and check for both exit code and error messages
+        local output
+        output=$(/usr/bin/code-insiders --install-extension "$ext_id" 2>&1)
+        local exit_code=$?
+        
+        # Log the output
+        echo "$output" | tee -a "$LOG_FILE"
+        
+        # Check for success: exit code 0 AND no "Error while installing" or "not compatible" messages
+        if [ $exit_code -eq 0 ] && ! echo "$output" | grep -qi "error while installing\|not compatible\|failed installing"; then
             echo "✓ Successfully installed $ext_id" | tee -a "$LOG_FILE"
             return 0
         else
+            if echo "$output" | grep -qi "not compatible"; then
+                echo "⚠ $ext_id is not compatible with this version of VS Code" | tee -a "$LOG_FILE"
+                return 1
+            fi
+            
             if [ $attempt -lt $max_attempts ]; then
                 echo "Retrying in 2 seconds..." | tee -a "$LOG_FILE"
                 sleep 2
@@ -931,7 +946,16 @@ install_extension_with_retry "yzhang.markdown-all-in-one" || true
 
 # GitHub Copilot (official Microsoft extensions)
 install_extension_with_retry "github.copilot" || true
-install_extension_with_retry "github.copilot-chat" || true
+
+# GitHub Copilot Chat requires pre-release version for VS Code Insiders compatibility
+# The stable version uses proposed APIs that may not be compatible with latest Insiders builds
+echo "Installing github.copilot-chat pre-release (required for VS Code Insiders)..." | tee -a "$LOG_FILE"
+if /usr/bin/code-insiders --install-extension "github.copilot-chat" --pre-release 2>&1 | tee -a "$LOG_FILE"; then
+    echo "✓ Successfully installed github.copilot-chat (pre-release)" | tee -a "$LOG_FILE"
+else
+    echo "⚠ Failed to install github.copilot-chat pre-release, trying stable version..." | tee -a "$LOG_FILE"
+    install_extension_with_retry "github.copilot-chat" || true
+fi
 
 # AI Assistants
 install_extension_with_retry "continue.continue" || true  # Continue.dev AI assistant

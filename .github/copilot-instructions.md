@@ -244,6 +244,11 @@ curl -N http://192.168.1.126:5000/api/stream
 
 ## Recent Breaking Changes
 
+- **2025-10-30**: Fixed github.copilot-chat extension compatibility with VS Code Insiders
+  - Issue: Extension uses proposed APIs (`chatParticipantPrivate`, `languageModelDataPart`, `chatSessionsProvider`) incompatible with latest Insiders
+  - Solution: Install pre-release version using `--pre-release` flag instead of stable
+  - Improved error detection in `install_extension_with_retry()` to catch API incompatibility messages
+  - Added comprehensive documentation in `docs/VSCODE_INSIDERS_EXTENSIONS.md`
 - **2025-10-29**: Added cross-tool MCP support for GitHub Copilot + Cline (commit PENDING)
   - **Copilot**: Global config in `~/.vscode-server-insiders/data/User/settings.json` with `github.copilot.chat.mcp.servers` key
   - **Cline**: Extension-specific config in `~/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
