@@ -142,6 +142,72 @@ with open(machine_settings_path, 'w', encoding='utf-8') as f:
 print(f"✓ Machine-level settings configured for all workspaces")
 PYEOF
 
+# ============================================================================
+# Apply Auto-Approval Settings for AI Tools
+# ============================================================================
+echo "Configuring auto-approval settings for AI tools..."
+
+/usr/bin/python3 - <<'PYEOF'
+import json, os
+
+# Determine environment mode and set appropriate allowed paths
+dev_mode = os.environ.get('DEV_MODE', 'workspace')
+workspace_root = os.environ.get('WORKSPACE_ROOT', '/home/coder/workspace')
+
+# Define allowed paths based on mode
+if dev_mode == 'git':
+    allowed_paths = ['/home/coder/repo']
+elif dev_mode == 'ssh':
+    allowed_paths = ['/home/coder/remote']
+else:  # workspace mode
+    allowed_paths = ['/home/coder/workspace']
+
+# Load auto-approval template
+auto_approval_path = "/home/coder/.devfarm/auto-approval-settings.json"
+if not os.path.exists(auto_approval_path):
+    print("No auto-approval settings template found, skipping")
+    exit(0)
+
+with open(auto_approval_path, 'r', encoding='utf-8') as f:
+    auto_approval_config = json.load(f)
+
+# Replace PLACEHOLDER_PATHS with actual paths
+def replace_placeholders(obj):
+    if isinstance(obj, dict):
+        return {k: replace_placeholders(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        if obj == ["PLACEHOLDER_PATHS"]:
+            return allowed_paths
+        return [replace_placeholders(item) for item in obj]
+    elif isinstance(obj, str) and obj == "PLACEHOLDER_PATHS":
+        return allowed_paths[0]  # For single path values
+    return obj
+
+auto_approval_config = replace_placeholders(auto_approval_config)
+
+# Apply to machine-level settings
+machine_settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
+os.makedirs(os.path.dirname(machine_settings_path), exist_ok=True)
+
+existing_machine = {}
+if os.path.exists(machine_settings_path):
+    try:
+        with open(machine_settings_path, 'r', encoding='utf-8') as f:
+            existing_machine = json.load(f)
+    except Exception:
+        existing_machine = {}
+
+# Merge auto-approval settings
+for key, value in auto_approval_config.items():
+    existing_machine[key] = value
+
+# Write updated machine settings
+with open(machine_settings_path, 'w', encoding='utf-8') as f:
+    json.dump(existing_machine, f, indent=2)
+
+print(f"✓ Auto-approval configured for {dev_mode} mode with paths: {', '.join(allowed_paths)}")
+PYEOF
+
 # Ensure minimal user-level settings for features that require user scope (workspace trust)
 # VS Code Server uses Machine/settings.json for machine-level settings
 /usr/bin/python3 - <<'PYEOF'

@@ -371,6 +371,13 @@ def create_environment():
     ssh_password = data.get('ssh_password', '')  # Optional password for SSH authentication
     git_url = data.get('git_url', '')
     
+    # Parent-child tracking parameters
+    parent_env_id = data.get('parent_env_id')
+    creator_type = data.get('creator_type', 'user')  # 'user' or 'ai'
+    creator_name = data.get('creator_name', 'Unknown')
+    creator_env_id = data.get('creator_env_id')
+    creation_source = data.get('creation_source', 'dashboard')
+    
     if not client:
         return jsonify({'error': 'Docker not available'}), 500
     
@@ -401,7 +408,8 @@ def create_environment():
             'GITHUB_USERNAME': github_username,
             'GITHUB_EMAIL': github_email,
             'DEV_MODE': mode,
-            'WORKSPACE_NAME': display_name  # Pass display name for workspace tab
+            'WORKSPACE_NAME': display_name,  # Pass display name for workspace tab
+            'DEVFARM_ENV_ID': env_id  # Pass environment ID for MCP server tracking
         }
         
         # Add mode-specific environment variables
@@ -460,7 +468,7 @@ def create_environment():
 
         container = client.containers.run(**run_kwargs)
         
-        # Register environment with both display name and ID
+        # Register environment with both display name and ID, plus parent-child tracking
         registry[env_id] = {
             'display_name': display_name,
             'env_id': env_id,
@@ -471,16 +479,32 @@ def create_environment():
             'mode': mode,
             'ssh_host': ssh_host if mode == 'ssh' else None,
             'ssh_password': ssh_password if mode == 'ssh' and ssh_password else None,  # Store password if provided
-            'git_url': git_url if mode == 'git' else None
+            'git_url': git_url if mode == 'git' else None,
+            # Parent-child tracking
+            'parent_env_id': parent_env_id,
+            'creator_type': creator_type,
+            'creator_name': creator_name,
+            'creator_env_id': creator_env_id,
+            'creation_source': creation_source,
+            'children': []
         }
+        
+        # Update parent's children list
+        if parent_env_id and parent_env_id in registry:
+            if 'children' not in registry[parent_env_id]:
+                registry[parent_env_id]['children'] = []
+            registry[parent_env_id]['children'].append(env_id)
+        
         save_registry(registry)
         
         return jsonify({
             'success': True,
-            'name': display_name,
-            'id': env_id,
+            'env_id': env_id,
+            'display_name': display_name,
             'port': port,
-            'url': f"http://{request.host.split(':')[0]}:{port}?folder=/home/coder/workspace"
+            'url': f"http://{request.host.split(':')[0]}:{port}?folder=/home/coder/workspace",
+            'mode': mode,
+            'project': project
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -567,6 +591,168 @@ def stop_environment(env_name):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/environments/<env_id>/restart', methods=['POST'])
+def restart_environment(env_id):
+    """Restart an environment (stop and start)"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    registry = load_registry()
+    
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    try:
+        container = client.containers.get(registry[env_id]['container_id'])
+        container.restart()
+        broadcast_sse('env-status', {'env_id': env_id, 'status': 'restarting'})
+        return jsonify({'success': True, 'message': f'Environment {env_id} restarted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/environments/<env_id>/status')
+def get_environment_status(env_id):
+    """Get detailed status of a specific environment"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    registry = load_registry()
+    
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    try:
+        env_data = registry[env_id]
+        container = client.containers.get(env_data['container_id'])
+        status = container.status
+        stats = get_container_stats(container) if status == 'running' else {}
+        ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
+        
+        return jsonify({
+            'status': 'running' if ready else ('starting' if status == 'running' else status),
+            'ready': ready,
+            'stats': stats,
+            'env_data': env_data
+        })
+    except docker.errors.NotFound:
+        return jsonify({'error': 'Container not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/images')
+def list_images():
+    """List available Docker images"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    try:
+        # Get dev-farm images
+        images = client.images.list(name='dev-farm')
+        
+        image_list = []
+        for image in images:
+            for tag in (image.tags or ['<none>']):
+                image_list.append({
+                    'name': tag.split(':')[0] if ':' in tag else tag,
+                    'tag': tag.split(':')[1] if ':' in tag else 'latest',
+                    'size': image.attrs.get('Size', 0),
+                    'created': image.attrs.get('Created', '')
+                })
+        
+        return jsonify({'images': image_list})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/images/build', methods=['POST'])
+def build_image():
+    """Trigger image rebuild"""
+    if not client:
+        return jsonify({'error': 'Docker not available'}), 500
+    
+    data = request.get_json()
+    image_type = data.get('image_type', 'code-server')
+    
+    valid_types = ['code-server', 'terminal', 'dashboard']
+    if image_type not in valid_types:
+        return jsonify({'error': f'Invalid image type. Must be one of: {", ".join(valid_types)}'}), 400
+    
+    try:
+        # Ensure updater container exists
+        try:
+            updater = client.containers.get('devfarm-updater')
+            if updater.status != 'running':
+                updater.start()
+                time.sleep(1)
+        except docker.errors.NotFound:
+            updater = client.containers.run(
+                'docker:27-cli',
+                name='devfarm-updater',
+                volumes={
+                    '/var/run/docker.sock': {'bind': '/var/run/docker.sock', 'mode': 'rw'},
+                    REPO_PATH: {'bind': REPO_PATH, 'mode': 'rw'}
+                },
+                command='tail -f /dev/null',
+                detach=True,
+                restart_policy={'Name': 'unless-stopped'},
+                network_mode='bridge'
+            )
+            time.sleep(2)
+        
+        # Build the appropriate image
+        if image_type == 'code-server':
+            build_cmd = f'docker build --no-cache -t dev-farm/code-server:latest -f {REPO_PATH}/docker/Dockerfile.code-server {REPO_PATH}/docker'
+        elif image_type == 'terminal':
+            build_cmd = f'docker build --no-cache -t dev-farm/terminal:latest -f {REPO_PATH}/docker/Dockerfile.terminal {REPO_PATH}/docker'
+        else:  # dashboard
+            build_cmd = f'docker build --no-cache -t dev-farm-dashboard:latest {REPO_PATH}/dashboard'
+        
+        exec_result = updater.exec_run(cmd=['sh', '-c', build_cmd], demux=False)
+        
+        if exec_result.exit_code == 0:
+            return jsonify({'success': True, 'message': f'{image_type} image built successfully'})
+        else:
+            error_output = exec_result.output.decode('utf-8', errors='replace') if exec_result.output else 'unknown error'
+            return jsonify({'success': False, 'message': f'Build failed: {error_output[-200:]}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/environments/hierarchy')
+def get_environment_hierarchy():
+    """Get environment hierarchy tree"""
+    registry = load_registry()
+    
+    def build_tree(env_id):
+        if env_id not in registry:
+            return None
+        env = registry[env_id]
+        
+        # Get status
+        status = 'unknown'
+        if client:
+            try:
+                container = client.containers.get(env.get('container_id'))
+                status = container.status
+            except:
+                pass
+        
+        return {
+            'id': env_id,
+            'name': env.get('display_name', env_id),
+            'creator': env.get('creator_name'),
+            'creator_type': env.get('creator_type'),
+            'status': status,
+            'children': [build_tree(child) for child in env.get('children', []) if build_tree(child)]
+        }
+    
+    # Get root environments (no parent)
+    roots = [env_id for env_id, env in registry.items()
+             if not env.get('parent_env_id')]
+    
+    trees = [build_tree(root) for root in roots]
+    trees = [tree for tree in trees if tree]  # Filter out None values
+    
+    return jsonify({'trees': trees})
 
 @app.route('/health')
 def health():

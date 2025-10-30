@@ -98,6 +98,46 @@
       color: white;
     }
 
+    .badge-ai {
+      background: #9f7aea;
+      color: white;
+      font-size: 0.85em;
+      padding: 4px 10px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge-user {
+      background: #4299e1;
+      color: white;
+      font-size: 0.85em;
+      padding: 4px 10px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge-child {
+      background: #ed8936;
+      color: white;
+      font-size: 0.75em;
+      padding: 3px 8px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .creator-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
     .btn-upgrade {
       background: #667eea;
       color: white;
@@ -515,6 +555,9 @@
     <div class="create-btn-container">
       <button class="btn btn-create" onclick="showCreateModal()">
         ➕ Create New Environment
+      </button>
+      <button class="btn" onclick="showHierarchyView()" style="background: white; color: #667eea; padding: 12px 24px; margin-left: 10px;">
+        🌳 View Hierarchy
       </button>
     </div>
 

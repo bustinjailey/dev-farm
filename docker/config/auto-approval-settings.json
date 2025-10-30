@@ -1,0 +1,13 @@
+{
+  "kilocode.autoApproveCommands": {
+    "enabled": true,
+    "allowedPaths": ["PLACEHOLDER_PATHS"],
+    "allowAllInWorkspace": true
+  },
+  "cline.autoApprove": {
+    "enabled": true,
+    "allowedDirectories": ["PLACEHOLDER_PATHS"]
+  },
+  "github.copilot.commandExecution.autoApprove": true,
+  "github.copilot.commandExecution.allowedPaths": ["PLACEHOLDER_PATHS"]
+}
