@@ -666,37 +666,47 @@
     <div class="modal-content">
       <div class="modal-header">Connect GitHub (Personal Access Token)</div>
       <div style="padding: 20px;">
-        <div style="margin-bottom: 20px; padding: 15px; background: #eef2ff; border-left: 4px solid #667eea; border-radius: 4px;">
+        <div
+          style="margin-bottom: 20px; padding: 15px; background: #eef2ff; border-left: 4px solid #667eea; border-radius: 4px;">
           <p style="margin: 0 0 10px 0; color: #333; font-weight: 600;">Why Personal Access Token (PAT)?</p>
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Full repository access (clone, pull, <strong>push</strong>)</p>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Full repository access (clone, pull,
+            <strong>push</strong>)</p>
           <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Access to private repositories</p>
           <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Works with all git operations</p>
-          <p style="margin: 0; color: #667eea; font-size: 0.9em; font-weight: 500;">OAuth tokens have limited push access</p>
+          <p style="margin: 0; color: #667eea; font-size: 0.9em; font-weight: 500;">OAuth tokens have limited push
+            access</p>
         </div>
-        
+
         <div style="margin-bottom: 20px;">
-          <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Personal Access Token</label>
-          <input type="password" id="githubPAT" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" 
+          <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Personal Access
+            Token</label>
+          <input type="password" id="githubPAT" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
             style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px;"
             onkeypress="if(event.key==='Enter') saveGitHubPAT()">
           <p style="margin: 8px 0 0 0; color: #666; font-size: 0.85em;">
             Token will be shared with all new environments for git operations
           </p>
         </div>
-        
-        <div style="margin-bottom: 20px; padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
+
+        <div
+          style="margin-bottom: 20px; padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
           <p style="margin: 0 0 8px 0; color: #92400e; font-weight: 600; font-size: 0.9em;">📝 How to create a PAT:</p>
           <ol style="margin: 0; padding-left: 20px; color: #78350f; font-size: 0.85em;">
-            <li>Go to <a href="https://github.com/settings/tokens" target="_blank" style="color: #667eea;">github.com/settings/tokens</a></li>
+            <li>Go to <a href="https://github.com/settings/tokens" target="_blank"
+                style="color: #667eea;">github.com/settings/tokens</a></li>
             <li>Click "Generate new token (classic)"</li>
-            <li>Select scopes: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">repo</code>, <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">read:org</code>, <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">workflow</code></li>
+            <li>Select scopes: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">repo</code>, <code
+                style="background: #fff; padding: 2px 4px; border-radius: 3px;">read:org</code>, <code
+                style="background: #fff; padding: 2px 4px; border-radius: 3px;">workflow</code></li>
             <li>Copy the token and paste it above</li>
           </ol>
         </div>
-        
-        <div id="githubAuthError" style="display: none; margin-bottom: 15px; padding: 12px; background: #fee2e2; border-left: 4px solid #f56565; border-radius: 4px; color: #991b1b;">
+
+        <div id="githubAuthError"
+          style="display: none; margin-bottom: 15px; padding: 12px; background: #fee2e2; border-left: 4px solid #f56565; border-radius: 4px; color: #991b1b;">
         </div>
-        <div id="githubAuthSuccess" style="display: none; margin-bottom: 15px; padding: 12px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; color: #065f46;">
+        <div id="githubAuthSuccess"
+          style="display: none; margin-bottom: 15px; padding: 12px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; color: #065f46;">
         </div>
       </div>
       <div class="modal-footer">
