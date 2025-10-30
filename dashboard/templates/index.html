@@ -907,9 +907,15 @@
       }
       const text = await response.text();
       if (!text) {
+        console.error(`[safeFetch] Empty response from ${url}`);
         throw new Error('Empty response from server');
       }
-      return JSON.parse(text);
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error(`[safeFetch] Invalid JSON from ${url}:`, text);
+        throw new Error(`Invalid JSON response: ${e.message}`);
+      }
     }
 
     // Check system status on load and periodically update
@@ -995,8 +1001,10 @@
             </div>
           `;
 
-          // Start polling
-          pollForOAuth();
+          // Start polling with the interval GitHub specified (default 5 seconds)
+          const intervalSeconds = data.interval || 5;
+          console.log(`[OAuth] Starting poll with ${intervalSeconds}s interval`);
+          pollForOAuth(intervalSeconds);
         } else {
           content.innerHTML = `<div style="color: #f56565; margin: 20px 0;">❌ Failed to start OAuth flow</div>`;
         }
@@ -1016,15 +1024,21 @@
       }
     }
 
-    let pollInterval = null;
+    let pollTimeout = null;
     let oauthFocusHandler = null;
-    
-    async function pollForOAuth() {
-      if (pollInterval) clearInterval(pollInterval);
+    let currentPollInterval = 5;
+    let isPolling = false;
+
+    async function pollForOAuth(initialInterval = 5) {
+      if (pollTimeout) clearTimeout(pollTimeout);
       if (oauthFocusHandler) window.removeEventListener('focus', oauthFocusHandler);
+      
+      currentPollInterval = initialInterval;
+      isPolling = true;
 
       const handleAuthSuccess = (data) => {
-        clearInterval(pollInterval);
+        isPolling = false;
+        if (pollTimeout) clearTimeout(pollTimeout);
         if (oauthFocusHandler) {
           window.removeEventListener('focus', oauthFocusHandler);
           oauthFocusHandler = null;
@@ -1044,12 +1058,20 @@
         }, 2000);
       };
 
-      pollInterval = setInterval(async () => {
+      const doPoll = async () => {
+        if (!isPolling) return;
+        
         try {
-          console.log('[OAuth] Polling for authorization status...');
+          console.log(`[OAuth] Polling (interval: ${currentPollInterval}s)...`);
           const data = await safeFetch('/api/github/auth/poll', { method: 'POST' });
-          console.log('[OAuth] Poll response:', data);
+          console.log('[OAuth] Poll response:', JSON.stringify(data));
           const pollStatus = document.getElementById('pollStatus');
+
+          if (!data || typeof data !== 'object') {
+            console.error('[OAuth] Invalid response data:', data);
+            pollTimeout = setTimeout(doPoll, currentPollInterval * 1000);
+            return;
+          }
 
           if (data.status === 'success') {
             console.log('[OAuth] ✅ Authorization successful!');
@@ -1057,46 +1079,67 @@
           } else if (data.status === 'pending') {
             console.log('[OAuth] Still waiting for authorization...');
             if (pollStatus) pollStatus.textContent = '⏳ Waiting for authorization...';
+            pollTimeout = setTimeout(doPoll, currentPollInterval * 1000);
+          } else if (data.status === 'slow_down') {
+            currentPollInterval += 5;
+            console.log(`[OAuth] ⚠️ Rate limited - increasing interval to ${currentPollInterval}s`);
+            if (pollStatus) pollStatus.textContent = `⏳ Slowing down (${currentPollInterval}s interval)...`;
+            pollTimeout = setTimeout(doPoll, currentPollInterval * 1000);
           } else if (data.status === 'expired') {
             console.log('[OAuth] ❌ Code expired');
-            clearInterval(pollInterval);
+            isPolling = false;
             if (pollStatus) pollStatus.innerHTML = '<span style="color: #f56565;">❌ Code expired. Please try again.</span>';
           } else if (data.status === 'denied') {
             console.log('[OAuth] ❌ User denied authorization');
-            clearInterval(pollInterval);
+            isPolling = false;
             if (pollStatus) pollStatus.innerHTML = '<span style="color: #f56565;">❌ Authorization denied.</span>';
           } else if (data.status === 'error') {
             console.error('[OAuth] ❌ Error:', data.message);
-            clearInterval(pollInterval);
+            isPolling = false;
             if (pollStatus) pollStatus.innerHTML = `<span style="color: #f56565;">❌ Error: ${data.message}</span>`;
           } else if (data.status === 'no_flow') {
             console.error('[OAuth] ❌ No flow in progress');
-            clearInterval(pollInterval);
+            isPolling = false;
             if (pollStatus) pollStatus.innerHTML = '<span style="color: #f56565;">❌ Session expired. Please try again.</span>';
           } else {
             console.warn('[OAuth] Unknown status:', data.status);
+            pollTimeout = setTimeout(doPoll, currentPollInterval * 1000);
           }
         } catch (error) {
           console.error('[OAuth] Poll error:', error);
+          const pollStatus = document.getElementById('pollStatus');
+          if (pollStatus && error.message.includes('502')) {
+            pollStatus.innerHTML = '<span style="color: #f59e0b;">⚠️ Connection issue, retrying...</span>';
+          }
+          // Continue polling on error
+          if (isPolling) {
+            pollTimeout = setTimeout(doPoll, currentPollInterval * 1000);
+          }
         }
-      }, 2000); // Poll every 2 seconds
-      
+      };
+
+      // Start polling immediately
+      doPoll();
+
       // Also check immediately when window regains focus (user returns from GitHub)
       oauthFocusHandler = async () => {
+        if (!isPolling) return;
         try {
           console.log('[OAuth] Window focused - checking authorization immediately...');
           const data = await safeFetch('/api/github/auth/poll', { method: 'POST' });
-          console.log('[OAuth] Focus poll response:', data);
+          console.log('[OAuth] Focus poll response:', JSON.stringify(data));
           if (data.status === 'success') {
             console.log('[OAuth] ✅ Authorization successful (via focus check)!');
             handleAuthSuccess(data);
+          } else if (data.status === 'slow_down') {
+            console.log('[OAuth] ⚠️ Focus check got slow_down, waiting...');
           }
         } catch (error) {
           console.error('[OAuth] Focus poll error:', error);
         }
       };
       window.addEventListener('focus', oauthFocusHandler);
-      console.log('[OAuth] Added focus listener for immediate authorization check');
+      console.log(`[OAuth] Started polling with ${currentPollInterval}s interval + focus listener`);
     }
 
     function hideOAuthModal() {

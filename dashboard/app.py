@@ -634,7 +634,8 @@ def github_auth_start():
             return jsonify({
                 'user_code': data['user_code'],
                 'verification_uri': data['verification_uri'],
-                'expires_in': data['expires_in']
+                'expires_in': data['expires_in'],
+                'interval': data.get('interval', 5)
             })
         else:
             return jsonify({'error': 'Failed to start OAuth flow'}), 500
@@ -707,8 +708,8 @@ def github_auth_poll():
                 return jsonify({'status': 'pending'})
             
             elif result.get('error') == 'slow_down':
-                print("[OAuth Poll] Rate limited - slowing down")
-                return jsonify({'status': 'slow_down'})
+                print("[OAuth Poll] Rate limited - client should slow down")
+                return jsonify({'status': 'slow_down', 'message': 'Polling too fast, increase interval by 5 seconds'})
             
             elif result.get('error') == 'expired_token':
                 print("[OAuth Poll] Token expired")
