@@ -1032,7 +1032,7 @@
     async function pollForOAuth(initialInterval = 5) {
       if (pollTimeout) clearTimeout(pollTimeout);
       if (oauthFocusHandler) window.removeEventListener('focus', oauthFocusHandler);
-      
+
       currentPollInterval = initialInterval;
       isPolling = true;
 
@@ -1060,7 +1060,7 @@
 
       const doPoll = async () => {
         if (!isPolling) return;
-        
+
         try {
           console.log(`[OAuth] Polling (interval: ${currentPollInterval}s)...`);
           const data = await safeFetch('/api/github/auth/poll', { method: 'POST' });
