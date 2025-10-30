@@ -803,11 +803,16 @@ def github_repos():
         response = requests.get('https://api.github.com/user/repos', headers=headers, params={
             'sort': 'updated',
             'per_page': 100,
+            'visibility': 'all',
             'affiliation': 'owner,collaborator,organization_member'
         })
         
         if response.status_code == 200:
             repos = response.json()
+            # Log for debugging
+            private_count = sum(1 for r in repos if r.get('private'))
+            app.logger.info(f"Fetched {len(repos)} repos ({private_count} private, {len(repos) - private_count} public)")
+            
             return jsonify([{
                 'name': repo['full_name'],
                 'ssh_url': repo['ssh_url'],
@@ -817,7 +822,8 @@ def github_repos():
                 'updated': repo['updated_at']
             } for repo in repos])
         else:
-            return jsonify({'error': 'Failed to fetch repositories'}), response.status_code
+            app.logger.error(f"GitHub API error: {response.status_code} - {response.text}")
+            return jsonify({'error': f'Failed to fetch repositories: {response.status_code}'}), response.status_code
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

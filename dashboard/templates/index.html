@@ -810,7 +810,7 @@
             <div id="repoListContent" style="padding: 8px;"></div>
           </div>
           <small style="color: #666; font-size: 0.85em; display: block; margin-top: 5px;">
-            Supports both SSH (git@github.com:...) and HTTPS (https://...) URLs. SSH recommended for private repos.
+            Supports both HTTPS (https://...) and SSH (git@github.com:...) URLs. HTTPS recommended (uses GitHub token).
           </small>
         </div>
 
@@ -936,7 +936,7 @@
 
           repoListContent.innerHTML = githubRepos.map(repo => `
             <div style="padding: 8px; border-bottom: 1px solid #e2e8f0; cursor: pointer; hover: background: #f7fafc;" 
-                 onclick="selectRepo('${repo.ssh_url}')"
+                 onclick="selectRepo('${repo.https_url}')"
                  onmouseover="this.style.background='#f7fafc'" 
                  onmouseout="this.style.background='white'">
               <div style="display: flex; align-items: center; gap: 6px;">
