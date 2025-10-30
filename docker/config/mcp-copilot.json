@@ -3,9 +3,7 @@
     "aggregate-mcp-server": {
       "type": "stdio",
       "command": "node",
-      "args": [
-        "/home/coder/.local/bin/aggregate-mcp-server/build/index.js"
-      ],
+      "args": ["/home/coder/.local/bin/aggregate-mcp-server/build/index.js"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}",
         "BRAVE_API_KEY": "${BRAVE_API_KEY}",
