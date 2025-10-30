@@ -38,11 +38,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 RUN wget https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -O /usr/local/bin/ttyd && \
   chmod +x /usr/local/bin/ttyd
 
-# Install CLI AI tools
-RUN npm install -g @agentic/cli
-
-# Install aichat (Rust-based CLI AI tool)
-RUN curl -fsSL https://raw.githubusercontent.com/sigoden/aichat/main/scripts/install.sh | sh -s -- --to /usr/local/bin
+# Note: aichat removed - installation was unreliable and GitHub Copilot CLI provides similar functionality
+# GitHub Copilot CLI extension is installed at runtime via startup-terminal.sh
 
 # Create a non-root user 'coder'
 RUN useradd -m -s /bin/zsh coder \
@@ -63,20 +60,17 @@ WORKDIR /home/coder/workspace
 # Install Oh My Zsh for better terminal experience
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# Configure zsh with helpful aliases
+# Configure zsh with helpful aliases and welcome message
 RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
   echo 'alias ll="ls -alh"' >> ~/.zshrc && \
   echo 'alias gs="git status"' >> ~/.zshrc && \
   echo 'alias gp="git pull"' >> ~/.zshrc && \
-  echo 'alias ai="aichat"' >> ~/.zshrc && \
   echo 'echo "🤖 CLI AI Tools Available:"' >> ~/.zshrc && \
   echo 'echo "  • gh copilot - GitHub Copilot CLI"' >> ~/.zshrc && \
-  echo 'echo "  • aichat or ai - Multi-model AI chat CLI"' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc && \
   echo 'echo "💡 Type commands for help:"' >> ~/.zshrc && \
   echo 'echo "  • gh copilot explain <command>"' >> ~/.zshrc && \
   echo 'echo "  • gh copilot suggest <task>"' >> ~/.zshrc && \
-  echo 'echo "  • aichat --help"' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc
 
 # Create startup script

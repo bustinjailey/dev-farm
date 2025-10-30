@@ -46,8 +46,12 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Setup git credential helper
     gh auth setup-git >/dev/null 2>&1 || true
     
-    # Setup GitHub Copilot CLI extension
+    # Setup GitHub Copilot CLI extension and authenticate it
     gh extension install github/gh-copilot 2>/dev/null || gh extension upgrade gh-copilot 2>/dev/null || true
+    
+    # Authenticate GitHub Copilot CLI with the same token
+    # This allows 'gh copilot' commands to work without re-authentication
+    export GH_TOKEN="${GITHUB_TOKEN}"
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
     echo "GitHub Copilot CLI is ready!"
@@ -70,6 +74,9 @@ elif [ -f "/data/.github_token" ]; then
         gh auth setup-git >/dev/null 2>&1 || true
         gh extension install github/gh-copilot 2>/dev/null || gh extension upgrade gh-copilot 2>/dev/null || true
         
+        # Authenticate GitHub Copilot CLI with the token
+        export GH_TOKEN="${GITHUB_TOKEN}"
+        
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
         echo "GitHub Copilot CLI is ready!"
     else
@@ -78,19 +85,6 @@ elif [ -f "/data/.github_token" ]; then
 else
     echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
-fi
-
-# Configure aichat if OpenAI API key is provided
-if [ -n "${OPENAI_API_KEY}" ]; then
-    echo "Configuring aichat with OpenAI API key..."
-    mkdir -p ~/.config/aichat
-    cat > ~/.config/aichat/config.yaml <<EOF
-model: gpt-4
-clients:
-  - type: openai
-    api_key: ${OPENAI_API_KEY}
-EOF
-    echo "aichat configured with OpenAI!"
 fi
 
 # Handle different development modes
@@ -146,16 +140,12 @@ cat > "$WELCOME_PATH" <<'EOWELCOME'
 
 Welcome to your terminal-focused development environment!
 
-🔧 AVAILABLE CLI AI TOOLS:
+🔧 AVAILABLE CLI AI TOOL:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   • gh copilot              GitHub Copilot CLI
     - gh copilot explain    Explain shell commands
     - gh copilot suggest    Get command suggestions
-  
-  • aichat (or ai)          Multi-model AI chat
-    - aichat "your query"   Ask questions
-    - aichat --help         See all options
 
 📁 YOUR WORKSPACE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -177,7 +167,7 @@ Welcome to your terminal-focused development environment!
 
 Try these commands:
   gh copilot suggest "create a python web server"
-  aichat "what is docker compose"
+  gh copilot explain "docker compose up -d"
   
 Happy hacking! 🎉
 

@@ -304,6 +304,9 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Setup git credential helper (suppress output)
     gh auth setup-git >/dev/null 2>&1 || true
     
+    # Authenticate GitHub Copilot CLI with the same token
+    export GH_TOKEN="${GITHUB_TOKEN}"
+    
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
     
@@ -325,6 +328,9 @@ elif [ -f "/data/.github_token" ]; then
         }
         
         gh auth setup-git >/dev/null 2>&1 || true
+        
+        # Authenticate GitHub Copilot CLI with the token
+        export GH_TOKEN="${GITHUB_TOKEN}"
         
         mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
         

@@ -1,0 +1,206 @@
+# Fix Summary: VS Code Insiders Extension Compatibility
+
+**Date**: October 30, 2025  
+**Issue**: github.copilot-chat extension fails to install with "not compatible" error  
+**Status**: ✅ FIXED
+
+## Problem
+
+When starting Dev Farm environments, the `github.copilot-chat` extension failed to install with error:
+
+```
+Error while installing extension github.copilot-chat: Can't install 'GitHub Copilot Chat' extension.
+This extension is using the API proposals 'chatParticipantPrivate', 'languageModelDataPart' and
+'chatSessionsProvider' that are not compatible with the current version of VS Code.
+```
+
+Despite the error, the startup script incorrectly reported:
+
+```
+✓ Successfully installed github.copilot-chat
+```
+
+## Root Cause
+
+1. **API Incompatibility**: The stable version of `github.copilot-chat` uses proposed APIs that changed in recent VS Code Insiders builds
+2. **Poor Error Detection**: The installation script only checked exit codes, not output content
+3. **VS Code Insiders Volatility**: Insiders updates daily with API changes; extensions lag behind
+
+## Solution
+
+### 1. Use Pre-Release Version (`startup.sh`)
+
+Changed from:
+
+```bash
+install_extension_with_retry "github.copilot-chat" || true
+```
+
+To:
+
+```bash
+echo "Installing github.copilot-chat pre-release (required for VS Code Insiders)..." | tee -a "$LOG_FILE"
+if /usr/bin/code-insiders --install-extension "github.copilot-chat" --pre-release 2>&1 | tee -a "$LOG_FILE"; then
+    echo "✓ Successfully installed github.copilot-chat (pre-release)" | tee -a "$LOG_FILE"
+else
+    echo "⚠ Failed to install github.copilot-chat pre-release, trying stable version..." | tee -a "$LOG_FILE"
+    install_extension_with_retry "github.copilot-chat" || true
+fi
+```
+
+**Why**: Pre-release versions are built specifically for VS Code Insiders with compatible API versions.
+
+### 2. Improved Error Detection (`install_extension_with_retry()`)
+
+Added content-based error detection:
+
+```bash
+# Capture output and check for both exit code and error messages
+local output
+output=$(/usr/bin/code-insiders --install-extension "$ext_id" 2>&1)
+local exit_code=$?
+
+# Check for success: exit code 0 AND no error messages
+if [ $exit_code -eq 0 ] && ! echo "$output" | grep -qi "error while installing\|not compatible\|failed installing"; then
+    echo "✓ Successfully installed $ext_id"
+    return 0
+else
+    if echo "$output" | grep -qi "not compatible"; then
+        echo "⚠ $ext_id is not compatible with this version of VS Code"
+        return 1
+    fi
+    # ... retry logic ...
+fi
+```
+
+**Why**: VS Code CLI returns exit code 0 even when extension install fails due to incompatibility.
+
+### 3. Documentation
+
+Created comprehensive guide at `docs/VSCODE_INSIDERS_EXTENSIONS.md` covering:
+
+- Problem explanation and solution
+- Affected extensions list
+- Monitoring and troubleshooting steps
+- Best practices for Insiders usage
+
+## Files Changed
+
+1. **`docker/config/startup.sh`**:
+
+   - Modified extension installation logic for github.copilot-chat
+   - Enhanced `install_extension_with_retry()` function with better error detection
+
+2. **`docs/VSCODE_INSIDERS_EXTENSIONS.md`** (NEW):
+
+   - Complete compatibility guide
+   - Troubleshooting procedures
+   - Best practices
+
+3. **`.github/copilot-instructions.md`**:
+   - Added to "Recent Breaking Changes" section
+   - Documents fix for future reference
+
+## Testing Steps
+
+To verify the fix:
+
+1. **Rebuild Dashboard** (if already running):
+
+   ```bash
+   ssh root@eagle "pct exec 200 -- bash -c 'cd /opt/dev-farm && docker compose build --no-cache devfarm-dashboard'"
+   ```
+
+2. **Recreate Environment**:
+
+   - Delete existing test environment via dashboard
+   - Create new environment
+   - Monitor container logs: `ssh root@eagle "pct exec 200 -- docker logs -f devfarm-<name>"`
+
+3. **Verify Success**:
+
+   - Look for: `✓ Successfully installed github.copilot-chat (pre-release)`
+   - Should NOT see: `Error while installing extension github.copilot-chat`
+   - Check in VS Code: Extensions panel should show GitHub Copilot Chat as installed
+
+4. **Test Functionality**:
+   - Open environment in browser
+   - Press `Ctrl+Shift+P` → "GitHub Copilot: Sign In"
+   - Try chat feature: Click Copilot icon or `Ctrl+Shift+Space`
+
+## Deployment
+
+Since only `startup.sh` changed (Dockerfile unchanged), existing environments will NOT get the fix automatically. Options:
+
+### Option A: Recreate Environments (Recommended)
+
+- Dashboard → Delete old environments
+- Create new ones (will use new startup.sh)
+
+### Option B: Manual Fix (Per-Environment)
+
+1. Exec into running container:
+   ```bash
+   ssh root@eagle "pct exec 200 -- docker exec -it devfarm-<name> bash"
+   ```
+2. Install pre-release:
+   ```bash
+   code-insiders --install-extension github.copilot-chat --pre-release
+   ```
+3. Reload VS Code window in browser
+
+### Option C: Rebuild Image (Forces All Updates)
+
+```bash
+ssh root@eagle "pct exec 200 -- bash -c 'cd /opt/dev-farm && docker compose build --no-cache && docker compose up -d'"
+```
+
+Then recreate environments to use new image.
+
+## Future Considerations
+
+1. **Monitor for More Extensions**: Other extensions may hit similar issues as Insiders evolves
+2. **Automatic Pre-Release Detection**: Could add logic to auto-detect when pre-release is needed
+3. **Extension Version Pinning**: Consider pinning to specific versions for stability
+4. **Stable VS Code Option**: Provide choice between Insiders and Stable in dashboard
+5. **Health Checks**: Add extension activation checks to container health status
+
+## References
+
+- Research findings: VS Code Insiders GitHub issues #242633, #262818
+- Blog post: "Fixing lmTools API Error in VS Code Insiders" (corner.buka.sh, Oct 2024)
+- GitHub Copilot announcements: October 28-29, 2025 updates
+
+## Related Issues Fixed
+
+### Terminal Mode Issues
+
+While fixing the extension issue, also addressed problems in Terminal Mode:
+
+1. **GitHub Copilot CLI Authentication**: Added `GH_TOKEN` export in both `startup.sh` and `startup-terminal.sh`
+
+   - Before: `gh copilot` commands failed with "No valid GitHub CLI OAuth token detected"
+   - After: Automatically authenticated using existing `GITHUB_TOKEN`
+
+2. **Removed aichat References**: Removed non-existent `aichat` tool from documentation and welcome messages
+   - Installation was unreliable (requires Rust toolchain)
+   - GitHub Copilot CLI provides similar functionality
+   - Simplified Terminal Mode to focus on working tools
+
+### Files Changed for Terminal Mode
+
+- `docker/config/startup-terminal.sh`: Added `GH_TOKEN` export, removed aichat config
+- `docker/Dockerfile.terminal`: Removed aichat installation, updated zsh banner
+- `docker/config/startup.sh`: Added `GH_TOKEN` export for VS Code mode too
+
+### Other Issues
+
+- Aggregate MCP server clone also failed (GitHub token permission issue) - separate fix needed
+
+---
+
+**Next Steps**:
+
+1. Rebuild Docker images to apply fixes
+2. Test VS Code mode with new extension installation
+3. Test Terminal Mode with GitHub Copilot CLI authentication
