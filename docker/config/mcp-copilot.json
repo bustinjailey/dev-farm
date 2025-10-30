@@ -1,28 +1,15 @@
 {
   "servers": {
-    "filesystem": {
+    "aggregate-mcp-server": {
       "type": "stdio",
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "${WORKSPACE_ROOT}"
-      ]
-    },
-    "github": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+        "/home/coder/.local/bin/aggregate-mcp-server/build/index.js"
+      ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-      }
-    },
-    "brave-search": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-      "env": {
-        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}",
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}",
+        "WORKSPACE_ROOT": "${WORKSPACE_ROOT}"
       }
     }
   }
