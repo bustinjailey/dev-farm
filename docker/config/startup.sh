@@ -509,23 +509,35 @@ EOF
             WORKSPACE_ROOT="/home/coder/remote"
             mkdir -p "$REMOTE_MOUNT_DIR"
             
-            # Ensure FUSE device exists
+            # Ensure FUSE device exists and is accessible
             if [ ! -e /dev/fuse ]; then
-                echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount. Check container run privileges." | tee -a "$LOG_FILE"
+                echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount." | tee -a "$LOG_FILE"
                 cat > /home/coder/workspace/SSH_MOUNT_ERROR.md <<'EOFERR'
 # SSH Mount Error
 
 /dev/fuse device is not available in this container.
 
-SSHFS requires FUSE support which needs:
-- /dev/fuse device mapped into container
-- SYS_ADMIN capability
-- AppArmor security profile configured
+SSHFS requires FUSE support which needs the container to be started with privileged mode.
+The dashboard automatically configures this for SSH mode, but the device is not available.
 
-The container was not started with the necessary privileges for SSHFS.
-Please contact your administrator or recreate this environment.
+**Possible causes:**
+- Docker doesn't have access to /dev/fuse on the host
+- The host system doesn't have FUSE support enabled
+- Container security policies blocking device access
+
+**To fix:**
+1. On the host, ensure FUSE is installed: `apt-get install fuse3`
+2. Load the FUSE kernel module: `modprobe fuse`
+3. Recreate this environment
+
+If the issue persists, SSH mode may not be supported on this host.
 EOFERR
                 exit 1
+            fi
+            
+            # Test if FUSE is actually usable (not just present)
+            if ! fusermount3 -V >/dev/null 2>&1; then
+                echo "Warning: fusermount3 not working properly" | tee -a "$LOG_FILE"
             fi
             # Attempt to mount remote path to subdirectory
             echo "Mounting ${SSH_USER}@${SSH_HOST}:${SSH_PATH} -> ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
@@ -539,22 +551,21 @@ EOFERR
             UID_VAL=$(id -u coder 2>/dev/null || id -u)
             GID_VAL=$(id -g coder 2>/dev/null || id -g)
             
-            # Prepare SSHFS options
+            # Prepare SSHFS options - simplified for better compatibility
             SSHFS_OPTS="-p ${SSH_PORT}"
-            # Only use allow_other for key-based auth (requires proper FUSE setup)
-            # For password auth via sshpass, skip allow_other to avoid permission issues
-            if [ -z "${SSH_PASSWORD}" ]; then
-                SSHFS_OPTS="${SSHFS_OPTS} -o allow_other"
-            fi
+            # Use allow_other to allow all users to access mount (requires user_allow_other in /etc/fuse.conf)
+            SSHFS_OPTS="${SSHFS_OPTS} -o allow_other"
+            SSHFS_OPTS="${SSHFS_OPTS} -o default_permissions"
             SSHFS_OPTS="${SSHFS_OPTS} -o StrictHostKeyChecking=no"
             SSHFS_OPTS="${SSHFS_OPTS} -o UserKnownHostsFile=/dev/null"
             SSHFS_OPTS="${SSHFS_OPTS} -o reconnect"
-            SSHFS_OPTS="${SSHFS_OPTS} -o follow_symlinks"
-            SSHFS_OPTS="${SSHFS_OPTS} -o ConnectTimeout=5"
-            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveInterval=5"
-            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveCountMax=2"
+            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveInterval=15"
+            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveCountMax=3"
             SSHFS_OPTS="${SSHFS_OPTS} -o uid=${UID_VAL}"
             SSHFS_OPTS="${SSHFS_OPTS} -o gid=${GID_VAL}"
+            # Add cache options for better performance
+            SSHFS_OPTS="${SSHFS_OPTS} -o cache=yes"
+            SSHFS_OPTS="${SSHFS_OPTS} -o kernel_cache"
             
             # Handle password authentication if provided
             if [ -n "${SSH_PASSWORD}" ]; then
@@ -911,12 +922,24 @@ install_extension_with_retry() {
     return 1
 }
 
+# Install VS Code extensions
+# Remote development
 install_extension_with_retry "ms-vscode-remote.remote-ssh" || true
+
+# Markdown support
 install_extension_with_retry "yzhang.markdown-all-in-one" || true
+
+# GitHub Copilot (official Microsoft extensions)
+install_extension_with_retry "github.copilot" || true
 install_extension_with_retry "github.copilot-chat" || true
-install_extension_with_retry "openai.chatgpt" || true
-install_extension_with_retry "kilocode.kilocode" || true
-install_extension_with_retry "saoudrizwan.claude-dev" || true
+
+# AI Assistants
+install_extension_with_retry "continue.continue" || true  # Continue.dev AI assistant
+install_extension_with_retry "saoudrizwan.claude-dev" || true  # Cline (formerly Claude Dev)
+
+# General utilities
+install_extension_with_retry "eamodio.gitlens" || true  # GitLens
+install_extension_with_retry "esbenp.prettier-vscode" || true  # Prettier
 
 echo "Extension installation complete" | tee -a "$LOG_FILE"
 
@@ -950,5 +973,4 @@ exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
   --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
-  --disable-telemetry \
-  --default-folder="${WORKSPACE_ROOT}"
+  --disable-telemetry

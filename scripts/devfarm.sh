@@ -39,10 +39,33 @@ check_docker() {
 
 # Build the code-server image
 build_image() {
-    log_info "Building code-server image..."
-    cd "$PROJECT_DIR/docker"
-    docker build -t dev-farm/code-server:latest -f Dockerfile.code-server .
-    log_success "Code-server image built successfully"
+    local image_type=${1:-code-server}
+    
+    case "$image_type" in
+        code-server)
+            log_info "Building code-server image..."
+            cd "$PROJECT_DIR/docker"
+            docker build -t dev-farm/code-server:latest -f Dockerfile.code-server .
+            log_success "Code-server image built successfully"
+            ;;
+        terminal)
+            log_info "Building terminal image..."
+            cd "$PROJECT_DIR"
+            docker compose build terminal-builder
+            log_success "Terminal image built successfully"
+            ;;
+        all)
+            log_info "Building all images..."
+            build_image code-server
+            build_image terminal
+            log_success "All images built successfully"
+            ;;
+        *)
+            log_error "Unknown image type: $image_type"
+            log_info "Valid types: code-server, terminal, all"
+            exit 1
+            ;;
+    esac
 }
 
 # Start the dashboard
@@ -120,8 +143,8 @@ setup() {
     
     check_docker
     
-    # Build images
-    build_image
+    # Build all images
+    build_image all
     
     # Create network
     docker network inspect devfarm >/dev/null 2>&1 || docker network create devfarm
@@ -146,7 +169,7 @@ Usage: $0 <command> [options]
 
 Commands:
   setup              - Initial setup (build images, start dashboard)
-  build              - Build the code-server Docker image
+  build [type]       - Build Docker images (types: code-server, terminal, all)
   start              - Start the dashboard
   stop               - Stop the dashboard
   restart            - Restart the dashboard
@@ -158,6 +181,8 @@ Commands:
 
 Examples:
   $0 setup
+  $0 build all
+  $0 build terminal
   $0 create my-project python
   $0 list
   $0 delete my-project
@@ -172,7 +197,7 @@ case "${1:-help}" in
         ;;
     build)
         check_docker
-        build_image
+        build_image "${2:-code-server}"
         ;;
     start)
         check_docker

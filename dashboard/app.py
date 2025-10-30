@@ -425,6 +425,27 @@ def create_environment():
         # Container run options - use terminal image for terminal mode
         image_name = 'dev-farm/terminal:latest' if mode == 'terminal' else 'dev-farm/code-server:latest'
         
+        # Ensure terminal image exists before trying to use it
+        if mode == 'terminal':
+            try:
+                client.images.get(image_name)
+            except docker.errors.ImageNotFound:
+                # Build the terminal image if it doesn't exist
+                print(f"Terminal image not found, building {image_name}...")
+                try:
+                    # Use docker-compose to build the image
+                    build_result = subprocess.run(
+                        ['docker', 'compose', '-f', f'{REPO_PATH}/docker-compose.yml', 'build', 'terminal-builder'],
+                        capture_output=True,
+                        text=True,
+                        timeout=300
+                    )
+                    if build_result.returncode != 0:
+                        raise Exception(f"Failed to build terminal image: {build_result.stderr}")
+                    print(f"Terminal image built successfully")
+                except Exception as e:
+                    return jsonify({'error': f'Terminal image build failed: {str(e)}'}), 500
+        
         run_kwargs = {
             'image': image_name,
             'name': f"devfarm-{env_id}",
@@ -703,7 +724,8 @@ def build_image():
         if image_type == 'code-server':
             build_cmd = f'docker build --no-cache -t dev-farm/code-server:latest -f {REPO_PATH}/docker/Dockerfile.code-server {REPO_PATH}/docker'
         elif image_type == 'terminal':
-            build_cmd = f'docker build --no-cache -t dev-farm/terminal:latest -f {REPO_PATH}/docker/Dockerfile.terminal {REPO_PATH}/docker'
+            # Use docker-compose to build terminal image for consistency
+            build_cmd = f'docker compose -f {REPO_PATH}/docker-compose.yml build --no-cache terminal-builder'
         else:  # dashboard
             build_cmd = f'docker build --no-cache -t dev-farm-dashboard:latest {REPO_PATH}/dashboard'
         

@@ -28,14 +28,17 @@ services:
     depends_on:
       - updater
   
-  # Build terminal image (on-demand, not run by default)
+  # Terminal image builder - builds the image but doesn't run a container
+  # This ensures the terminal image exists before trying to use it
   terminal-builder:
     build:
       context: ./docker
       dockerfile: Dockerfile.terminal
     image: dev-farm/terminal:latest
+    container_name: devfarm-terminal-builder
     profiles:
       - build-only
+    command: "true"
   
   updater:
     image: docker:27-cli
