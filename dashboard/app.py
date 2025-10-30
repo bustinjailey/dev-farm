@@ -1561,8 +1561,10 @@ def background_registry_sync():
     thread = threading.Thread(target=sync_loop, daemon=True)
     thread.start()
 
+# Start background monitoring threads when module loads (works with gunicorn)
+background_status_monitor()
+background_registry_sync()
+
 if __name__ == '__main__':
-    # Start background monitoring threads
-    background_status_monitor()
-    background_registry_sync()
+    # Only runs when executing directly (not under gunicorn)
     app.run(host='0.0.0.0', port=5000, debug=os.environ.get('DEBUG', 'false').lower() == 'true')
