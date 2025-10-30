@@ -30,6 +30,19 @@ echo "Applying VS Code workspace settings..."
 mkdir -p /home/coder/.vscode-server/data/Machine
 mkdir -p /home/coder/.vscode-server/data/User
 
+# Ensure Cline MCP settings directory exists and copy template if needed
+MCP_SETTINGS_DIR="/home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings"
+MCP_SETTINGS_FILE="$MCP_SETTINGS_DIR/cline_mcp_settings.json"
+mkdir -p "$MCP_SETTINGS_DIR"
+
+# Copy MCP template if settings file doesn't exist
+if [ -f /home/coder/.devfarm/mcp.json ] && [ ! -f "$MCP_SETTINGS_FILE" ]; then
+    echo "Initializing Cline MCP settings from template..."
+    cp /home/coder/.devfarm/mcp.json "$MCP_SETTINGS_FILE"
+    chown coder:coder "$MCP_SETTINGS_FILE"
+    echo "MCP settings initialized at $MCP_SETTINGS_FILE"
+fi
+
 # Seed workspace-level settings from template if available (workspace is the only source of truth now)
 mkdir -p /home/coder/workspace/.vscode
 FORCE_WS_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS:-always}"

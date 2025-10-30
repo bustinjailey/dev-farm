@@ -68,17 +68,18 @@ WORKDIR /home/coder/workspace
 # Set up VS Code data directories
 RUN mkdir -p /home/coder/.vscode-server/data \
   && mkdir -p /home/coder/.vscode-server/extensions \
-  && mkdir -p /home/coder/.config/Code/User
+  && mkdir -p /home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings
 
 # Extensions will be installed at runtime via startup.sh
 # This ensures VS Code Server is fully initialized before extension installation
 
-# Pre-configure VS Code settings (MCP configuration)
-COPY --chown=coder:coder config/mcp.json /home/coder/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcp.json
+# Pre-configure MCP settings for Cline extension (VS Code Server web uses ~/.vscode-server/data)
+COPY --chown=coder:coder config/mcp.json /home/coder/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 
-# Include a workspace settings template to seed per-workspace settings at runtime
+# Include templates for runtime initialization
 RUN mkdir -p /home/coder/.devfarm
 COPY --chown=coder:coder config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
+COPY --chown=coder:coder config/mcp.json /home/coder/.devfarm/mcp.json
 
 # Create startup script for GitHub authentication and configuration
 COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh
