@@ -520,9 +520,13 @@
           <span id="githubStatus">
             <span class="status-badge badge-warning">Checking...</span>
           </span>
-          <button class="btn" onclick="startGitHubOAuth()" id="githubConnectBtn"
+          <button class="btn" onclick="showGitHubAuthModal()" id="githubConnectBtn"
             style="padding: 8px 16px; font-size: 13px; display: none;">
             🔗 Connect
+          </button>
+          <button class="btn" onclick="logoutGitHub()" id="githubLogoutBtn"
+            style="padding: 8px 16px; font-size: 13px; display: none; background: #f56565;">
+            🚪 Logout
           </button>
         </span>
       </div>
@@ -556,7 +560,8 @@
       <button class="btn btn-create" onclick="showCreateModal()">
         ➕ Create New Environment
       </button>
-      <button class="btn" onclick="showHierarchyView()" style="background: white; color: #667eea; padding: 12px 24px; margin-left: 10px;">
+      <button class="btn" onclick="showHierarchyView()"
+        style="background: white; color: #667eea; padding: 12px 24px; margin-left: 10px;">
         🌳 View Hierarchy
       </button>
     </div>
@@ -656,8 +661,53 @@
     </div>
   </div>
 
-  <!-- GitHub OAuth Modal -->
-  <div class="modal" id="oauthModal">
+  <!-- GitHub PAT Auth Modal -->
+  <div class="modal" id="githubAuthModal">
+    <div class="modal-content">
+      <div class="modal-header">Connect GitHub (Personal Access Token)</div>
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 20px; padding: 15px; background: #eef2ff; border-left: 4px solid #667eea; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0; color: #333; font-weight: 600;">Why Personal Access Token (PAT)?</p>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Full repository access (clone, pull, <strong>push</strong>)</p>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Access to private repositories</p>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">✓ Works with all git operations</p>
+          <p style="margin: 0; color: #667eea; font-size: 0.9em; font-weight: 500;">OAuth tokens have limited push access</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Personal Access Token</label>
+          <input type="password" id="githubPAT" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" 
+            style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px;"
+            onkeypress="if(event.key==='Enter') saveGitHubPAT()">
+          <p style="margin: 8px 0 0 0; color: #666; font-size: 0.85em;">
+            Token will be shared with all new environments for git operations
+          </p>
+        </div>
+        
+        <div style="margin-bottom: 20px; padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
+          <p style="margin: 0 0 8px 0; color: #92400e; font-weight: 600; font-size: 0.9em;">📝 How to create a PAT:</p>
+          <ol style="margin: 0; padding-left: 20px; color: #78350f; font-size: 0.85em;">
+            <li>Go to <a href="https://github.com/settings/tokens" target="_blank" style="color: #667eea;">github.com/settings/tokens</a></li>
+            <li>Click "Generate new token (classic)"</li>
+            <li>Select scopes: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">repo</code>, <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">read:org</code>, <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">workflow</code></li>
+            <li>Copy the token and paste it above</li>
+          </ol>
+        </div>
+        
+        <div id="githubAuthError" style="display: none; margin-bottom: 15px; padding: 12px; background: #fee2e2; border-left: 4px solid #f56565; border-radius: 4px; color: #991b1b;">
+        </div>
+        <div id="githubAuthSuccess" style="display: none; margin-bottom: 15px; padding: 12px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; color: #065f46;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-cancel" onclick="hideGitHubAuthModal()">Cancel</button>
+        <button class="btn" onclick="saveGitHubPAT()" style="background: #667eea;">💾 Save Token</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GitHub OAuth Modal (DEPRECATED - keeping for reference) -->
+  <div class="modal" id="oauthModal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">Connect to GitHub</div>
       <div id="oauthContent" style="text-align: center; padding: 20px;">
@@ -824,7 +874,7 @@
         'vivid', 'zealous', 'active', 'agile', 'alert', 'amber', 'azure', 'blazing',
         'dynamic', 'elegant', 'epic', 'fleet', 'focused', 'golden', 'heroic', 'ideal'
       ];
-      
+
       const nouns = [
         'cloud', 'storm', 'thunder', 'wind', 'star', 'moon', 'wave', 'river',
         'ocean', 'mountain', 'forest', 'canyon', 'aurora', 'comet', 'galaxy',
@@ -832,16 +882,16 @@
         'beacon', 'bridge', 'compass', 'horizon', 'nexus', 'portal', 'summit',
         'vault', 'zenith', 'circuit', 'network', 'signal', 'quantum', 'matrix'
       ];
-      
+
       const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
       const noun1 = nouns[Math.floor(Math.random() * nouns.length)];
       let noun2 = nouns[Math.floor(Math.random() * nouns.length)];
-      
+
       // Ensure noun1 and noun2 are different
       while (noun2 === noun1) {
         noun2 = nouns[Math.floor(Math.random() * nouns.length)];
       }
-      
+
       return `${adj}-${noun1}-${noun2}`;
     }
 
@@ -916,12 +966,12 @@
     document.getElementById('createForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       let name = document.getElementById('envName').value.trim();
-      
+
       // Generate random name if field is empty
       if (!name) {
         name = generateRandomName();
       }
-      
+
       const project = document.getElementById('envProject').value;
       const mode = document.getElementById('envMode').value;
 
@@ -1042,10 +1092,12 @@
         const githubData = await safeFetch('/api/github/auth/status');
         const githubStatus = document.getElementById('githubStatus');
         const githubConnectBtn = document.getElementById('githubConnectBtn');
+        const githubLogoutBtn = document.getElementById('githubLogoutBtn');
 
         if (githubData.authenticated) {
           githubStatus.innerHTML = `<span class="status-badge badge-success">✓ ${githubData.username}</span>`;
           githubConnectBtn.style.display = 'none';
+          githubLogoutBtn.style.display = 'inline-block';
         } else {
           githubStatus.innerHTML = `<span class="status-badge badge-error">✗ Not connected</span>`;
           githubConnectBtn.style.display = 'inline-flex';
@@ -1087,7 +1139,84 @@
       }
     }
 
-    async function startGitHubOAuth() {
+    async function showGitHubAuthModal() {
+      document.getElementById('githubAuthModal').classList.add('active');
+      document.getElementById('githubPAT').value = '';
+      document.getElementById('githubPAT').focus();
+      document.getElementById('githubAuthError').style.display = 'none';
+      document.getElementById('githubAuthSuccess').style.display = 'none';
+    }
+
+    function hideGitHubAuthModal() {
+      document.getElementById('githubAuthModal').classList.remove('active');
+    }
+
+    async function saveGitHubPAT() {
+      const token = document.getElementById('githubPAT').value.trim();
+      const errorDiv = document.getElementById('githubAuthError');
+      const successDiv = document.getElementById('githubAuthSuccess');
+
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+
+      if (!token) {
+        errorDiv.textContent = '❌ Please enter a token';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+        errorDiv.textContent = '⚠️ Token should start with "ghp_" or "github_pat_"';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/github/auth/pat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          successDiv.textContent = `✅ Connected as ${data.username}! Reloading...`;
+          successDiv.style.display = 'block';
+          setTimeout(() => {
+            hideGitHubAuthModal();
+            window.location.reload();
+          }, 1500);
+        } else {
+          errorDiv.textContent = `❌ ${data.error || 'Failed to save token'}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `❌ Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    async function logoutGitHub() {
+      if (!confirm('Are you sure you want to logout? This will remove the GitHub token from all future environments.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/github/auth/logout', { method: 'POST' });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          window.location.reload();
+        } else {
+          alert(`Failed to logout: ${data.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      }
+    }
+
+    async function startGitHubOAuth_DEPRECATED() {
       const modal = document.getElementById('oauthModal');
       const content = document.getElementById('oauthContent');
 

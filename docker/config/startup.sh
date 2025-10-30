@@ -345,14 +345,20 @@ echo "Setting up Aggregate MCP Server..." | tee -a "$LOG_FILE"
 MCP_INSTALL_DIR="/home/coder/.local/bin/aggregate-mcp-server"
 MCP_REPO_URL="https://github.com/bustinjailey/aggregate-mcp-server.git"
 
-# Always install/update MCP server (it's a public repo, no auth needed for clone)
-mkdir -p /home/coder/.local/bin
-
-if [ -d "$MCP_INSTALL_DIR/.git" ]; then
+# Check if GitHub token is available (required for private repo)
+if [ -z "${GITHUB_TOKEN}" ]; then
+    echo "⚠ GITHUB_TOKEN not set, skipping aggregate MCP server installation (private repo)" | tee -a "$LOG_FILE"
+else
+    mkdir -p /home/coder/.local/bin
+    
+    # Use gh CLI's authentication for git operations (already configured in earlier steps)
+    # gh auth setup-git was called earlier, so git will use the token automatically
+    
+    if [ -d "$MCP_INSTALL_DIR/.git" ]; then
         echo "Checking for aggregate MCP server updates..." | tee -a "$LOG_FILE"
         cd "$MCP_INSTALL_DIR"
         
-        # Fetch updates
+        # Fetch updates (uses gh CLI credential helper)
         BEFORE_HASH=$(git rev-parse HEAD 2>/dev/null || echo "none")
         git fetch origin main 2>&1 | tee -a "$LOG_FILE" || true
         AFTER_HASH=$(git rev-parse origin/main 2>/dev/null || echo "none")
@@ -368,19 +374,23 @@ if [ -d "$MCP_INSTALL_DIR/.git" ]; then
         fi
         
         cd /home/coder
-else
-    echo "Installing aggregate MCP server from GitHub..." | tee -a "$LOG_FILE"
-    # Clone public repo without authentication (no credential helper needed)
-    git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
-    
-    if [ -d "$MCP_INSTALL_DIR" ]; then
-        cd "$MCP_INSTALL_DIR"
-        npm install 2>&1 | tee -a "$LOG_FILE"
-        npm run build 2>&1 | tee -a "$LOG_FILE"
-        echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
-        cd /home/coder
     else
-        echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
+        echo "Installing aggregate MCP server from private GitHub repo..." | tee -a "$LOG_FILE"
+        # Clone private repo using gh CLI authentication
+        # Note: This requires a Personal Access Token with 'repo' scope, not OAuth token
+        git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
+        
+        if [ -d "$MCP_INSTALL_DIR" ]; then
+            cd "$MCP_INSTALL_DIR"
+            npm install 2>&1 | tee -a "$LOG_FILE"
+            npm run build 2>&1 | tee -a "$LOG_FILE"
+            echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
+            cd /home/coder
+        else
+            echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
+            echo "   This requires a Personal Access Token (PAT) with 'repo' scope" | tee -a "$LOG_FILE"
+            echo "   OAuth tokens from dashboard may not have access to private repos" | tee -a "$LOG_FILE"
+        fi
     fi
 fi
 
