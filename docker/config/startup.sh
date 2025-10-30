@@ -99,31 +99,48 @@ fi
 
 echo "MCP configuration complete - supports Cline and GitHub Copilot"
 
-# Seed workspace-level settings from template if available (workspace is the only source of truth now)
-mkdir -p /home/coder/workspace/.vscode
-FORCE_WS_SETTINGS_SEED="${DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS:-always}"
-if [ -f /home/coder/.devfarm/workspace-settings.json.template ]; then
-    if [ ! -f /home/coder/workspace/.vscode/settings.json ] || [ "${FORCE_WS_SETTINGS_SEED}" = "always" ]; then
-        echo "Seeding workspace .vscode/settings.json from template..."
-        /usr/bin/python3 - <<'PYEOF'
+# Move workspace settings to machine-level for consistent configuration across all workspaces
+# Machine-level settings are applied globally, workspace-level settings are optional overrides
+echo "Applying machine-level settings from template..."
+/usr/bin/python3 - <<'PYEOF'
 import json, os
-tpl = "/home/coder/.devfarm/workspace-settings.json.template"
-out = "/home/coder/workspace/.vscode/settings.json"
-with open(tpl, 'r', encoding='utf-8') as f:
-    data = json.load(f)
-# Overlay dynamic window title
-title = os.environ.get('WORKSPACE_NAME', 'Workspace')
-data["window.title"] = title
-with open(out, 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2)
-print("Workspace settings written to", out)
+
+# Read workspace settings template
+tpl_path = "/home/coder/.devfarm/workspace-settings.json.template"
+if not os.path.exists(tpl_path):
+    print("No workspace settings template found")
+    exit(0)
+
+with open(tpl_path, 'r', encoding='utf-8') as f:
+    template_settings = json.load(f)
+
+# Apply to machine-level settings (applies to all workspaces)
+machine_settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
+os.makedirs(os.path.dirname(machine_settings_path), exist_ok=True)
+
+# Load existing machine settings
+existing_machine = {}
+if os.path.exists(machine_settings_path):
+    try:
+        with open(machine_settings_path, 'r', encoding='utf-8') as f:
+            existing_machine = json.load(f)
+    except Exception:
+        existing_machine = {}
+
+# Merge template settings into machine settings
+for key, value in template_settings.items():
+    existing_machine[key] = value
+
+# Add dynamic window title
+workspace_name = os.environ.get('WORKSPACE_NAME', 'Dev Farm')
+existing_machine["window.title"] = workspace_name
+
+# Write machine settings
+with open(machine_settings_path, 'w', encoding='utf-8') as f:
+    json.dump(existing_machine, f, indent=2)
+
+print(f"✓ Machine-level settings configured for all workspaces")
 PYEOF
-    else
-        echo "Workspace settings already exist; skipping seed. Set DEVFARM_FORCE_APPLY_WORKSPACE_SETTINGS=true to override."
-    fi
-else
-    echo "No workspace settings template found; skipping."
-fi
 
 # Ensure minimal user-level settings for features that require user scope (workspace trust)
 # VS Code Server uses Machine/settings.json for machine-level settings
@@ -153,9 +170,10 @@ with open(machine_settings_path, 'w', encoding='utf-8') as f:
 print("Machine-level settings updated for VS Code Server")
 PYEOF
 
-# Create a friendly WELCOME.md with one-click sign-in links (only if not present or forced)
-WELCOME_PATH="/home/coder/workspace/WELCOME.md"
-if [ ! -f "$WELCOME_PATH" ] || [ "${DEVFARM_FORCE_WELCOME}" = "true" ]; then
+# Create a friendly WELCOME.md in the appropriate workspace root
+# This will be created after modes set WORKSPACE_ROOT, so we'll create it later in the script
+create_welcome_file() {
+    local WELCOME_PATH="$1/WELCOME.md"
     cat > "$WELCOME_PATH" <<'EOWELCOME'
 # 👋 Welcome to Dev Farm
 
@@ -192,7 +210,7 @@ Or use the **Accounts** menu in the bottom left corner (👤 icon)
 Happy hacking!
 EOWELCOME
     echo "WELCOME.md created at $WELCOME_PATH"
-fi
+}
 
 # Log helper - store in .devfarm to keep workspace root clean
 LOG_FILE="/home/coder/workspace/.devfarm/startup.log"
@@ -253,44 +271,102 @@ else
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
 fi
 
+# ============================================================================
+# Install/Update Aggregate MCP Server
+# ============================================================================
+
+echo "Setting up Aggregate MCP Server..." | tee -a "$LOG_FILE"
+
+MCP_INSTALL_DIR="/home/coder/.local/bin/aggregate-mcp-server"
+MCP_REPO_URL="https://github.com/bustinjailey/aggregate-mcp-server.git"
+
+if [ -n "${GITHUB_TOKEN}" ]; then
+    mkdir -p /home/coder/.local/bin
+    
+    if [ -d "$MCP_INSTALL_DIR/.git" ]; then
+        echo "Checking for aggregate MCP server updates..." | tee -a "$LOG_FILE"
+        cd "$MCP_INSTALL_DIR"
+        
+        # Configure git to use token for authentication
+        git config credential.helper store
+        echo "https://${GITHUB_TOKEN}@github.com" > /home/coder/.git-credentials
+        
+        # Fetch updates
+        BEFORE_HASH=$(git rev-parse HEAD 2>/dev/null || echo "none")
+        git fetch origin main 2>&1 | tee -a "$LOG_FILE" || true
+        AFTER_HASH=$(git rev-parse origin/main 2>/dev/null || echo "none")
+        
+        if [ "$BEFORE_HASH" != "$AFTER_HASH" ] && [ "$AFTER_HASH" != "none" ]; then
+            echo "Updates found, pulling latest version..." | tee -a "$LOG_FILE"
+            git pull origin main 2>&1 | tee -a "$LOG_FILE"
+            npm install 2>&1 | tee -a "$LOG_FILE"
+            echo "✓ Aggregate MCP server updated successfully" | tee -a "$LOG_FILE"
+        else
+            echo "✓ Aggregate MCP server already up to date" | tee -a "$LOG_FILE"
+        fi
+        
+        # Clean up credentials file
+        rm -f /home/coder/.git-credentials
+        cd /home/coder
+    else
+        echo "Installing aggregate MCP server from GitHub..." | tee -a "$LOG_FILE"
+        # Use token in URL for clone
+        git clone "https://${GITHUB_TOKEN}@github.com/bustinjailey/aggregate-mcp-server.git" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
+        
+        if [ -d "$MCP_INSTALL_DIR" ]; then
+            cd "$MCP_INSTALL_DIR"
+            npm install 2>&1 | tee -a "$LOG_FILE"
+            echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
+            cd /home/coder
+        else
+            echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
+        fi
+    fi
+else
+    echo "⚠ GITHUB_TOKEN not set, skipping aggregate MCP server installation" | tee -a "$LOG_FILE"
+fi
+
 # Handle different development modes
 DEV_MODE="${DEV_MODE:-workspace}"
 echo "Development mode: ${DEV_MODE}"
 
 if [ "${DEV_MODE}" = "git" ]; then
-    # Git repository mode - clone the repository into subdirectory
+    # Git repository mode - clone the repository directly to workspace root
     if [ -n "${GIT_URL}" ]; then
         echo "Cloning repository: ${GIT_URL}"
-        REPO_DIR="/home/coder/workspace/repo"
+        REPO_DIR="/home/coder/repo"
+        WORKSPACE_ROOT="/home/coder/repo"
         
         # Create repo directory
         mkdir -p "${REPO_DIR}"
         
-        # Clone the repository into the repo subdirectory
+        # Clone the repository directly
         git clone "${GIT_URL}" "${REPO_DIR}"
         
         echo "Repository cloned successfully to ${REPO_DIR}"
         
-        # Create info file about the cloned repo
-        cat > /home/coder/workspace/REPO_INFO.md <<EOF
-# 📦 Git Repository Cloned
+        # Create info file about the cloned repo in the repo root
+        cat > "${REPO_DIR}/DEVFARM_INFO.md" <<EOF
+# 📦 Git Repository Mode
 
 Successfully cloned repository from **${GIT_URL}**
 
 ## Repository Location
-The cloned repository is at: \`repo/\`
-
-Browse and edit the repository files in the \`repo/\` directory.
+This directory IS the cloned repository root.
 
 ## Git Operations
-- All git commands work normally in the \`repo/\` directory
+- All git commands work normally in this directory
 - Changes are tracked by git
 - You can commit and push as usual
+
+## VS Code Workspace
+This directory is your VS Code workspace root - no need to navigate to subdirectories.
 
 Happy coding! 🚀
 EOF
     else
         echo "Warning: GIT_URL not set for git mode. Creating empty workspace."
+        WORKSPACE_ROOT="/home/coder/workspace"
     fi
 elif [ "${DEV_MODE}" = "ssh" ]; then
     # SSH mode - mount remote filesystem as subdirectory to preserve local workspace settings
@@ -362,8 +438,9 @@ EOF
             fi
             chmod 600 /home/coder/.ssh/config
 
-            # Create mount point as subdirectory of workspace
-            REMOTE_MOUNT_DIR="/home/coder/workspace/remote"
+            # Create mount point as workspace root
+            REMOTE_MOUNT_DIR="/home/coder/remote"
+            WORKSPACE_ROOT="/home/coder/remote"
             mkdir -p "$REMOTE_MOUNT_DIR"
             
             # Ensure FUSE device exists
@@ -599,27 +676,27 @@ EOFERR
             
             if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
                 echo "SSHFS mount successful at ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
-                cat > /home/coder/workspace/REMOTE_ACCESS.md <<EOF
-# 🔗 Remote SSH Access
+                cat > "${REMOTE_MOUNT_DIR}/DEVFARM_INFO.md" <<EOF
+# 🔗 Remote SSH Mode
 
 Successfully connected to **${SSH_HOST}**!
 
 ## Mounted Location
-The remote filesystem is mounted at: \`remote/\`
-
-Browse and edit files from **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** directly in this workspace.
+This directory IS the remote filesystem from **${SSH_USER}@${SSH_HOST}:${SSH_PATH}**
 
 ## Connection Details
 - **Host**: ${SSH_HOST}:${SSH_PORT}
 - **User**: ${SSH_USER}
 - **Remote Path**: ${SSH_PATH}
-- **Mount Point**: ${REMOTE_MOUNT_DIR}
+
+## VS Code Workspace
+This directory is your VS Code workspace root - you're working directly on remote files.
 
 ## Tips
 - Files are edited live on the remote host
 - Changes are synchronized automatically via SSHFS
 - If connection is lost, the mount will attempt to reconnect
-- Use the terminal to run commands directly on remote files
+- Use the terminal to run commands on the remote host
 
 Happy coding! 🚀
 EOF
@@ -701,33 +778,43 @@ EOF
             # Notify completion or failure
             if [ "$MOUNT_SUCCESS" = true ]; then
                 echo "✅ Background SSH mount completed successfully" | tee -a "$LOG_FILE"
-                cat > /home/coder/workspace/MOUNT_STATUS.md <<EOF
-# ✅ SSH Mount Active
-
-The remote filesystem from **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** is now mounted at \`workspace/remote/\`.
-
-You can now browse and edit remote files!
-EOF
+                # Mount status file is now in the mounted directory as DEVFARM_INFO.md
             else
                 echo "❌ Background SSH mount failed" | tee -a "$LOG_FILE"
             fi
         ) &  # End of background subshell
         
         # Create initial status file while mount is in progress
-        cat > /home/coder/workspace/MOUNT_STATUS.md <<'EOF'
+        mkdir -p /home/coder/remote
+        cat > /home/coder/remote/MOUNTING.md <<'EOF'
 # ⏳ SSH Mount In Progress
 
 The remote filesystem is being mounted in the background...
 
-This may take a few moments. Check this file again in a moment, or see .devfarm/startup.log for details.
+This may take a few moments. This file will be replaced with DEVFARM_INFO.md when the mount completes.
+
+Check /home/coder/workspace/.devfarm/startup.log for details.
 
 **VS Code is ready to use!** The mount process won't block your workspace.
 EOF
         echo "SSH mount started in background. Container will start immediately." | tee -a "$LOG_FILE"
+        WORKSPACE_ROOT="/home/coder/remote"
     fi
 else
     # Workspace mode (default) - just use the empty workspace
     echo "Using standard workspace mode"
+    WORKSPACE_ROOT="/home/coder/workspace"
+fi
+
+# Export WORKSPACE_ROOT for use by VS Code Server and MCP configuration
+export WORKSPACE_ROOT
+echo "Workspace root set to: ${WORKSPACE_ROOT}" | tee -a "$LOG_FILE"
+
+# Create WELCOME.md in the workspace root (unless it's SSH/Git mode with custom info files)
+if [ "${DEV_MODE}" = "workspace" ]; then
+    if [ ! -f "${WORKSPACE_ROOT}/WELCOME.md" ] || [ "${DEVFARM_FORCE_WELCOME}" = "true" ]; then
+        create_welcome_file "${WORKSPACE_ROOT}"
+    fi
 fi
 
 # (Workspace settings seeding moved earlier to honor template and avoid duplicate writes)
@@ -762,6 +849,8 @@ install_extension_with_retry "ms-vscode-remote.remote-ssh" || true
 install_extension_with_retry "yzhang.markdown-all-in-one" || true
 install_extension_with_retry "github.copilot-chat" || true
 install_extension_with_retry "openai.chatgpt" || true
+install_extension_with_retry "kilocode.kilocode" || true
+install_extension_with_retry "saoudrizwan.claude-dev" || true
 
 echo "Extension installation complete" | tee -a "$LOG_FILE"
 
@@ -781,28 +870,19 @@ cat > /home/coder/.vscode-server-insiders/data/User/keybindings.json <<'EOFKEYS'
 ]
 EOFKEYS
 
-# Start VS Code Server and open WELCOME.md in preview mode on first run
-# Start VS Code Server with workspace name: ${WORKSPACE_NAME:-workspace}
-WELCOME_MARK_DIR="/home/coder/workspace/.devfarm"
-WELCOME_MARK_FILE="$WELCOME_MARK_DIR/.welcome_opened"
-mkdir -p "$WELCOME_MARK_DIR"
+# Start VS Code Server with mode-specific workspace root
+echo "Starting VS Code Server with workspace: ${WORKSPACE_ROOT}" | tee -a "$LOG_FILE"
 
-# Open workspace folder, and if first run, also open WELCOME.md
-# The workbench.editorAssociations setting will open it in preview mode
-OPEN_PATHS=("/home/coder/workspace")
-if [ -f "$WELCOME_PATH" ] && [ ! -f "$WELCOME_MARK_FILE" ]; then
-    echo "Opening WELCOME.md in preview mode on first run"
-    OPEN_PATHS+=("$WELCOME_PATH")
-    touch "$WELCOME_MARK_FILE"
-fi
+# Ensure workspace directory exists
+mkdir -p "${WORKSPACE_ROOT}"
 
 # Start official VS Code Insiders Server with serve-web command
 # Accept server license terms automatically
 # Disable telemetry to reduce network noise and log clutter
-# Note: serve-web doesn't accept file paths as arguments
-# The workspace folder is opened via URL parameter: ?folder=/home/coder/workspace
+# The default-folder parameter opens the specified workspace on startup
 exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
   --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
-  --disable-telemetry
+  --disable-telemetry \
+  --default-folder="${WORKSPACE_ROOT}"

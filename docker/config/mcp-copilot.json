@@ -1,9 +1,21 @@
 {
   "servers": {
+    "aggregate": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/home/coder/.local/bin/aggregate-mcp-server/dist/index.js"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
     "filesystem": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${WORKSPACE_ROOT}"
+      ]
     },
     "github": {
       "type": "stdio",

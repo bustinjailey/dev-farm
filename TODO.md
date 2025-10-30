@@ -1,1 +1,0 @@
-Connecting to github I can't copy/paste the code (minor) but also when I authorize on the GitHub UI sometimes the dashboard has reloaded, clearing the modal, and sometimes it sits at "waiting for authentication" until the dashboard reloads itself for unrelated reasons. Can the dashboard be made not to reload all the time and instead get UI updates through websockets?
