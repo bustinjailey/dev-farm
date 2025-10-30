@@ -231,6 +231,15 @@ curl -N http://192.168.1.126:5000/api/stream
 
 ## Recent Breaking Changes
 
+- **2025-10-29**: Fixed MCP server configuration for Cline extension (commit fbb77cc)
+  - Path: `~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+  - Includes: filesystem, github, brave-search servers
+  - Runtime initialization in startup.sh ensures settings persist
+- **2025-10-29**: Fixed dashboard restart after updates using updater container (commit 20e2a5d)
+  - Old: Daemon thread in dashboard (race condition)
+  - New: Restart script runs in devfarm-updater container
+- **2025-10-29**: Fixed background monitoring threads for SSE (commit aca2acc)
+  - Moved thread initialization outside `__main__` block (works with gunicorn)
 - **2025-10-29**: VS Code Server flag changed from `--user-data-dir` to `--server-data-dir` (commit c659251)
 - **2025-10-29**: Added CSS for all 7 Docker states (commit 1cb0467)
 - **2025-10-29**: Made GitHub token optional for public repo updates (commit ead2e1a)
