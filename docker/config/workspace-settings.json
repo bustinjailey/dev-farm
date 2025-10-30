@@ -41,7 +41,7 @@
   "kilocode.defaultModel": "claude-sonnet-4.5",
   "kilocode.apiProvider": "anthropic",
   "workbench.activityBar.location": "default",
-  "workbench.panel.defaultLocation": "right",
+  "workbench.panel.defaultLocation": "bottom",
   "workbench.editor.showTabs": "multiple",
   "workbench.sideBar.location": "left",
   "workbench.secondarySideBar.defaultVisibility": true,
@@ -54,14 +54,17 @@
   "remote.SSH.connectTimeout": 60,
   "workbench.startupEditor": "none",
   "isTrusted": true,
-  "workbench.editorAssociations": {
-    "*.md": "vscode.markdown.preview.editor"
-  },
+  "markdown.preview.doubleClickToSwitchToEditor": false,
+  "markdown.preview.scrollEditorWithPreview": true,
+  "markdown.preview.scrollPreviewWithEditor": true,
   "notifications.silent": false,
   "workbench.statusBar.suppressInSecureWarning": true,
   "keyboard.dispatch": "keyCode",
   "window.titleBarStyle": "custom",
   "workbench.list.smoothScrolling": true,
   "editor.smoothScrolling": true,
-  "terminal.integrated.smoothScrolling": true
+  "terminal.integrated.smoothScrolling": true,
+  "window.restoreWindows": "none",
+  "window.restoreFullscreen": false,
+  "workbench.editor.restoreViewState": false
 }

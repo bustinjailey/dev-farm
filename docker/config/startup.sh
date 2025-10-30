@@ -345,16 +345,10 @@ echo "Setting up Aggregate MCP Server..." | tee -a "$LOG_FILE"
 MCP_INSTALL_DIR="/home/coder/.local/bin/aggregate-mcp-server"
 MCP_REPO_URL="https://github.com/bustinjailey/aggregate-mcp-server.git"
 
-if [ -n "${GITHUB_TOKEN}" ]; then
-    mkdir -p /home/coder/.local/bin
-    
-    # Configure git credential helper to use the token directly for this operation
-    # This is more reliable than relying on gh CLI credential helper
-    git config --global credential.helper store
-    echo "https://oauth2:${GITHUB_TOKEN}@github.com" > /home/coder/.git-credentials
-    chmod 600 /home/coder/.git-credentials
-    
-    if [ -d "$MCP_INSTALL_DIR/.git" ]; then
+# Always install/update MCP server (it's a public repo, no auth needed for clone)
+mkdir -p /home/coder/.local/bin
+
+if [ -d "$MCP_INSTALL_DIR/.git" ]; then
         echo "Checking for aggregate MCP server updates..." | tee -a "$LOG_FILE"
         cd "$MCP_INSTALL_DIR"
         
@@ -374,30 +368,20 @@ if [ -n "${GITHUB_TOKEN}" ]; then
         fi
         
         cd /home/coder
-    else
-        echo "Installing aggregate MCP server from GitHub..." | tee -a "$LOG_FILE"
-        # Use git clone with gh-authenticated credential helper
-        # gh auth setup-git configures git to use the token automatically
-        git clone https://github.com/bustinjailey/aggregate-mcp-server.git "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
-        
-        if [ -d "$MCP_INSTALL_DIR" ]; then
-            cd "$MCP_INSTALL_DIR"
-            npm install 2>&1 | tee -a "$LOG_FILE"
-            npm run build 2>&1 | tee -a "$LOG_FILE"
-            echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
-            cd /home/coder
-        else
-            echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
-        fi
-    fi
-    
-    # Clean up git credentials file after MCP server operations
-    rm -f /home/coder/.git-credentials
-    # Restore gh CLI credential helper for regular git operations
-    git config --global --unset credential.helper
-    gh auth setup-git >/dev/null 2>&1 || true
 else
-    echo "⚠ GITHUB_TOKEN not set, skipping aggregate MCP server installation" | tee -a "$LOG_FILE"
+    echo "Installing aggregate MCP server from GitHub..." | tee -a "$LOG_FILE"
+    # Clone public repo without authentication (no credential helper needed)
+    git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
+    
+    if [ -d "$MCP_INSTALL_DIR" ]; then
+        cd "$MCP_INSTALL_DIR"
+        npm install 2>&1 | tee -a "$LOG_FILE"
+        npm run build 2>&1 | tee -a "$LOG_FILE"
+        echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
+        cd /home/coder
+    else
+        echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
+    fi
 fi
 
 # Handle different development modes
