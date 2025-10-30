@@ -26,24 +26,19 @@ RUN apt-get update && apt-get install -y \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-# Download and install VS Code directly from official download link
-# This avoids Microsoft repository/GPG issues during Azure outages
-# Force IPv4 to avoid connection timeout issues with Azure CDN
+# Download and install VS Code + GitHub CLI in one step
+# VS Code postinst script adds Microsoft repo - must remove before apt-get update
+# Force IPv4 for VS Code download to avoid Azure CDN timeout issues
 RUN wget --timeout=60 --tries=3 --inet4-only -O /tmp/vscode.deb 'https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64' && \
   apt-get install -y /tmp/vscode.deb && \
   rm /tmp/vscode.deb && \
   rm -f /etc/apt/sources.list.d/vscode.list && \
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+  chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+  apt-get update && \
+  apt-get install -y gh && \
   rm -rf /var/lib/apt/lists/*
-
-# Install GitHub CLI
-# Remove VS Code repo that was added automatically to avoid GPG key issues
-RUN rm -f /etc/apt/sources.list.d/vscode.list \
-  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-  && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-  && apt-get update \
-  && apt-get install -y gh \
-  && rm -rf /var/lib/apt/lists/*
 
 # Install additional useful tools
 RUN npm install -g yarn typescript ts-node prettier eslint
