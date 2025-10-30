@@ -1108,19 +1108,30 @@
       }
       isCheckingStatus = true;
       try {
-        // Check GitHub auth
-        const githubData = await safeFetch('/api/github/auth/status');
+        // Check GitHub auth with detailed status
+        const githubData = await safeFetch('/api/github/status');
         const githubStatus = document.getElementById('githubStatus');
         const githubConnectBtn = document.getElementById('githubConnectBtn');
         const githubLogoutBtn = document.getElementById('githubLogoutBtn');
 
-        if (githubData.authenticated) {
-          githubStatus.innerHTML = `<span class="status-badge badge-success">✓ ${githubData.username}</span>`;
+        if (githubData.authenticated && githubData.has_required_scopes && !githubData.needs_reauth) {
+          // Fully authenticated with correct scopes
+          githubStatus.innerHTML = `<span class="status-badge badge-success">✓ ${githubData.username || 'Connected'}</span>`;
           githubConnectBtn.style.display = 'none';
           githubLogoutBtn.style.display = 'inline-block';
+        } else if (githubData.authenticated && githubData.needs_reauth) {
+          // Token exists but missing scopes
+          githubStatus.innerHTML = '<span class="status-badge badge-warning">⚠ Limited Access</span>' +
+            '<span style="font-size: 0.85em; color: #ed8936; margin-left: 8px;">Reconnect for private repos</span>';
+          githubConnectBtn.style.display = 'inline-flex';
+          githubConnectBtn.textContent = '🔄 Reconnect';
+          githubLogoutBtn.style.display = 'inline-block';
         } else {
+          // Not connected
           githubStatus.innerHTML = `<span class="status-badge badge-error">✗ Not connected</span>`;
           githubConnectBtn.style.display = 'inline-flex';
+          githubConnectBtn.textContent = '🔗 Connect';
+          githubLogoutBtn.style.display = 'none';
         }
 
         // Check version
@@ -1177,6 +1188,34 @@
       if (oauthPollInterval) {
         clearInterval(oauthPollInterval);
         oauthPollInterval = null;
+      }
+    }
+
+    async function logoutGitHub() {
+      if (!confirm('Disconnect your GitHub account? You will need to reconnect to access private repositories in new environments.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/github/disconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          document.getElementById('githubStatus').innerHTML = '<span class="status-badge badge-error">✗ Disconnected</span>';
+          document.getElementById('githubConnectBtn').style.display = 'inline-flex';
+          document.getElementById('githubConnectBtn').textContent = '🔗 Connect';
+          document.getElementById('githubLogoutBtn').style.display = 'none';
+
+          showSuccess(data.message || 'GitHub account disconnected');
+        } else {
+          showError(data.error || 'Failed to disconnect GitHub account');
+        }
+      } catch (error) {
+        showError('Network error: ' + error.message);
       }
     }
 

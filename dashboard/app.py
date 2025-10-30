@@ -417,6 +417,35 @@ def create_environment():
         github_username = os.environ.get('GITHUB_USERNAME', 'bustinjailey')
         github_email = os.environ.get('GITHUB_EMAIL', f'{github_username}@users.noreply.github.com')
         
+        # Validate token has required scopes for git mode with private repos
+        if mode == 'git' and github_token and git_url:
+            # Check if URL is a private repo (assume all git@ or https://github.com/bustinjailey/ URLs are private)
+            is_private_repo = 'bustinjailey' in git_url.lower()
+            
+            if is_private_repo:
+                try:
+                    scope_check = requests.get(
+                        'https://api.github.com/user',
+                        headers={'Authorization': f'token {github_token}'},
+                        timeout=5
+                    )
+                    if scope_check.status_code == 200:
+                        scopes = scope_check.headers.get('X-OAuth-Scopes', '')
+                        if 'repo' not in scopes:
+                            return jsonify({
+                                'error': 'GitHub token lacks required scopes for private repositories',
+                                'needs_reauth': True,
+                                'message': 'Your GitHub token does not have access to private repositories. Please disconnect and reconnect your GitHub account to grant the necessary permissions.'
+                            }), 403
+                    elif scope_check.status_code == 401:
+                        return jsonify({
+                            'error': 'GitHub token is invalid or expired',
+                            'needs_reauth': True,
+                            'message': 'Your GitHub token has expired. Please reconnect your GitHub account.'
+                        }), 401
+                except Exception as e:
+                    print(f"Scope validation error: {str(e)}")
+        
         if not github_token:
             print("Warning: GITHUB_TOKEN not set. Environments will not have GitHub authentication.")
         
@@ -799,6 +828,75 @@ def get_environment_hierarchy():
     
     return jsonify({'trees': trees})
 
+@app.route('/api/github/status')
+def github_status():
+    """Check GitHub authentication status and token scopes"""
+    github_token = load_github_token()
+    
+    if not github_token:
+        return jsonify({
+            'authenticated': False,
+            'message': 'No GitHub token found. Please connect your GitHub account.'
+        })
+    
+    try:
+        # Verify token and get scopes
+        response = requests.get(
+            'https://api.github.com/user',
+            headers={
+                'Authorization': f'token {github_token}',
+                'Accept': 'application/json'
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 401:
+            return jsonify({
+                'authenticated': False,
+                'message': 'Token is invalid or expired. Please reconnect your GitHub account.',
+                'needs_reauth': True
+            })
+        
+        if response.status_code != 200:
+            return jsonify({
+                'authenticated': False,
+                'message': f'GitHub API error: {response.status_code}'
+            })
+        
+        user_data = response.json()
+        
+        # Get token scopes from response headers
+        scopes_header = response.headers.get('X-OAuth-Scopes', '')
+        token_scopes = [s.strip() for s in scopes_header.split(',') if s.strip()]
+        
+        # Required scopes for private repo access
+        required_scopes = {'repo'}  # 'repo' scope covers all repository access
+        has_required_scopes = required_scopes.issubset(set(token_scopes))
+        
+        # Test private repo access
+        test_response = requests.get(
+            'https://api.github.com/repos/bustinjailey/aggregate-mcp-server',
+            headers={'Authorization': f'token {github_token}'},
+            timeout=10
+        )
+        can_access_private = test_response.status_code == 200
+        
+        return jsonify({
+            'authenticated': True,
+            'username': user_data.get('login'),
+            'scopes': token_scopes,
+            'has_required_scopes': has_required_scopes,
+            'can_access_private_repos': can_access_private,
+            'needs_reauth': not has_required_scopes or not can_access_private,
+            'message': 'Token valid but missing required scopes. Please reconnect.' if not has_required_scopes else None
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'authenticated': False,
+            'message': f'Error checking GitHub status: {str(e)}'
+        }), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""
@@ -821,6 +919,20 @@ def github_repos():
             'Authorization': f'token {github_token}',
             'Accept': 'application/vnd.github.v3+json'
         }
+        
+        # Quick token validation before making API calls
+        scope_check = requests.get(
+            'https://api.github.com/user',
+            headers=headers,
+            timeout=5
+        )
+        
+        if scope_check.status_code == 401:
+            return jsonify({
+                'error': 'Token is invalid or expired',
+                'needs_reauth': True,
+                'message': 'Your GitHub token has expired. Please disconnect and reconnect your GitHub account.'
+            }), 401
         
         # Get user's repositories (includes private repos with 'repo' scope)
         response = requests.get('https://api.github.com/user/repos', headers=headers, params={
@@ -849,6 +961,34 @@ def github_repos():
             return jsonify({'error': f'Failed to fetch repositories: {response.status_code}'}), response.status_code
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/github/disconnect', methods=['POST'])
+def github_disconnect():
+    """Disconnect GitHub by removing the stored token"""
+    try:
+        # Remove token file
+        if os.path.exists(GITHUB_TOKEN_FILE):
+            os.remove(GITHUB_TOKEN_FILE)
+            print("[GitHub] Token file removed")
+        
+        # Clear from environment
+        if 'GITHUB_TOKEN' in os.environ:
+            del os.environ['GITHUB_TOKEN']
+            print("[GitHub] Token removed from environment")
+        
+        # Clean up any OAuth flow in progress
+        if os.path.exists(DEVICE_CODE_FILE):
+            os.remove(DEVICE_CODE_FILE)
+            print("[GitHub] Device code file removed")
+        
+        return jsonify({
+            'success': True,
+            'message': 'GitHub account disconnected successfully. You can now reconnect with updated permissions.'
+        })
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to disconnect: {str(e)}'
+        }), 500
 
 @app.route('/api/github/auth/start', methods=['POST'])
 def github_auth_start():
