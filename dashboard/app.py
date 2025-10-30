@@ -1440,7 +1440,9 @@ def _run_system_update_thread():
             _set_update_result(False, f'Dashboard restart error: {str(e)}')
             return
 
-                _append_stage('complete', 'success', '🎉 System update completed successfully!')\n        _append_stage('complete', 'info', 'ℹ️  Existing environments will use new image on next restart/recreate')\n        _set_update_result(True)
+        _append_stage('complete', 'success', '🎉 System update completed successfully!')
+        _append_stage('complete', 'info', 'ℹ️  Existing environments will use new image on next restart/recreate')
+        _set_update_result(True)
     except subprocess.CalledProcessError as e:
         error_msg = 'Command failed'
         if e.stdout:
