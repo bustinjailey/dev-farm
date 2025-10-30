@@ -1045,11 +1045,12 @@ def _run_system_update_thread():
         # Validate prerequisites
         _append_stage('validate', 'starting', '🔍 Validating environment...')
         
+        # GitHub token is optional for public repos (only needed for API rate limits and private repos)
         github_token = load_github_token()
-        if not github_token:
-            _append_stage('validate', 'error', '❌ GitHub token not configured. Please authenticate first.')
-            _set_update_result(False, 'GitHub token not configured')
-            return
+        if github_token:
+            _append_stage('validate', 'success', '✅ GitHub token configured')
+        else:
+            _append_stage('validate', 'info', 'ℹ️ No GitHub token (OK for public repos)')
 
         if not os.path.exists(REPO_PATH):
             _append_stage('validate', 'error', f'❌ Repository path {REPO_PATH} does not exist')
