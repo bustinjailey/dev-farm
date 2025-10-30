@@ -31,34 +31,25 @@ mkdir -p /home/coder/.vscode-server-insiders/data/Machine
 mkdir -p /home/coder/.vscode-server-insiders/data/User
 
 # ============================================================================
-# Configure MCP Servers for Multiple Tools (Cline + GitHub Copilot)
+# Configure MCP Servers (Unified User Settings)
 # ============================================================================
+# All AI tools (Copilot, Cline, etc.) use the same MCP config from User settings.json
+# This simplifies management and ensures consistency across all tools.
 
-# --- Cline Extension ---
-# Cline uses: cline_mcp_settings.json with "mcpServers" key
-CLINE_MCP_DIR="/home/coder/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings"
-CLINE_MCP_FILE="$CLINE_MCP_DIR/cline_mcp_settings.json"
-mkdir -p "$CLINE_MCP_DIR"
-
-if [ -f /home/coder/.devfarm/mcp-cline.json ] && [ ! -f "$CLINE_MCP_FILE" ]; then
-    echo "Initializing Cline MCP settings from template..."
-    cp /home/coder/.devfarm/mcp-cline.json "$CLINE_MCP_FILE"
-    chown coder:coder "$CLINE_MCP_FILE"
-    echo "✓ Cline MCP settings initialized at $CLINE_MCP_FILE"
-fi
-
-# --- GitHub Copilot (Global Settings) ---
-# Copilot uses: settings.json with "github.copilot.chat.mcp.servers" key
 VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/User/settings.json"
 
-# Create or update VS Code settings.json with Copilot MCP configuration
 if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
-    echo "Configuring GitHub Copilot MCP servers in VS Code Insiders settings..."
-    /usr/bin/python3 - <<'PYEOF'
+    echo "Configuring MCP servers in User settings (applies to all AI tools)..."
+    /usr/bin/python3 - <<PYEOF
 import json, os
 
 settings_path = "/home/coder/.vscode-server-insiders/data/User/settings.json"
-copilot_mcp_path = "/home/coder/.devfarm/mcp-copilot.json"
+mcp_template_path = "/home/coder/.devfarm/mcp-copilot.json"
+
+# Get environment variables
+github_token = os.environ.get('GITHUB_TOKEN', '')
+workspace_root = os.environ.get('WORKSPACE_ROOT', '/home/coder/workspace')
+brave_api_key = os.environ.get('BRAVE_API_KEY', '')
 
 # Load existing settings or create empty dict
 if os.path.exists(settings_path):
@@ -67,37 +58,36 @@ if os.path.exists(settings_path):
 else:
     settings = {}
 
-# Load Copilot MCP configuration
-with open(copilot_mcp_path, 'r') as f:
-    copilot_config = json.load(f)
+# Load MCP configuration template
+with open(mcp_template_path, 'r') as f:
+    mcp_config_str = f.read()
 
-# Merge into settings under github.copilot.chat.mcp.servers
-settings["github.copilot.chat.mcp.servers"] = copilot_config["servers"]
+# Expand environment variables
+mcp_config_str = mcp_config_str.replace('\${GITHUB_TOKEN}', github_token)
+mcp_config_str = mcp_config_str.replace('\${WORKSPACE_ROOT}', workspace_root)
+mcp_config_str = mcp_config_str.replace('\${BRAVE_API_KEY}', brave_api_key)
+
+mcp_config = json.loads(mcp_config_str)
+
+# Configure for GitHub Copilot
+settings["github.copilot.chat.mcp.servers"] = mcp_config["servers"]
+
+# Configure for Cline (uses same servers, different key format)
+settings["cline.mcpServers"] = mcp_config["servers"]
 
 # Write back
 os.makedirs(os.path.dirname(settings_path), exist_ok=True)
 with open(settings_path, 'w') as f:
     json.dump(settings, f, indent=2)
 
-print("✓ GitHub Copilot MCP settings configured in settings.json")
+print("✓ MCP servers configured in User settings.json")
+print("  - GitHub Copilot: github.copilot.chat.mcp.servers")
+print("  - Cline: cline.mcpServers")
 PYEOF
     chown coder:coder "$VSCODE_SETTINGS_FILE"
 fi
 
-# --- Workspace .vscode/mcp.json (Optional) ---
-# GitHub Copilot also supports workspace-level mcp.json as alternative to global settings
-# We'll use global settings by default, but copy template for reference
-if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
-    mkdir -p /home/coder/workspace/.vscode
-    if [ ! -f /home/coder/workspace/.vscode/mcp.json ]; then
-        echo "Creating workspace mcp.json template for GitHub Copilot..."
-        cp /home/coder/.devfarm/mcp-copilot.json /home/coder/workspace/.vscode/mcp.json
-        chown coder:coder /home/coder/workspace/.vscode/mcp.json
-        echo "✓ Workspace mcp.json template created (for reference/override)"
-    fi
-fi
-
-echo "MCP configuration complete - supports Cline and GitHub Copilot"
+echo "MCP configuration complete - unified settings for all AI tools"
 
 # Move workspace settings to machine-level for consistent configuration across all workspaces
 # Machine-level settings are applied globally, workspace-level settings are optional overrides
@@ -106,7 +96,7 @@ echo "Applying machine-level settings from template..."
 import json, os
 
 # Read workspace settings template
-tpl_path = "/home/coder/.devfarm/workspace-settings.json.template"
+tpl_path = "/home/coder/.devfarm/workspace-settings.json"
 if not os.path.exists(tpl_path):
     print("No workspace settings template found")
     exit(0)
@@ -359,10 +349,7 @@ if [ -n "${GITHUB_TOKEN}" ]; then
         echo "Checking for aggregate MCP server updates..." | tee -a "$LOG_FILE"
         cd "$MCP_INSTALL_DIR"
         
-        # Configure git to use token for authentication
-        git config credential.helper store
-        echo "https://${GITHUB_TOKEN}@github.com" > /home/coder/.git-credentials
-        
+        # Use gh-authenticated git for all operations
         # Fetch updates
         BEFORE_HASH=$(git rev-parse HEAD 2>/dev/null || echo "none")
         git fetch origin main 2>&1 | tee -a "$LOG_FILE" || true
@@ -372,22 +359,22 @@ if [ -n "${GITHUB_TOKEN}" ]; then
             echo "Updates found, pulling latest version..." | tee -a "$LOG_FILE"
             git pull origin main 2>&1 | tee -a "$LOG_FILE"
             npm install 2>&1 | tee -a "$LOG_FILE"
+            npm run build 2>&1 | tee -a "$LOG_FILE"
             echo "✓ Aggregate MCP server updated successfully" | tee -a "$LOG_FILE"
         else
             echo "✓ Aggregate MCP server already up to date" | tee -a "$LOG_FILE"
         fi
         
-        # Clean up credentials file
-        rm -f /home/coder/.git-credentials
         cd /home/coder
     else
         echo "Installing aggregate MCP server from GitHub..." | tee -a "$LOG_FILE"
-        # Use token in URL for clone
-        git clone "https://${GITHUB_TOKEN}@github.com/bustinjailey/aggregate-mcp-server.git" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
+        # Use gh CLI to clone (uses authenticated credential helper)
+        gh repo clone bustinjailey/aggregate-mcp-server "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
         
         if [ -d "$MCP_INSTALL_DIR" ]; then
             cd "$MCP_INSTALL_DIR"
             npm install 2>&1 | tee -a "$LOG_FILE"
+            npm run build 2>&1 | tee -a "$LOG_FILE"
             echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
             cd /home/coder
         else

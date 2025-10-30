@@ -67,20 +67,16 @@ WORKDIR /home/coder/workspace
 
 # Set up VS Code Insiders Server data directories
 RUN mkdir -p /home/coder/.vscode-server-insiders/data \
-  && mkdir -p /home/coder/.vscode-server-insiders/extensions \
-  && mkdir -p /home/coder/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings
+  && mkdir -p /home/coder/.vscode-server-insiders/extensions
 
 # Extensions will be installed at runtime via startup.sh
 # This ensures VS Code Server is fully initialized before extension installation
 
-# Pre-configure MCP settings for Cline extension (VS Code Insiders Server web uses ~/.vscode-server-insiders/data)
-COPY --chown=coder:coder config/mcp.json /home/coder/.vscode-server-insiders/data/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
-
-# Include templates for runtime initialization (both Cline and Copilot formats)
+# Include templates for runtime initialization (unified MCP config for all AI tools)
 RUN mkdir -p /home/coder/.devfarm
-COPY --chown=coder:coder config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json.template
-COPY --chown=coder:coder config/mcp.json /home/coder/.devfarm/mcp-cline.json
+COPY --chown=coder:coder config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json
 COPY --chown=coder:coder config/mcp-copilot.json /home/coder/.devfarm/mcp-copilot.json
+COPY --chown=coder:coder config/auto-approval-settings.json /home/coder/.devfarm/auto-approval-settings.json
 
 # Create startup script for GitHub authentication and configuration
 COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh

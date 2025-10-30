@@ -42,7 +42,7 @@
   "kilocode.apiProvider": "anthropic",
   "workbench.activityBar.location": "default",
   "workbench.panel.defaultLocation": "right",
-  "workbench.editor.showTabs": "single",
+  "workbench.editor.showTabs": "multiple",
   "workbench.sideBar.location": "left",
   "workbench.secondarySideBar.defaultVisibility": true,
   "window.zoomLevel": 1,
