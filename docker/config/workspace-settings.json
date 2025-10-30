@@ -32,6 +32,8 @@
   },
   "github.copilot.chat.welcomeMessage": "never",
   "github.copilot.editor.enableAutoCompletions": true,
+  "chatgpt.provider": "github-copilot",
+  "chatgpt.model": "gpt-4o",
   "workbench.activityBar.location": "default",
   "workbench.panel.defaultLocation": "right",
   "workbench.editor.showTabs": "single",
