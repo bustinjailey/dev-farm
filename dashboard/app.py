@@ -1327,138 +1327,68 @@ def _run_system_update_thread():
                 _set_update_result(False, 'Dashboard image verification failed')
                 return
 
-            def delayed_recreate():
-                time.sleep(3)  # Give time for status response to be sent
-                
-                try:
-                    print("Restarting dashboard using docker compose...")
-                    
-                    # Two-step approach for reliability:
-                    # 1. Stop the current dashboard
-                    print("Step 1: Stopping current dashboard...")
-                    stop_result = subprocess.run(
-                        ['docker', 'compose', 'stop', 'dashboard'],
-                        cwd='/opt/dev-farm',
-                        capture_output=True,
-                        text=True,
-                        timeout=15
-                    )
-                    print(f"Stop result: {stop_result.returncode}")
-                    
-                    # 2. Remove the old container
-                    print("Step 2: Removing old container...")
-                    rm_result = subprocess.run(
-                        ['docker', 'compose', 'rm', '-f', 'dashboard'],
-                        cwd='/opt/dev-farm',
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    print(f"Remove result: {rm_result.returncode}")
-                    
-                    # 3. Create container with new image (--no-build uses pre-built image)
-                    print("Step 3: Creating dashboard container with new image...")
-                    result = subprocess.run(
-                        ['docker', 'compose', 'create', '--no-build', 'dashboard'],
-                        cwd='/opt/dev-farm',
-                        capture_output=True,
-                        text=True,
-                        timeout=30
-                    )
-                    
-                    if result.returncode == 0:
-                        print("Dashboard container created successfully")
-                        print(result.stdout)
-                        
-                        # Now explicitly start the container
-                        print("Step 4: Starting dashboard container...")
-                        start_result = subprocess.run(
-                            ['docker', 'compose', 'start', 'dashboard'],
-                            cwd='/opt/dev-farm',
-                            capture_output=True,
-                            text=True,
-                            timeout=30
-                        )
-                        
-                        if start_result.returncode != 0:
-                            print(f"WARNING: docker compose start failed: {start_result.stderr}")
-                            # Fallback to direct docker start
-                            print("Attempting direct docker start...")
-                            try:
-                                dashboard = client.containers.get('devfarm-dashboard')
-                                dashboard.start()
-                                print("Dashboard started via direct docker API")
-                            except Exception as e:
-                                print(f"ERROR: Failed to start dashboard: {e}")
-                                raise
-                        else:
-                            print("Dashboard started successfully via docker compose")
-                        
-                        # Wait for dashboard to be healthy
-                        print("Waiting for dashboard to be healthy...")
-                        for i in range(30):  # Wait up to 30 seconds
-                            time.sleep(1)
-                            try:
-                                dashboard = client.containers.get('devfarm-dashboard')
-                                state = dashboard.status
-                                print(f"  Check {i+1}: Status={state}")
-                                
-                                if state == 'running':
-                                    # Check health if healthcheck exists
-                                    health = dashboard.attrs.get('State', {}).get('Health', {})
-                                    if health and health.get('Status') == 'healthy':
-                                        print(f"✅ Dashboard is healthy after {i+1} seconds")
-                                        break
-                                    elif not health:
-                                        # No healthcheck, just verify it's running
-                                        print(f"✅ Dashboard is running (no healthcheck) after {i+1} seconds")
-                                        break
-                                elif state == 'created':
-                                    print(f"  WARNING: Container still in 'created' state - this shouldn't happen")
-                            except Exception as e:
-                                print(f"  Check {i+1}: Error - {e}")
-                        else:
-                            print("⚠️ Dashboard may not be fully healthy yet but continuing...")
-                            # Verify it's at least running
-                            try:
-                                dashboard = client.containers.get('devfarm-dashboard')
-                                if dashboard.status != 'running':
-                                    print(f"❌ CRITICAL: Dashboard is in '{dashboard.status}' state, not running!")
-                            except:
-                                pass
-                    else:
-                        print(f"docker compose restart failed with code {result.returncode}")
-                        print(f"stdout: {result.stdout}")
-                        print(f"stderr: {result.stderr}")
-                        
-                        # Fallback: try docker compose restart (less disruptive)
-                        print("Attempting fallback with docker compose restart...")
-                        fallback_result = subprocess.run(
-                            ['docker', 'compose', 'restart', 'dashboard'],
-                            cwd='/opt/dev-farm',
-                            capture_output=True,
-                            text=True,
-                            timeout=30
-                        )
-                        
-                        if fallback_result.returncode == 0:
-                            print("Dashboard restarted successfully via docker compose restart")
-                        else:
-                            print(f"Fallback restart also failed: {fallback_result.stderr}")
-                            raise Exception("Both docker compose up and restart failed")
-                    
-                except subprocess.TimeoutExpired:
-                    print("ERROR: docker compose command timed out")
-                    print("Dashboard may be in an inconsistent state - manual intervention required")
-                except Exception as e:
-                    print(f"Critical error during dashboard recreation: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    print("Dashboard is likely DOWN - manual intervention required")
-                    print("To recover, run: cd /opt/dev-farm && docker compose up -d dashboard")
+            # CRITICAL FIX: Use updater container to perform restart
+            # Running restart from inside dashboard (daemon thread) fails because 
+            # container dies before restart completes. Updater container stays alive.
+            _append_stage('restart_dashboard', 'starting', '🔄 Scheduling dashboard restart via updater...')
+            
+            restart_script = f"""#!/bin/sh
+set -e
+echo "Waiting 5 seconds for dashboard to finish current request..."
+sleep 5
 
-            threading.Thread(target=delayed_recreate, daemon=True).start()
-            _append_stage('restart_dashboard', 'success', '✅ Dashboard recreation initiated (reloading in 5s...)')
+echo "Stopping dashboard container..."
+docker compose -f {REPO_PATH}/docker-compose.yml stop dashboard || true
+
+echo "Removing old dashboard container..."
+docker compose -f {REPO_PATH}/docker-compose.yml rm -f dashboard || true
+
+echo "Starting dashboard with new image..."
+docker compose -f {REPO_PATH}/docker-compose.yml up -d dashboard
+
+echo "Waiting for dashboard to be healthy..."
+for i in $(seq 1 60); do
+    sleep 1
+    STATUS=$(docker inspect --format='{{{{.State.Status}}}}' devfarm-dashboard 2>/dev/null || echo "not_found")
+    echo "Check $i: Status=$STATUS"
+    
+    if [ "$STATUS" = "running" ]; then
+        echo "✅ Dashboard is running after $i seconds"
+        exit 0
+    fi
+done
+
+echo "❌ Dashboard failed to start within 60 seconds"
+echo "Current status: $(docker inspect --format='{{{{.State.Status}}}}' devfarm-dashboard 2>/dev/null || echo 'not found')"
+exit 1
+"""
+            
+            try:
+                # Write restart script to updater container
+                exec_result = updater.exec_run(
+                    cmd=['sh', '-c', f'cat > /tmp/restart-dashboard.sh << "EOFSCRIPT"\n{restart_script}\nEOFSCRIPT\nchmod +x /tmp/restart-dashboard.sh'],
+                    demux=False
+                )
+                
+                if exec_result.exit_code != 0:
+                    raise Exception(f"Failed to create restart script: {exec_result.output}")
+                
+                # Execute restart script in background (non-blocking)
+                # Use nohup so script continues even if exec connection dies
+                exec_result = updater.exec_run(
+                    cmd=['sh', '-c', 'nohup sh /tmp/restart-dashboard.sh > /tmp/restart.log 2>&1 &'],
+                    detach=True
+                )
+                
+                print("Dashboard restart scheduled via updater container")
+                _append_stage('restart_dashboard', 'success', '✅ Dashboard restart scheduled (reloading in 10s...)')
+                
+            except Exception as e:
+                print(f"ERROR: Failed to schedule restart via updater: {e}")
+                _append_stage('restart_dashboard', 'error', f'❌ Failed to schedule restart: {str(e)}')
+                _append_stage('restart_dashboard', 'info', '⚠️  Manual restart required: docker compose up -d dashboard')
+                _set_update_result(False, f'Restart scheduling failed: {str(e)}')
+                return
         except Exception as e:
             _append_stage('restart_dashboard', 'error', f'❌ Error: {str(e)}')
             _set_update_result(False, f'Dashboard restart error: {str(e)}')
