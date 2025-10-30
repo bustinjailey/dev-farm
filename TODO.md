@@ -1,77 +1,99 @@
-1.  Terminal mode doesn't work, and I don't think this is following the same container start flow as other modes (workspace, ssh, git). Make terminal mode more consistent.
+🤖 CLI AI Tools Available:
+  • gh copilot - GitHub Copilot CLI
+  • aichat or ai - Multi-model AI chat CLI
 
-Error: 404 Client Error for http+docker://localhost/v1.51/images/create?tag=latest&fromImage=dev-farm%2Fterminal: Not Found ("pull access denied for dev-farm/terminal, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")
+💡 Type commands for help:
+  • gh copilot explain <command>
+  • gh copilot suggest <task>
+  • aichat --help
 
-2.  SSH mode has issues mounting remote filesystems, make this work properly. There are also issues with VSCode Insiders and (I think) needing special versions of extensions to work with Insiders properly. Please fix.
-    2025-10-30T13:25:10.386041282Z Preparing workspace directory...
-    2025-10-30T13:25:10.397037683Z Applying VS Code Insiders workspace settings...
-    2025-10-30T13:25:10.400798516Z Configuring GitHub Copilot MCP servers in VS Code Insiders settings...
-    2025-10-30T13:25:10.410399570Z ✓ GitHub Copilot MCP settings configured in settings.json
-    2025-10-30T13:25:10.412717958Z Creating workspace mcp.json template for GitHub Copilot...
-    2025-10-30T13:25:10.413705720Z ✓ Workspace mcp.json template created (for reference/override)
-    2025-10-30T13:25:10.413710239Z MCP configuration complete - supports Cline and GitHub Copilot
-    2025-10-30T13:25:10.413711541Z Applying machine-level settings from template...
-    2025-10-30T13:25:10.421204172Z ✓ Machine-level settings configured for all workspaces
-    2025-10-30T13:25:10.429808337Z Machine-level settings updated for VS Code Server
-    2025-10-30T13:25:10.432106046Z Setting up GitHub authentication...
-    2025-10-30T13:25:10.452824850Z Note: GitHub CLI authentication configured via GITHUB_TOKEN environment variable
-    2025-10-30T13:25:10.474372688Z GitHub authentication completed successfully for bustinjailey!
-    2025-10-30T13:25:10.474885760Z Setting up Aggregate MCP Server...
-    2025-10-30T13:25:10.475849016Z Installing aggregate MCP server from GitHub...
-    2025-10-30T13:25:10.476626555Z Cloning into '/home/coder/.local/bin/aggregate-mcp-server'...
-    2025-10-30T13:25:10.857719592Z remote: Write access to repository not granted.
-    2025-10-30T13:25:10.857733208Z fatal: unable to access 'https://github.com/bustinjailey/aggregate-mcp-server.git/': The requested URL returned error: 403
-    2025-10-30T13:25:10.860393035Z ⚠ Failed to clone aggregate MCP server repository
-    2025-10-30T13:25:10.860426889Z Development mode: ssh
-    2025-10-30T13:25:10.861057131Z Setting up SSHFS mount for remote filesystem (background)...
-    2025-10-30T13:25:10.861932232Z Background SSH mount starting...
-    2025-10-30T13:25:10.862702637Z SSH mount started in background. Container will start immediately.
-    2025-10-30T13:25:10.863367032Z Workspace root set to: /home/coder/remote
-    2025-10-30T13:25:10.863976846Z Installing default extensions...
-    2025-10-30T13:25:10.864623218Z Installing ms-vscode-remote.remote-ssh (attempt 1/3)...
-    2025-10-30T13:25:10.864673462Z Mounting hassio@192.168.1.158:/home -> /home/coder/remote
-    2025-10-30T13:25:10.868943370Z Using password authentication for SSH mount
-    2025-10-30T13:25:10.869357115Z Testing SSH connectivity to hassio@192.168.1.158...
-    2025-10-30T13:25:10.995366318Z ✓ SSH connectivity confirmed
-    2025-10-30T13:25:11.080609263Z Installing extensions...
-    2025-10-30T13:25:11.127890188Z SSHFS mount failed. Remote filesystem not available.
-    2025-10-30T13:25:11.130032395Z ❌ Background SSH mount failed
-    2025-10-30T13:25:11.259411698Z Installing extension 'ms-vscode-remote.remote-ssh'...
-    2025-10-30T13:25:12.133785114Z Extension 'ms-vscode.remote-explorer' v0.5.0 was successfully installed.
-    2025-10-30T13:25:12.133800223Z Extension 'ms-vscode-remote.remote-ssh' v0.120.0 was successfully installed.
-    2025-10-30T13:25:12.133801665Z Extension 'ms-vscode-remote.remote-ssh-edit' v0.87.0 was successfully installed.
-    2025-10-30T13:25:12.145092319Z ✓ Successfully installed ms-vscode-remote.remote-ssh
-    2025-10-30T13:25:12.147465539Z Installing yzhang.markdown-all-in-one (attempt 1/3)...
-    2025-10-30T13:25:12.284058940Z Installing extensions...
-    2025-10-30T13:25:12.463009944Z Installing extension 'yzhang.markdown-all-in-one'...
-    2025-10-30T13:25:13.133822586Z Extension 'yzhang.markdown-all-in-one' v3.6.3 was successfully installed.
-    2025-10-30T13:25:13.141838388Z ✓ Successfully installed yzhang.markdown-all-in-one
-    2025-10-30T13:25:13.142406964Z Installing github.copilot-chat (attempt 1/3)...
-    2025-10-30T13:25:13.279021004Z Installing extensions...
-    2025-10-30T13:25:13.413002858Z Installing extension 'github.copilot-chat'...
-    2025-10-30T13:25:13.916090639Z Error while installing extension github.copilot-chat: Can't install 'GitHub Copilot Chat' extension. This extension is using the API proposals 'chatParticipantPrivate', 'languageModelDataPart' and 'chatSessionsProvider' that are not compatible with the current version of VS Code.
-    2025-10-30T13:25:13.916557524Z Failed Installing Extensions: github.copilot-chat
-    2025-10-30T13:25:13.927889535Z ✓ Successfully installed github.copilot-chat
-    2025-10-30T13:25:13.928589558Z Installing openai.chatgpt (attempt 1/3)...
-    2025-10-30T13:25:14.063210911Z Installing extensions...
-    2025-10-30T13:25:14.235660001Z Installing extension 'openai.chatgpt'...
-    2025-10-30T13:25:16.547800015Z Extension 'openai.chatgpt' v0.4.31 was successfully installed.
-    2025-10-30T13:25:16.560953492Z ✓ Successfully installed openai.chatgpt
-    2025-10-30T13:25:16.561513021Z Installing kilocode.kilocode (attempt 1/3)...
-    2025-10-30T13:25:16.698380416Z Installing extensions...
-    2025-10-30T13:25:16.906713649Z Extension 'kilocode.kilocode' not found.
-    2025-10-30T13:25:16.906729368Z Make sure you use the full extension ID, including the publisher, e.g.: ms-dotnettools.csharp
-    2025-10-30T13:25:16.907237130Z Failed Installing Extensions: kilocode.kilocode
-    2025-10-30T13:25:16.918834860Z ✓ Successfully installed kilocode.kilocode
-    2025-10-30T13:25:16.919428724Z Installing saoudrizwan.claude-dev (attempt 1/3)...
-    2025-10-30T13:25:17.052320403Z Installing extensions...
-    2025-10-30T13:25:17.206731647Z Installing extension 'saoudrizwan.claude-dev'...
-    2025-10-30T13:25:19.554949147Z Extension 'saoudrizwan.claude-dev' v3.34.1 was successfully installed.
-    2025-10-30T13:25:19.563675352Z ✓ Successfully installed saoudrizwan.claude-dev
-    2025-10-30T13:25:19.564322034Z Extension installation complete
-    2025-10-30T13:25:19.565880216Z Starting VS Code Server with workspace: /home/coder/remote
-    2025-10-30T13:25:19.671028369Z error: unexpected argument '--default-folder' found
-    2025-10-30T13:25:19.671041313Z
-    2025-10-30T13:25:19.671043096Z Usage: code-tunnel-insiders serve-web <--host <HOST>|--socket-path <SOCKET_PATH>|--port <PORT>|--connection-token <CONNECTION_TOKEN>|--connection-token-file <CONNECTION_TOKEN_FILE>|--without-connection-token|--accept-server-license-terms|--server-base-path <SERVER_BASE_PATH>|--server-data-dir <SERVER_DATA_DIR>|--commit-id <COMMIT_ID>>
-    2025-10-30T13:25:19.671046843Z
-    2025-10-30T13:25:19.671047545Z For more information, try '--help'.
+➜  workspace ls
+WELCOME.txt
+➜  workspace gh copilot
+Your AI command line copilot.
+
+Usage:
+  copilot [command]
+
+Examples:
+
+$ gh copilot suggest "Install git"
+$ gh copilot explain "traceroute github.com"
+
+
+Available Commands:
+  alias       Generate shell-specific aliases for convenience
+  config      Configure options
+  explain     Explain a command
+  suggest     Suggest a command
+
+Flags:
+  -h, --help              help for copilot
+      --hostname string   The GitHub host to use for authentication
+  -v, --version           version for copilot
+
+Use "copilot [command] --help" for more information about a command.
+➜  workspace gh copilot suggest "hello"
+
+? Allow GitHub to collect optional usage data to help us improve? This data does not include your queries.
+> Yes
+
+✗ Error: No valid GitHub CLI OAuth token detected
+
+To get started with GitHub Copilot in the CLI, please run: gh auth login --web -h github.com to authenticate via web browser.
+
+➜  workspace gh repo
+Work with GitHub repositories.
+
+USAGE
+  gh repo <command> [flags]
+
+GENERAL COMMANDS
+  create:        Create a new repository
+  list:          List repositories owned by user or organization
+
+TARGETED COMMANDS
+  archive:       Archive a repository
+  autolink:      Manage autolink references
+  clone:         Clone a repository locally
+  delete:        Delete a repository
+  deploy-key:    Manage deploy keys in a repository
+  edit:          Edit repository settings
+  fork:          Create a fork of a repository
+  gitignore:     List and view available repository gitignore templates
+  license:       Explore repository licenses
+  rename:        Rename a repository
+  set-default:   Configure default repository for this directory
+  sync:          Sync a repository
+  unarchive:     Unarchive a repository
+  view:          View a repository
+
+INHERITED FLAGS
+  --help   Show help for command
+
+ARGUMENTS
+  A repository can be supplied as an argument in any of the following formats:
+  - "OWNER/REPO"
+  - by URL, e.g. "https://github.com/OWNER/REPO"
+
+EXAMPLES
+  $ gh repo create
+  $ gh repo clone cli/cli
+  $ gh repo view --web
+
+LEARN MORE
+  Use `gh <command> <subcommand> --help` for more information about a command.
+  Read the manual at https://cli.github.com/manual
+  Learn about exit codes using `gh help exit-codes`
+  Learn about accessibility experiences using `gh help accessibility`
+
+➜  workspace gh repo list
+➜  workspace (repo list worked, output hidden here)
+zsh: command not found: repo
+➜  workspace aichat
+zsh: command not found: aichat
+➜  workspace 
+
+
+Fix the above by 1) removing made-up commands 2) providing auth token to the copilot CLI
+

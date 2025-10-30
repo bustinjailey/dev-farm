@@ -1,18 +1,5 @@
 {
   "mcpServers": {
-    "aggregate": {
-      "type": "local",
-      "command": "node",
-      "args": [
-        "/home/coder/.local/bin/aggregate-mcp-server/dist/index.js"
-      ],
-      "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-      },
-      "tools": [
-        "*"
-      ]
-    },
     "filesystem": {
       "type": "local",
       "command": "npx",
