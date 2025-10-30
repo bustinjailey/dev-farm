@@ -993,10 +993,10 @@ mkdir -p "${WORKSPACE_ROOT}"
 # Start official VS Code Insiders Server with serve-web command
 # Accept server license terms automatically
 # Disable telemetry to reduce network noise and log clutter
-# The default-folder parameter opens the specified workspace on startup
+# Pass workspace folder as positional argument at end
 exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
   --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
   --disable-telemetry \
-  --default-folder "${WORKSPACE_ROOT}"
+  "${WORKSPACE_ROOT}"

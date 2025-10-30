@@ -80,7 +80,9 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 200px;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      height: 28px;
     }
 
     .badge-success {
@@ -311,17 +313,19 @@
     }
 
     .btn {
-      padding: 12px 16px;
+      padding: 6px 16px;
       font-size: 14px;
       font-weight: 500;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
+      height: 36px;
+      min-height: 36px;
     }
 
     .btn:hover:not(:disabled) {
@@ -520,12 +524,11 @@
           <span id="githubStatus">
             <span class="status-badge badge-warning">Checking...</span>
           </span>
-          <button class="btn" onclick="showGitHubAuthModal()" id="githubConnectBtn"
-            style="padding: 8px 16px; font-size: 13px; display: none;">
+          <button class="btn" onclick="showGitHubAuthModal()" id="githubConnectBtn" style="display: none;">
             🔗 Connect
           </button>
           <button class="btn" onclick="logoutGitHub()" id="githubLogoutBtn"
-            style="padding: 8px 16px; font-size: 13px; display: none; background: #f56565;">
+            style="display: none; background: #f56565; color: white;">
             🚪 Logout
           </button>
         </span>
@@ -537,7 +540,7 @@
             <span class="status-badge badge-warning">Checking...</span>
           </span>
           <button class="btn" onclick="updateSystem()" id="updateBtn"
-            style="padding: 8px 16px; font-size: 13px; display: none;">
+            style="display: none; background: #667eea; color: white;">
             ⬆️ Update Now
           </button>
         </span>
@@ -549,7 +552,7 @@
             <span class="status-badge badge-error">0 found</span>
           </span>
           <button class="btn" onclick="cleanupOrphans()" id="cleanupBtn"
-            style="background: #f59e0b; padding: 8px 16px; font-size: 13px; display: none;">
+            style="display: none; background: #f59e0b; color: white;">
             🧹 Clean Up
           </button>
         </span>
@@ -560,8 +563,7 @@
       <button class="btn btn-create" onclick="showCreateModal()">
         ➕ Create New Environment
       </button>
-      <button class="btn" onclick="showHierarchyView()"
-        style="background: white; color: #667eea; padding: 12px 24px; margin-left: 10px;">
+      <button class="btn" onclick="showHierarchyView()" style="background: white; color: #667eea; margin-left: 10px;">
         🌳 View Hierarchy
       </button>
     </div>
@@ -799,7 +801,7 @@
           <div style="display: flex; gap: 8px; margin-bottom: 8px;">
             <input type="url" class="form-input" id="gitUrl" placeholder="https://github.com/user/repo.git"
               style="flex: 1;">
-            <button type="button" class="btn" onclick="loadGitHubRepos()" style="padding: 12px 20px;">
+            <button type="button" class="btn" onclick="loadGitHubRepos()" style="background: #667eea; color: white;">
               📚 Browse
             </button>
           </div>
