@@ -646,15 +646,20 @@ def github_auth_poll():
     """Poll for OAuth device flow completion"""
     try:
         if not os.path.exists(DEVICE_CODE_FILE):
+            print("[OAuth Poll] No device code file found")
             return jsonify({'status': 'no_flow', 'message': 'No OAuth flow in progress'})
         
         with open(DEVICE_CODE_FILE, 'r') as f:
             device_data = json.load(f)
         
         # Check if expired
-        if time.time() - device_data['started_at'] > device_data['expires_in']:
+        elapsed = time.time() - device_data['started_at']
+        if elapsed > device_data['expires_in']:
+            print(f"[OAuth Poll] Code expired (elapsed: {elapsed}s, expires_in: {device_data['expires_in']}s)")
             os.remove(DEVICE_CODE_FILE)
             return jsonify({'status': 'expired'})
+        
+        print(f"[OAuth Poll] Checking authorization status (elapsed: {elapsed:.1f}s)...")
         
         # Poll GitHub for token
         response = requests.post(
@@ -664,13 +669,18 @@ def github_auth_poll():
                 'client_id': 'Iv1.b507a08c87ecfe98',
                 'device_code': device_data['device_code'],
                 'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
-            }
+            },
+            timeout=10
         )
+        
+        print(f"[OAuth Poll] GitHub response status: {response.status_code}")
         
         if response.status_code == 200:
             result = response.json()
+            print(f"[OAuth Poll] GitHub response: {result}")
             
             if 'access_token' in result:
+                print("[OAuth Poll] ✅ Authorization successful!")
                 # Success! Save token
                 save_github_token(result['access_token'])
                 os.remove(DEVICE_CODE_FILE)
@@ -683,32 +693,44 @@ def github_auth_poll():
                 
                 if user_response.status_code == 200:
                     user_data = user_response.json()
+                    print(f"[OAuth Poll] User: {user_data.get('login')}")
                     return jsonify({
                         'status': 'success',
                         'username': user_data.get('login')
                     })
                 else:
+                    print(f"[OAuth Poll] Failed to get user info: {user_response.status_code}")
                     return jsonify({'status': 'success'})
             
             elif result.get('error') == 'authorization_pending':
+                print("[OAuth Poll] Still waiting for user authorization...")
                 return jsonify({'status': 'pending'})
             
             elif result.get('error') == 'slow_down':
+                print("[OAuth Poll] Rate limited - slowing down")
                 return jsonify({'status': 'slow_down'})
             
             elif result.get('error') == 'expired_token':
+                print("[OAuth Poll] Token expired")
                 os.remove(DEVICE_CODE_FILE)
                 return jsonify({'status': 'expired'})
             
             elif result.get('error') == 'access_denied':
+                print("[OAuth Poll] User denied authorization")
                 os.remove(DEVICE_CODE_FILE)
                 return jsonify({'status': 'denied'})
             
             else:
-                return jsonify({'status': 'error', 'message': result.get('error_description', 'Unknown error')})
+                error_msg = result.get('error_description', result.get('error', 'Unknown error'))
+                print(f"[OAuth Poll] ❌ Error: {error_msg}")
+                return jsonify({'status': 'error', 'message': error_msg})
         
-        return jsonify({'status': 'error', 'message': 'Failed to poll'}), 500
+        print(f"[OAuth Poll] ❌ Unexpected status code: {response.status_code}")
+        return jsonify({'status': 'error', 'message': f'HTTP {response.status_code}'}), 500
     except Exception as e:
+        print(f"[OAuth Poll] ❌ Exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/github/auth/status')
