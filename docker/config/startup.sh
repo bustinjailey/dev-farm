@@ -368,8 +368,9 @@ if [ -n "${GITHUB_TOKEN}" ]; then
         cd /home/coder
     else
         echo "Installing aggregate MCP server from GitHub..." | tee -a "$LOG_FILE"
-        # Use gh CLI to clone (uses authenticated credential helper)
-        gh repo clone bustinjailey/aggregate-mcp-server "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
+        # Use git clone with gh-authenticated credential helper
+        # gh auth setup-git configures git to use the token automatically
+        git clone https://github.com/bustinjailey/aggregate-mcp-server.git "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
         
         if [ -d "$MCP_INSTALL_DIR" ]; then
             cd "$MCP_INSTALL_DIR"
