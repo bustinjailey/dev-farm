@@ -829,7 +829,7 @@ def github_auth_start():
         response = requests.post(
             'https://github.com/login/device/code',
             headers={'Accept': 'application/json'},
-            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org gist copilot'}
+            data={'client_id': 'Iv1.b507a08c87ecfe98', 'scope': 'repo read:org gist copilot write:public_key'}
         )
         
         if response.status_code == 200:
