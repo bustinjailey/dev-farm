@@ -815,6 +815,36 @@
     let githubRepos = [];
     let currentLogsEnv = null;
 
+    // Random name generation
+    function generateRandomName() {
+      const adjectives = [
+        'cosmic', 'bright', 'swift', 'bold', 'quiet', 'brave', 'clever', 'eager',
+        'gentle', 'happy', 'jolly', 'kind', 'lively', 'mighty', 'noble', 'proud',
+        'quick', 'rapid', 'serene', 'smart', 'strong', 'sturdy', 'calm', 'wise',
+        'vivid', 'zealous', 'active', 'agile', 'alert', 'amber', 'azure', 'blazing',
+        'dynamic', 'elegant', 'epic', 'fleet', 'focused', 'golden', 'heroic', 'ideal'
+      ];
+      
+      const nouns = [
+        'cloud', 'storm', 'thunder', 'wind', 'star', 'moon', 'wave', 'river',
+        'ocean', 'mountain', 'forest', 'canyon', 'aurora', 'comet', 'galaxy',
+        'phoenix', 'dragon', 'falcon', 'eagle', 'wolf', 'tiger', 'castle',
+        'beacon', 'bridge', 'compass', 'horizon', 'nexus', 'portal', 'summit',
+        'vault', 'zenith', 'circuit', 'network', 'signal', 'quantum', 'matrix'
+      ];
+      
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const noun1 = nouns[Math.floor(Math.random() * nouns.length)];
+      let noun2 = nouns[Math.floor(Math.random() * nouns.length)];
+      
+      // Ensure noun1 and noun2 are different
+      while (noun2 === noun1) {
+        noun2 = nouns[Math.floor(Math.random() * nouns.length)];
+      }
+      
+      return `${adj}-${noun1}-${noun2}`;
+    }
+
     async function loadGitHubRepos() {
       const repoList = document.getElementById('repoList');
       const repoListContent = document.getElementById('repoListContent');
@@ -885,7 +915,13 @@
 
     document.getElementById('createForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = document.getElementById('envName').value;
+      let name = document.getElementById('envName').value.trim();
+      
+      // Generate random name if field is empty
+      if (!name) {
+        name = generateRandomName();
+      }
+      
       const project = document.getElementById('envProject').value;
       const mode = document.getElementById('envMode').value;
 

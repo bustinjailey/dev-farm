@@ -16,8 +16,6 @@ import requests
 import threading
 from threading import RLock
 import queue
-import random
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
 
@@ -87,64 +85,6 @@ def _set_update_result(success, error=None):
         UPDATE_PROGRESS['success'] = success
         UPDATE_PROGRESS['error'] = error
         UPDATE_PROGRESS['running'] = False
-
-def generate_random_name():
-    """Generate a random 3-word hyphenated name"""
-    adjectives = [
-        'cosmic', 'bright', 'swift', 'bold', 'quiet', 'brave', 'clever', 'eager',
-        'gentle', 'happy', 'jolly', 'kind', 'lively', 'mighty', 'noble', 'proud',
-        'quick', 'rapid', 'serene', 'smart', 'strong', 'sturdy', 'calm', 'wise',
-        'vivid', 'zealous', 'active', 'agile', 'alert', 'amber', 'azure', 'blazing',
-        'breezy', 'brilliant', 'bronze', 'cardinal', 'casual', 'charming', 'chipper',
-        'choice', 'civil', 'classic', 'clean', 'clear', 'crisp', 'dapper', 'daring',
-        'dynamic', 'elegant', 'epic', 'fair', 'fancy', 'fierce', 'fine', 'fleet',
-        'fluent', 'flying', 'focused', 'formal', 'fresh', 'frisky', 'frosty', 'funky',
-        'gleaming', 'glossy', 'golden', 'grand', 'great', 'groovy', 'hardy', 'heroic',
-        'honest', 'humble', 'ideal', 'iron', 'jade', 'keen', 'light', 'lucid',
-        'lunar', 'magic', 'major', 'merry', 'metal', 'mint', 'modern', 'moving',
-        'naval', 'neat', 'neural', 'nimble', 'onyx', 'optimal', 'ornate', 'pearl',
-        'perky', 'plucky', 'polite', 'primal', 'prime', 'proper', 'pure', 'quaint',
-        'radiant', 'refined', 'regal', 'robust', 'royal', 'ruby', 'rustic', 'sacred',
-        'sage', 'sassy', 'scarlet', 'sharp', 'shiny', 'silent', 'silver', 'simple',
-        'sleek', 'slick', 'smooth', 'snappy', 'snazzy', 'sober', 'solid', 'sonic',
-        'sound', 'spicy', 'stable', 'steady', 'stellar', 'sterling', 'stout', 'super',
-        'supreme', 'sweet', 'swift', 'tidy', 'topaz', 'tranquil', 'trusty', 'turbo',
-        'ultra', 'unique', 'upbeat', 'urban', 'valid', 'valued', 'vibrant', 'vital'
-    ]
-    
-    nouns = [
-        'cloud', 'storm', 'thunder', 'lightning', 'wind', 'star', 'moon', 'sun',
-        'wave', 'river', 'ocean', 'mountain', 'forest', 'desert', 'canyon', 'valley',
-        'meadow', 'garden', 'field', 'lake', 'stream', 'creek', 'waterfall', 'glacier',
-        'aurora', 'comet', 'meteor', 'nebula', 'galaxy', 'planet', 'orbit', 'cosmos',
-        'phoenix', 'dragon', 'falcon', 'eagle', 'hawk', 'raven', 'owl', 'sparrow',
-        'dolphin', 'whale', 'shark', 'orca', 'seal', 'otter', 'tiger', 'lion',
-        'panther', 'leopard', 'cheetah', 'wolf', 'fox', 'bear', 'deer', 'elk',
-        'anchor', 'beacon', 'bridge', 'castle', 'citadel', 'compass', 'crown', 'crystal',
-        'diamond', 'ember', 'flame', 'forge', 'frontier', 'haven', 'horizon', 'island',
-        'javelin', 'jewel', 'lance', 'lantern', 'lighthouse', 'matrix', 'nexus', 'oasis',
-        'oracle', 'palace', 'peak', 'pearl', 'Phoenix', 'pinnacle', 'portal', 'prism',
-        'pyramid', 'quest', 'realm', 'refuge', 'ridge', 'sanctuary', 'sapphire', 'scepter',
-        'sentinel', 'shrine', 'signal', 'skyline', 'spire', 'summit', 'temple', 'throne',
-        'titan', 'tower', 'treasure', 'trident', 'vault', 'vector', 'vertex', 'vessel',
-        'vigil', 'vision', 'voyage', 'warden', 'wavelength', 'zenith', 'zephyr', 'bastion',
-        'circuit', 'cipher', 'codex', 'conduit', 'core', 'data', 'engine', 'flux',
-        'grid', 'helix', 'index', 'interface', 'kernel', 'lattice', 'logic', 'mesh',
-        'network', 'node', 'orbit', 'packet', 'pixel', 'protocol', 'pulse', 'quantum',
-        'radar', 'relay', 'router', 'scanner', 'sensor', 'server', 'signal', 'spectrum',
-        'stream', 'switch', 'sync', 'system', 'terminal', 'token', 'vector', 'vertex'
-    ]
-    
-    # Pick one adjective and two nouns
-    adj = random.choice(adjectives)
-    noun1 = random.choice(nouns)
-    noun2 = random.choice(nouns)
-    
-    # Ensure noun1 and noun2 are different
-    while noun2 == noun1:
-        noun2 = random.choice(nouns)
-    
-    return f"{adj}-{noun1}-{noun2}"
 
 def kebabify(name):
     """Convert any name to kebab-case (Docker-safe ID format)
@@ -550,6 +490,7 @@ def create_environment():
         
         # Register environment with both display name and ID, plus parent-child tracking
         registry[env_id] = {
+            'name': display_name,  # For template compatibility
             'display_name': display_name,
             'env_id': env_id,
             'container_id': container.id,
