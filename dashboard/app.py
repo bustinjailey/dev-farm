@@ -799,18 +799,21 @@ def github_repos():
             'Accept': 'application/vnd.github.v3+json'
         }
         
-        # Get user's repositories
+        # Get user's repositories (includes private repos with 'repo' scope)
         response = requests.get('https://api.github.com/user/repos', headers=headers, params={
             'sort': 'updated',
-            'per_page': 50
+            'per_page': 100,
+            'affiliation': 'owner,collaborator,organization_member'
         })
         
         if response.status_code == 200:
             repos = response.json()
             return jsonify([{
                 'name': repo['full_name'],
-                'url': repo['clone_url'],
+                'ssh_url': repo['ssh_url'],
+                'https_url': repo['clone_url'],
                 'description': repo['description'],
+                'private': repo['private'],
                 'updated': repo['updated_at']
             } for repo in repos])
         else:

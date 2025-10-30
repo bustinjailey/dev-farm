@@ -295,8 +295,34 @@ if [ -n "${GITHUB_TOKEN}" ]; then
         echo "Note: GitHub CLI authentication configured via GITHUB_TOKEN environment variable"
     }
     
-    # Setup git credential helper (suppress output)
-    gh auth setup-git >/dev/null 2>&1 || true
+    # Setup SSH for GitHub (so we can use git@github.com URLs for private repos)
+    # This mimics what 'gh auth login' interactive flow does when you choose SSH
+    echo "Setting up SSH authentication for GitHub..." | tee -a "$LOG_FILE"
+    
+    # Add GitHub's host key to known_hosts to avoid "Host key verification failed"
+    mkdir -p /home/coder/.ssh
+    chmod 700 /home/coder/.ssh
+    ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> /home/coder/.ssh/known_hosts 2>/dev/null
+    
+    # Generate SSH key if it doesn't exist
+    if [ ! -f /home/coder/.ssh/id_ed25519 ]; then
+        echo "Generating SSH key..." | tee -a "$LOG_FILE"
+        ssh-keygen -t ed25519 -C "devfarm-${GITHUB_USERNAME}@container" -f /home/coder/.ssh/id_ed25519 -N "" >/dev/null 2>&1
+        chmod 600 /home/coder/.ssh/id_ed25519
+        chmod 644 /home/coder/.ssh/id_ed25519.pub
+    fi
+    
+    # Upload SSH key to GitHub using gh CLI
+    if [ -f /home/coder/.ssh/id_ed25519.pub ]; then
+        echo "Uploading SSH key to GitHub..." | tee -a "$LOG_FILE"
+        gh ssh-key add /home/coder/.ssh/id_ed25519.pub --title "devfarm-container-$(date +%Y%m%d-%H%M%S)" 2>&1 | tee -a "$LOG_FILE" || {
+            echo "Note: SSH key may already exist on GitHub (this is normal)" | tee -a "$LOG_FILE"
+        }
+    fi
+    
+    # Configure git to use SSH for GitHub
+    git config --global url."git@github.com:".insteadOf "https://github.com/"
+    echo "✓ SSH authentication configured for GitHub" | tee -a "$LOG_FILE"
     
     # Note: gh CLI and GitHub Copilot both use GITHUB_TOKEN environment variable
     # No need to set GH_TOKEN separately - it's just an alias gh CLI also checks
@@ -321,7 +347,33 @@ elif [ -f "/data/.github_token" ]; then
             echo "Note: GitHub CLI authentication configured via shared token"
         }
         
-        gh auth setup-git >/dev/null 2>&1 || true
+        # Setup SSH for GitHub (so we can use git@github.com URLs for private repos)
+        echo "Setting up SSH authentication for GitHub..." | tee -a "$LOG_FILE"
+        
+        # Add GitHub's host key to known_hosts
+        mkdir -p /home/coder/.ssh
+        chmod 700 /home/coder/.ssh
+        ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> /home/coder/.ssh/known_hosts 2>/dev/null
+        
+        # Generate SSH key if it doesn't exist
+        if [ ! -f /home/coder/.ssh/id_ed25519 ]; then
+            echo "Generating SSH key..." | tee -a "$LOG_FILE"
+            ssh-keygen -t ed25519 -C "devfarm-${GITHUB_USERNAME}@container" -f /home/coder/.ssh/id_ed25519 -N "" >/dev/null 2>&1
+            chmod 600 /home/coder/.ssh/id_ed25519
+            chmod 644 /home/coder/.ssh/id_ed25519.pub
+        fi
+        
+        # Upload SSH key to GitHub using gh CLI
+        if [ -f /home/coder/.ssh/id_ed25519.pub ]; then
+            echo "Uploading SSH key to GitHub..." | tee -a "$LOG_FILE"
+            gh ssh-key add /home/coder/.ssh/id_ed25519.pub --title "devfarm-container-$(date +%Y%m%d-%H%M%S)" 2>&1 | tee -a "$LOG_FILE" || {
+                echo "Note: SSH key may already exist on GitHub (this is normal)" | tee -a "$LOG_FILE"
+            }
+        fi
+        
+        # Configure git to use SSH for GitHub
+        git config --global url."git@github.com:".insteadOf "https://github.com/"
+        echo "✓ SSH authentication configured for GitHub" | tee -a "$LOG_FILE"
         
         # Note: GITHUB_TOKEN is already set and used by gh CLI and GitHub Copilot
         
@@ -376,7 +428,7 @@ else
         cd /home/coder
     else
         echo "Installing aggregate MCP server from private GitHub repo..." | tee -a "$LOG_FILE"
-        # Clone private repo using SSH (gh auth login automatically uploaded public key)
+        # Clone private repo using SSH (key was uploaded to GitHub earlier)
         git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
         
         if [ -d "$MCP_INSTALL_DIR" ]; then
@@ -387,8 +439,8 @@ else
             cd /home/coder
         else
             echo "⚠ Failed to clone aggregate MCP server repository via SSH" | tee -a "$LOG_FILE"
-            echo "   Verify that 'gh auth login' was successful and chose SSH protocol" | tee -a "$LOG_FILE"
-            echo "   SSH public key should have been automatically uploaded to GitHub" | tee -a "$LOG_FILE"
+            echo "   This requires GITHUB_TOKEN with admin:public_key scope to upload SSH keys" | tee -a "$LOG_FILE"
+            echo "   Check that SSH key was uploaded: gh ssh-key list" | tee -a "$LOG_FILE"
         fi
     fi
 fi
