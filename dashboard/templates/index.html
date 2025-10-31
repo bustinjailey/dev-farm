@@ -1899,7 +1899,8 @@
             // For other statuses, replace the last line to avoid duplication
             if (data.status === 'progress') {
               const currentMsg = msg1.textContent;
-              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.trim() : data.message;
+              // Add extra indentation for git output (lines with 2-space prefix from backend)
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
               msg1.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
             } else if (data.status === 'starting') {
               // Replace last line if it's a status update for same stage
@@ -1947,7 +1948,8 @@
             // For progress/info status, append; for starting/success/error, replace last line
             if (data.status === 'progress' || data.status === 'info') {
               const currentMsg = msg2.textContent;
-              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.trim() : data.message;
+              // Add extra indentation for command output (lines with 2-space prefix from backend)
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
               msg2.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
             } else if (data.status === 'starting') {
               const lines = msg2.textContent.split('\n').filter(l => l.trim());
