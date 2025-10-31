@@ -1679,7 +1679,6 @@
       }
     }
 
-    let updatePoll = null;
     async function updateSystem() {
       const modal = document.getElementById('updateModal');
       modal.classList.add('active');
@@ -1720,151 +1719,9 @@
           return;
         }
 
-        // Wait 500ms for backend thread to initialize before starting to poll
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Poll for progress with new detailed stages
-        if (updatePoll) clearInterval(updatePoll);
-        const pollStart = Date.now();
-        updatePoll = setInterval(async () => {
-          try {
-            const status = await safeFetch('/api/system/update/status');
-
-            // Track what stages we've seen
-            const stagesSeen = new Set(status.stages?.map(s => s.stage) || []);
-
-            // Show stage 2 and 3 when appropriate
-            if (stagesSeen.has('check_changes') || stagesSeen.has('rebuild_codeserver') || stagesSeen.has('rebuild_dashboard')) {
-              stage2.style.display = 'block';
-            }
-            if (stagesSeen.has('restart_dashboard')) {
-              stage3.style.display = 'block';
-            }
-
-            // Process stages in order and update UI
-            if (Array.isArray(status.stages) && status.stages.length > 0) {
-              // Stage 1: Git operations (init, validate, git_clean, git_fetch, git_checkout, git_pull, verify_update)
-              const gitStages = status.stages.filter(s =>
-                ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'].includes(s.stage)
-              );
-
-              if (gitStages.length > 0) {
-                const latestGit = gitStages[gitStages.length - 1];
-                const allMessages = gitStages
-                  .filter(s => s.message)
-                  .map(s => s.message)
-                  .join('\n');
-
-                msg1.textContent = allMessages;
-
-                // Update icon based on latest stage status
-                if (latestGit.status === 'success') {
-                  icon1.textContent = '✅';
-                } else if (latestGit.status === 'error') {
-                  icon1.textContent = '❌';
-                } else if (latestGit.status === 'warning') {
-                  icon1.textContent = '⚠️';
-                } else {
-                  icon1.textContent = '⏳';
-                }
-              }
-
-              // Stage 2: Rebuild operations
-              const rebuildStages = status.stages.filter(s =>
-                ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'].includes(s.stage)
-              );
-
-              if (rebuildStages.length > 0) {
-                const latestRebuild = rebuildStages[rebuildStages.length - 1];
-                const rebuildMessages = rebuildStages
-                  .filter(s => s.message)
-                  .map(s => s.message)
-                  .join('\n');
-
-                msg2.textContent = rebuildMessages;
-
-                if (latestRebuild.status === 'success') {
-                  icon2.textContent = '✅';
-                } else if (latestRebuild.status === 'error') {
-                  icon2.textContent = '❌';
-                } else if (latestRebuild.status === 'skipped') {
-                  icon2.textContent = '⏭️';
-                } else {
-                  icon2.textContent = '⏳';
-                }
-              }
-
-              // Stage 3: Restart
-              const restartStages = status.stages.filter(s => s.stage === 'restart_dashboard');
-
-              if (restartStages.length > 0) {
-                const latestRestart = restartStages[restartStages.length - 1];
-                const restartMessages = restartStages
-                  .filter(s => s.message)
-                  .map(s => s.message)
-                  .join('\n');
-
-                msg3.textContent = restartMessages;
-
-                if (latestRestart.status === 'success') {
-                  icon3.textContent = '✅';
-                } else if (latestRestart.status === 'error') {
-                  icon3.textContent = '❌';
-                } else {
-                  icon3.textContent = '⏳';
-                }
-              }
-
-              // Check for completion stage
-              const completeStage = status.stages.find(s => s.stage === 'complete');
-              if (completeStage) {
-                msg3.textContent = completeStage.message || '🎉 Update complete!';
-                icon3.textContent = '✅';
-              }
-            }
-
-            // Handle completion
-            if (status.success === true) {
-              clearInterval(updatePoll);
-              spinner.style.display = 'none';
-              closeBtn.style.display = 'inline-block';
-              // Show success message clearly
-              if (!status.stages || status.stages.length === 0) {
-                icon1.textContent = '✅';
-                msg1.textContent = '✅ Update completed successfully!';
-              }
-              // Reload after delay to ensure dashboard is fully restarted
-              setTimeout(() => { window.location.reload(); }, 5000);
-            } else if (status.success === false) {
-              // Update failed - stop polling and show close button
-              clearInterval(updatePoll);
-              spinner.style.display = 'none';
-              closeBtn.style.display = 'inline-block';
-            } else if (!status.running) {
-              // Update finished running (either success or failure handled above)
-              // Stop polling once update stops running (regardless of stages)
-              clearInterval(updatePoll);
-              spinner.style.display = 'none';
-              closeBtn.style.display = 'inline-block';
-            } else if (status.stages && status.stages.length === 0 && Date.now() - pollStart > 10000) {
-              // Only show "did not start" error if we waited 10s and got NO stages at all
-              clearInterval(updatePoll);
-              icon1.textContent = '❌';
-              msg1.textContent = 'Update did not start. Please try again.';
-              spinner.style.display = 'none';
-              closeBtn.style.display = 'inline-block';
-            }
-            // While update is running, ensure spinner is shown and button is hidden
-            if (status.running) {
-              if (spinner.style.display !== 'block') {
-                spinner.style.display = 'block';
-                closeBtn.style.display = 'none';
-              }
-            }
-          } catch (e) {
-            console.error('Update status poll failed:', e);
-          }
-        }, 500);  // Poll twice per second for more responsive UI
+        // SSE will handle all progress updates via 'update-progress' events
+        // No polling needed - pure SSE-driven UI updates
+        console.log('✅ Update started - SSE will provide real-time progress')
       } catch (error) {
         icon1.textContent = '❌';
         msg1.textContent = 'Error: ' + error.message;
@@ -1875,7 +1732,6 @@
 
     function hideUpdateModal() {
       document.getElementById('updateModal').classList.remove('active');
-      if (updatePoll) { clearInterval(updatePoll); updatePoll = null; }
     }
 
     async function cleanupOrphans() {
@@ -1989,12 +1845,95 @@
       eventSource.addEventListener('update-progress', (e) => {
         try {
           const data = JSON.parse(e.data);
-          // Trigger immediate poll when we get an SSE update event
-          // This makes the UI feel more responsive while keeping poll-based logic intact
-          if (updatePoll && data.stage && data.message) {
-            console.log(`Update progress: ${data.stage} - ${data.message}`);
-            // Could update UI directly here, but for now just trigger a poll
-            // to keep all the display logic in one place
+          if (!data.stage) return;
+          
+          console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
+          
+          // Get modal elements
+          const modal = document.getElementById('updateModal');
+          if (!modal || !modal.classList.contains('active')) return;
+          
+          const stage1 = document.getElementById('updateStage1');
+          const stage2 = document.getElementById('updateStage2');
+          const stage3 = document.getElementById('updateStage3');
+          const icon1 = document.getElementById('updateIcon1');
+          const icon2 = document.getElementById('updateIcon2');
+          const icon3 = document.getElementById('updateIcon3');
+          const msg1 = document.getElementById('updateMsg1');
+          const msg2 = document.getElementById('updateMsg2');
+          const msg3 = document.getElementById('updateMsg3');
+          const spinner = document.getElementById('updateSpinner');
+          const closeBtn = document.getElementById('updateClose');
+          
+          // Map stages to UI sections
+          const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'];
+          const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
+          const restartStages = ['restart_dashboard'];
+          
+          // Stage 1: Git operations
+          if (gitStages.includes(data.stage)) {
+            const currentMsg = msg1.textContent;
+            msg1.textContent = currentMsg ? currentMsg + '\n' + data.message : data.message;
+            
+            if (data.status === 'success') {
+              icon1.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon1.textContent = '❌';
+            } else if (data.status === 'warning') {
+              icon1.textContent = '⚠️';
+            } else {
+              icon1.textContent = '⏳';
+            }
+          }
+          
+          // Stage 2: Rebuild operations
+          if (rebuildStages.includes(data.stage)) {
+            stage2.style.display = 'block';
+            const currentMsg = msg2.textContent;
+            msg2.textContent = currentMsg ? currentMsg + '\n' + data.message : data.message;
+            
+            if (data.status === 'success') {
+              icon2.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon2.textContent = '❌';
+            } else if (data.status === 'skipped') {
+              icon2.textContent = '⏭️';
+            } else {
+              icon2.textContent = '⏳';
+            }
+          }
+          
+          // Stage 3: Restart
+          if (restartStages.includes(data.stage)) {
+            stage3.style.display = 'block';
+            msg3.textContent = data.message || 'Restarting dashboard...';
+            
+            if (data.status === 'success') {
+              icon3.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon3.textContent = '❌';
+            } else {
+              icon3.textContent = '⏳';
+            }
+          }
+          
+          // Completion
+          if (data.stage === 'complete') {
+            spinner.style.display = 'none';
+            closeBtn.style.display = 'inline-block';
+            msg3.textContent = data.message || '🎉 Update complete!';
+            icon3.textContent = '✅';
+            
+            if (data.status === 'success') {
+              // Reload after delay to ensure dashboard is fully restarted
+              setTimeout(() => { window.location.reload(); }, 5000);
+            }
+          }
+          
+          // Error handling
+          if (data.status === 'error') {
+            spinner.style.display = 'none';
+            closeBtn.style.display = 'inline-block';
           }
         } catch (err) {
           console.error('Error handling update-progress event:', err);

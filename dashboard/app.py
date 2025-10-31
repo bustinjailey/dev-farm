@@ -637,9 +637,15 @@ def create_environment():
         except Exception as e:
             print(f"Error removing stale container: {e}")
 
-        # Pull='never' ensures we use the locally built image
-        # This is critical after updates when the image has been rebuilt
-        container = client.containers.run(pull='never', **run_kwargs)
+        # Verify the image exists locally before creating container
+        # This ensures we use the latest built image, not a cached version
+        try:
+            client.images.get(image_name)
+            print(f"Using local image: {image_name}")
+        except docker.errors.ImageNotFound:
+            return jsonify({'error': f'Image {image_name} not found. Please rebuild images.'}), 500
+
+        container = client.containers.run(**run_kwargs)
         
         # Register environment with both display name and ID, plus parent-child tracking
         registry[env_id] = {
