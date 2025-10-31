@@ -1837,29 +1837,31 @@ set -e
 echo "Waiting 5 seconds for dashboard to finish current request..."
 sleep 5
 
-echo "Stopping dashboard container..."
-docker compose -f {REPO_PATH}/docker-compose.yml stop dashboard || true
+echo "Stopping services..."
+docker compose -f {REPO_PATH}/docker-compose.yml stop proxy dashboard || true
 
-echo "Removing old dashboard container..."
-docker compose -f {REPO_PATH}/docker-compose.yml rm -f dashboard || true
+echo "Removing old containers..."
+docker compose -f {REPO_PATH}/docker-compose.yml rm -f proxy dashboard || true
 
-echo "Starting dashboard with new image..."
-docker compose -f {REPO_PATH}/docker-compose.yml up -d dashboard
+echo "Starting services with new images..."
+docker compose -f {REPO_PATH}/docker-compose.yml up -d proxy dashboard
 
-echo "Waiting for dashboard to be healthy..."
+echo "Waiting for services to be healthy..."
 for i in $(seq 1 60); do
     sleep 1
-    STATUS=$(docker inspect --format='{{{{.State.Status}}}}' devfarm-dashboard 2>/dev/null || echo "not_found")
-    echo "Check $i: Status=$STATUS"
+    DASH_STATUS=$(docker inspect --format='{{{{.State.Status}}}}' devfarm-dashboard 2>/dev/null || echo "not_found")
+    PROXY_STATUS=$(docker inspect --format='{{{{.State.Status}}}}' devfarm-proxy 2>/dev/null || echo "not_found")
+    echo "Check $i: Dashboard=$DASH_STATUS, Proxy=$PROXY_STATUS"
     
-    if [ "$STATUS" = "running" ]; then
-        echo "✅ Dashboard is running after $i seconds"
+    if [ "$DASH_STATUS" = "running" ] && [ "$PROXY_STATUS" = "running" ]; then
+        echo "✅ Services are running after $i seconds"
         exit 0
     fi
 done
 
-echo "❌ Dashboard failed to start within 60 seconds"
-echo "Current status: $(docker inspect --format='{{{{.State.Status}}}}' devfarm-dashboard 2>/dev/null || echo 'not found')"
+echo "❌ Services failed to start within 60 seconds"
+echo "Dashboard: $(docker inspect --format='{{{{.State.Status}}}}' devfarm-dashboard 2>/dev/null || echo 'not found')"
+echo "Proxy: $(docker inspect --format='{{{{.State.Status}}}}' devfarm-proxy 2>/dev/null || echo 'not found')"
 exit 1
 """
             
@@ -1880,13 +1882,13 @@ exit 1
                     detach=True
                 )
                 
-                print("Dashboard restart scheduled via updater container")
-                _append_stage('restart_dashboard', 'success', '✅ Dashboard restart scheduled (reloading in 10s...)')
+                print("Services restart scheduled via updater container")
+                _append_stage('restart_dashboard', 'success', '✅ Services restart scheduled (reloading in 10s...)')
                 
             except Exception as e:
                 print(f"ERROR: Failed to schedule restart via updater: {e}")
                 _append_stage('restart_dashboard', 'error', f'❌ Failed to schedule restart: {str(e)}')
-                _append_stage('restart_dashboard', 'info', '⚠️  Manual restart required: docker compose up -d dashboard')
+                _append_stage('restart_dashboard', 'info', '⚠️  Manual restart required: docker compose up -d proxy dashboard')
                 _set_update_result(False, f'Restart scheduling failed: {str(e)}')
                 return
         except Exception as e:
