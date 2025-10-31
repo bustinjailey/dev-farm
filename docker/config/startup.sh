@@ -981,10 +981,12 @@ try:
         print("[MCP Config] WARNING: No servers found in config!", file=sys.stderr)
         print(f"[MCP Config] Expanded template content:\n{mcp_config_str}", file=sys.stderr)
     
-    # Configure for GitHub Copilot
-    settings["github.copilot.chat.mcp.servers"] = mcp_config["servers"]
+    # Configure for GitHub Copilot (expects {"servers": {...}})
+    # The mcp_config already has the full structure with "servers" key
+    settings["github.copilot.chat.mcp"] = mcp_config
     
-    # Configure for Cline (uses same servers, different key format)
+    # Configure for Cline (expects {"mcpServers": {...}})
+    # Cline needs the servers directly under mcpServers key
     settings["cline.mcpServers"] = mcp_config["servers"]
     
     # Write back
@@ -993,7 +995,7 @@ try:
         json.dump(settings, f, indent=2)
     
     print("✓ MCP servers configured in Machine settings.json")
-    print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp.servers'])} servers")
+    print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp']['servers'])} servers")
     print(f"  - Cline: {len(settings['cline.mcpServers'])} servers")
     
     # Verify file was written and read it back
@@ -1004,7 +1006,8 @@ try:
         # Read back and verify
         with open(settings_path, 'r') as f:
             verify_settings = json.load(f)
-        copilot_servers = verify_settings.get('github.copilot.chat.mcp.servers', {})
+        copilot_mcp = verify_settings.get('github.copilot.chat.mcp', {})
+        copilot_servers = copilot_mcp.get('servers', {})
         print(f"[MCP Config] Verification: {len(copilot_servers)} servers in written file")
         for srv_name in copilot_servers:
             print(f"[MCP Config]   ✓ Verified server: {srv_name}")

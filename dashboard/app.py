@@ -1836,9 +1836,9 @@ def _run_system_update_thread():
                 )['Id']
                 updater.client.api.exec_start(exec_id, detach=True)
                 
-                # Poll for completion (check every 2 seconds for up to 5 minutes)
-                for i in range(150):
-                    time.sleep(2)
+                # Poll for completion (check every 3 seconds for up to 5 minutes)
+                for i in range(100):
+                    time.sleep(3)
                     check_result = updater.exec_run(['sh', '-c', 'test -f /tmp/codeserver-build.exit && cat /tmp/codeserver-build.exit || echo "running"'], demux=False)
                     status = check_result.output.decode('utf-8').strip() if check_result.output else 'running'
                     
@@ -1852,8 +1852,8 @@ def _run_system_update_thread():
                         updater.exec_run(['sh', '-c', 'rm -f /tmp/codeserver-build.log /tmp/codeserver-build.exit'], demux=False)
                         break
                     
-                    if i % 15 == 0 and i > 0:  # Every 30 seconds
-                        _append_stage('rebuild_codeserver', 'progress', f'⏳ Still building... ({i*2}s elapsed)')
+                    if i % 10 == 0 and i > 0:  # Every 30 seconds
+                        _append_stage('rebuild_codeserver', 'progress', f'⏳ Still building... ({i*3}s elapsed)')
                 else:
                     # Timeout after 5 minutes
                     _append_stage('rebuild_codeserver', 'error', '❌ Build timeout after 5 minutes')
@@ -1920,8 +1920,8 @@ def _run_system_update_thread():
             updater.client.api.exec_start(exec_id, detach=True)
             
             # Poll for completion
-            for i in range(150):
-                time.sleep(2)
+            for i in range(100):
+                time.sleep(3)
                 check_result = updater.exec_run(['sh', '-c', 'test -f /tmp/dashboard-build.exit && cat /tmp/dashboard-build.exit || echo "running"'], demux=False)
                 status = check_result.output.decode('utf-8').strip() if check_result.output else 'running'
                 
@@ -1932,8 +1932,8 @@ def _run_system_update_thread():
                     updater.exec_run(['sh', '-c', 'rm -f /tmp/dashboard-build.log /tmp/dashboard-build.exit'], demux=False)
                     break
                 
-                if i % 15 == 0 and i > 0:
-                    _append_stage('rebuild_dashboard', 'progress', f'⏳ Still building dashboard... ({i*2}s elapsed)')
+                if i % 10 == 0 and i > 0:
+                    _append_stage('rebuild_dashboard', 'progress', f'⏳ Still building dashboard... ({i*3}s elapsed)')
             else:
                 _append_stage('rebuild_dashboard', 'error', '❌ Dashboard build timeout after 5 minutes')
                 _set_update_result(False, 'Dashboard build timeout')
