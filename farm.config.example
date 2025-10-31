@@ -5,23 +5,13 @@
     "username": "bustinjailey",
     "email": "bustinjailey@users.noreply.github.com"
   },
-  "dashboard": {
-    "default_mode": "git",
-    "auto_start_environments": false,
-    "default_workspace_path": "/home/coder/workspace"
-  },
   "mcp": {
     "api_keys": {
       "brave_search": ""
-    },
-    "enabled_servers": ["microsoft/playwright-mcp", "azure", "brave-search-mcp-server"]
+    }
   },
   "_comments": {
     "personal_access_token": "GitHub PAT from https://github.com/settings/tokens/new with scopes: repo, read:org, workflow",
-    "default_mode": "[NOT IMPLEMENTED] Default environment mode: workspace, git, ssh, or terminal",
-    "auto_start_environments": "[NOT IMPLEMENTED] If true, newly created environments start automatically",
-    "default_workspace_path": "[NOT IMPLEMENTED] Default workspace path for new environments",
-    "mcp.api_keys.brave_search": "Brave Search API key from https://brave.com/search/api/ - Used by aggregate-mcp-server",
-    "mcp.enabled_servers": "[NOT IMPLEMENTED] List of MCP servers to enable in environments"
+    "brave_search": "Brave Search API key from https://brave.com/search/api/ - Used by aggregate-mcp-server for web search"
   }
 }
