@@ -1879,8 +1879,39 @@
 
           // Stage 1: Git operations
           if (gitStages.includes(data.stage)) {
-            const currentMsg = msg1.textContent;
-            msg1.textContent = currentMsg ? currentMsg + '\n' + data.message : data.message;
+            // For progress status (git output lines), append with indentation
+            // For other statuses, replace the last line to avoid duplication
+            if (data.status === 'progress') {
+              const currentMsg = msg1.textContent;
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.trim() : data.message;
+              msg1.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+            } else if (data.status === 'starting') {
+              // Replace last line if it's a status update for same stage
+              const lines = msg1.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg1.textContent = lines.join('\n');
+              } else {
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+              }
+            } else {
+              // For success/error/warning, replace last line with final status
+              const lines = msg1.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg1.textContent = lines.join('\n');
+              } else {
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+              }
+            }
 
             if (data.status === 'success') {
               icon1.textContent = '✅';
@@ -1896,8 +1927,38 @@
           // Stage 2: Rebuild operations
           if (rebuildStages.includes(data.stage)) {
             stage2.style.display = 'block';
-            const currentMsg = msg2.textContent;
-            msg2.textContent = currentMsg ? currentMsg + '\n' + data.message : data.message;
+
+            // For progress/info status, append; for starting/success/error, replace last line
+            if (data.status === 'progress' || data.status === 'info') {
+              const currentMsg = msg2.textContent;
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.trim() : data.message;
+              msg2.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+            } else if (data.status === 'starting') {
+              const lines = msg2.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg2.textContent = lines.join('\n');
+              } else {
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+              }
+            } else {
+              // For success/error/skipped, replace last line
+              const lines = msg2.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg2.textContent = lines.join('\n');
+              } else {
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+              }
+            }
 
             if (data.status === 'success') {
               icon2.textContent = '✅';
@@ -1913,7 +1974,14 @@
           // Stage 3: Restart
           if (restartStages.includes(data.stage)) {
             stage3.style.display = 'block';
-            msg3.textContent = data.message || 'Restarting dashboard...';
+            
+            // Replace instead of append for restart stage
+            if (data.status === 'starting') {
+              msg3.textContent = data.message || 'Restarting dashboard...';
+            } else {
+              // Update last line for progress/success/error
+              msg3.textContent = data.message || 'Restarting dashboard...';
+            }
 
             if (data.status === 'success') {
               icon3.textContent = '✅';
@@ -1928,12 +1996,16 @@
           if (data.stage === 'complete') {
             spinner.style.display = 'none';
             closeBtn.style.display = 'inline-block';
-            msg3.textContent = data.message || '🎉 Update complete!';
-            icon3.textContent = '✅';
-
+            
             if (data.status === 'success') {
+              stage3.style.display = 'block';
+              msg3.textContent = '✅ Update complete! Page will refresh in 5 seconds...';
+              icon3.textContent = '✅';
               // Reload after delay to ensure dashboard is fully restarted
               setTimeout(() => { window.location.reload(); }, 5000);
+            } else {
+              msg3.textContent = data.message || '❌ Update failed';
+              icon3.textContent = '❌';
             }
           }
 
