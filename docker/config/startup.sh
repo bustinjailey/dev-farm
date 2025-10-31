@@ -918,19 +918,20 @@ export WORKSPACE_ROOT
 echo "Workspace root set to: ${WORKSPACE_ROOT}" | tee -a "$LOG_FILE"
 
 # ============================================================================
-# Configure MCP Servers (Unified User Settings)
+# Configure MCP Servers (Machine-Level Settings)
 # ============================================================================
-# All AI tools (Copilot, Cline, etc.) use the same MCP config from User settings.json
+# All AI tools (Copilot, Cline, etc.) use the same MCP config from Machine settings.json
 # This must happen AFTER WORKSPACE_ROOT is set for the correct mode
+# VS Code Insiders Server uses Machine settings as the primary config
 
-VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/User/settings.json"
+VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/Machine/settings.json"
 
 if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
-    echo "Configuring MCP servers in User settings (applies to all AI tools)..."
+    echo "Configuring MCP servers in Machine settings (applies to all AI tools)..."
     /usr/bin/python3 - <<'PYEOF'
 import json, os, sys
 
-settings_path = "/home/coder/.vscode-server-insiders/data/User/settings.json"
+settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
 mcp_template_path = "/home/coder/.devfarm/mcp-copilot.json"
 
 print(f"[MCP Config] Template path: {mcp_template_path}")
@@ -991,7 +992,7 @@ try:
     with open(settings_path, 'w') as f:
         json.dump(settings, f, indent=2)
     
-    print("✓ MCP servers configured in User settings.json")
+    print("✓ MCP servers configured in Machine settings.json")
     print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp.servers'])} servers")
     print(f"  - Cline: {len(settings['cline.mcpServers'])} servers")
     
