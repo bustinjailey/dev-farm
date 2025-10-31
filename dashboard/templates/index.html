@@ -44,24 +44,26 @@
 
     .system-status {
       background: rgba(255, 255, 255, 0.95);
-      border-radius: 15px;
-      padding: 15px;
+      border-radius: 12px;
+      padding: 12px 16px;
       margin-bottom: 20px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
 
     .status-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px;
+      padding: 6px 4px;
+      min-height: 36px;
     }
 
     .status-label {
       font-weight: 600;
       color: #666;
+      font-size: 0.9em;
     }
 
     .status-value {
@@ -71,10 +73,16 @@
       gap: 8px;
     }
 
+    .status-value .btn {
+      padding: 6px 16px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
     .status-badge {
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.85em;
+      padding: 4px 10px;
+      border-radius: 10px;
+      font-size: 0.82em;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
@@ -82,7 +90,7 @@
       max-width: 200px;
       display: inline-flex;
       align-items: center;
-      height: 28px;
+      height: 26px;
     }
 
     .badge-success {
@@ -131,6 +139,49 @@
       display: inline-flex;
       align-items: center;
       gap: 3px;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+
+    .env-card.creating,
+    .env-card.deleting {
+      opacity: 0.7;
+      pointer-events: none;
+      position: relative;
+    }
+
+    .env-card.creating::after,
+    .env-card.deleting::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 15px;
+      font-size: 1.2em;
+      font-weight: 600;
+      color: #667eea;
+    }
+
+    .env-card.creating::after {
+      content: '⏳ Creating...';
+    }
+
+    .env-card.deleting::after {
+      content: '🗑️ Deleting...';
     }
 
     .creator-info {
@@ -534,7 +585,7 @@
         </span>
       </div>
       <div class="status-row">
-        <span class="status-label">� System Version</span>
+        <span class="status-label">⚙️ System Version</span>
         <span class="status-value">
           <span id="versionStatus">
             <span class="status-badge badge-warning">Checking...</span>
@@ -801,7 +852,7 @@
           <div style="display: flex; gap: 8px; margin-bottom: 8px;">
             <input type="text" class="form-input" id="gitUrl" placeholder="git@github.com:user/repo.git or https://..."
               style="flex: 1;">
-            <button type="button" class="btn" onclick="loadGitHubRepos()" style="background: #667eea; color: white;">
+            <button type="button" class="btn" onclick="loadGitHubRepos()" style="background: #667eea; color: white; padding: 8px 16px; font-size: 14px; min-width: 100px;">
               📚 Browse
             </button>
           </div>
@@ -1027,7 +1078,29 @@
 
         if (response.ok) {
           hideCreateModal();
-          window.location.reload();
+          // Show temporary "creating" card immediately
+          const envList = document.getElementById('environments');
+          const tempCard = document.createElement('div');
+          tempCard.className = 'env-card creating';
+          tempCard.innerHTML = `
+            <div class="env-header">
+              <div class="env-name">${payload.name || 'New Environment'}</div>
+              <div class="status-badge badge-warning">Creating...</div>
+            </div>
+            <div class="env-info">
+              <div class="info-row">
+                <span>📁 Project:</span>
+                <span>${payload.project || 'general'}</span>
+              </div>
+              <div class="info-row">
+                <span>🔧 Mode:</span>
+                <span>${payload.mode}</span>
+              </div>
+            </div>
+          `;
+          envList.insertBefore(tempCard, envList.firstChild);
+          // Refresh after short delay to show the real card
+          setTimeout(() => window.location.reload(), 2000);
         } else {
           const data = await response.json();
           alert('Error: ' + data.error);
@@ -1040,16 +1113,42 @@
     async function deleteEnvironment(name) {
       if (!confirm(`Delete environment "${name}"? This cannot be undone.`)) return;
 
+      // Mark card as deleting immediately
+      const cards = document.querySelectorAll('.env-card');
+      for (const card of cards) {
+        if (card.querySelector('.env-name')?.textContent === name) {
+          card.classList.add('deleting');
+          break;
+        }
+      }
+
       try {
         const response = await fetch(`/delete/${name}`, { method: 'POST' });
         if (response.ok) {
-          window.location.reload();
+          // Keep the deleting indicator for a moment before reload
+          setTimeout(() => window.location.reload(), 1000);
         } else {
           const data = await response.json();
           alert('Error: ' + data.error);
+          // Remove deleting class on error
+          const cards = document.querySelectorAll('.env-card');
+          for (const card of cards) {
+            if (card.querySelector('.env-name')?.textContent === name) {
+              card.classList.remove('deleting');
+              break;
+            }
+          }
         }
       } catch (error) {
         alert('Error deleting environment: ' + error);
+        // Remove deleting class on error
+        const cards = document.querySelectorAll('.env-card');
+        for (const card of cards) {
+          if (card.querySelector('.env-name')?.textContent === name) {
+            card.classList.remove('deleting');
+            break;
+          }
+        }
       }
     }
 
