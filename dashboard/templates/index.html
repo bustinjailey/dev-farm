@@ -1974,7 +1974,7 @@
           // Stage 3: Restart
           if (restartStages.includes(data.stage)) {
             stage3.style.display = 'block';
-            
+
             // Replace instead of append for restart stage
             if (data.status === 'starting') {
               msg3.textContent = data.message || 'Restarting dashboard...';
@@ -1996,7 +1996,7 @@
           if (data.stage === 'complete') {
             spinner.style.display = 'none';
             closeBtn.style.display = 'inline-block';
-            
+
             if (data.status === 'success') {
               stage3.style.display = 'block';
               msg3.textContent = '✅ Update complete! Page will refresh in 5 seconds...';
