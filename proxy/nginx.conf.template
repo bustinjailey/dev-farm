@@ -34,6 +34,25 @@ http {
         # Increase body size for file uploads in VS Code
         client_max_body_size 500M;
 
+        # Server-Sent Events endpoint (requires special timeout handling)
+        location /api/stream {
+            proxy_pass http://dashboard;
+            proxy_http_version 1.1;
+            
+            # Headers for SSE
+            proxy_set_header Connection '';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # Critical SSE settings
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_read_timeout 86400s;  # 24 hours - prevents timeout on long-lived connections
+            chunked_transfer_encoding off;
+        }
+
         # Dashboard (root path)
         location / {
             proxy_pass http://dashboard;
