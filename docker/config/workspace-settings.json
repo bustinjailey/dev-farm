@@ -36,14 +36,12 @@
   "cline.apiProvider": "anthropic",
   "cline.anthropicModel": "claude-sonnet-4-20250514",
   "workbench.panel.defaultLocation": "bottom",
-  "workbench.panel.opensMaximized": "never",
   "workbench.editor.showTabs": "multiple",
   "workbench.sideBar.location": "left",
   "workbench.statusBar.visible": true,
   "workbench.startupEditor": "none",
-  "markdown.preview.scrollEditorWithPreview": true,
-  "markdown.preview.scrollPreviewWithEditor": true,
   "editor.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
-  "window.restoreWindows": "none"
+  "window.restoreWindows": "none",
+  "keyboard.dispatch": "keyCode"
 }

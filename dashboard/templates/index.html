@@ -1251,14 +1251,11 @@
         const updateBtn = document.getElementById('updateBtn');
 
         if (versionData.updates_available) {
-          versionStatus.innerHTML = `<span class="status-badge badge-warning">Update available (${versionData.latest_sha})</span>`;
-          updateBtn.style.display = 'inline-flex';
-        } else if (versionData.current_sha) {
-          versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest (${versionData.current_sha})</span>`;
+          versionStatus.innerHTML = `<span class="status-badge badge-warning">UPDATE AVAILABLE (${versionData.latest_sha.substring(0, 7)})</span>`;
           updateBtn.style.display = 'inline-flex';
         } else {
-          versionStatus.innerHTML = `<span class="status-badge badge-success">✓ Latest</span>`;
-          updateBtn.style.display = 'inline-flex';
+          versionStatus.innerHTML = `<span class="status-badge badge-success">✓ LATEST (${versionData.current_sha.substring(0, 7)})</span>`;
+          updateBtn.style.display = 'none';
         }
 
         // Check for orphaned containers
