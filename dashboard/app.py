@@ -16,6 +16,13 @@ import requests
 import threading
 from threading import RLock
 import queue
+
+# Import gevent for spawning greenlets under gunicorn's gevent workers
+try:
+    from gevent import spawn as gevent_spawn
+    USING_GEVENT = True
+except ImportError:
+    USING_GEVENT = False
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
 
@@ -1952,11 +1959,17 @@ def system_update_start():
         
         # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
         _append_stage('queued', 'info', 'Update request accepted')
-        print(f"DEBUG: Starting update thread. UPDATE_PROGRESS after queued: {UPDATE_PROGRESS}", flush=True)
+        print(f"DEBUG: Starting update task. USING_GEVENT={USING_GEVENT}", flush=True)
         
-        t = threading.Thread(target=_run_system_update_thread, daemon=True)
-        t.start()
-        print(f"DEBUG: Thread started, is_alive={t.is_alive()}", flush=True)
+        # Use gevent greenlets when running under gevent workers
+        if USING_GEVENT:
+            gevent_spawn(_run_system_update_thread)
+            print("DEBUG: Gevent greenlet spawned", flush=True)
+        else:
+            t = threading.Thread(target=_run_system_update_thread, daemon=True)
+            t.start()
+            print(f"DEBUG: Thread started, is_alive={t.is_alive()}", flush=True)
+        
         return jsonify({'started': True})
     except Exception as e:
         print(f"ERROR in system_update_start: {e}", flush=True)
