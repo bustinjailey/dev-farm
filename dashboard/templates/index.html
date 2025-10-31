@@ -1846,13 +1846,13 @@
         try {
           const data = JSON.parse(e.data);
           if (!data.stage) return;
-          
+
           console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
-          
+
           // Get modal elements
           const modal = document.getElementById('updateModal');
           if (!modal || !modal.classList.contains('active')) return;
-          
+
           const stage1 = document.getElementById('updateStage1');
           const stage2 = document.getElementById('updateStage2');
           const stage3 = document.getElementById('updateStage3');
@@ -1864,17 +1864,17 @@
           const msg3 = document.getElementById('updateMsg3');
           const spinner = document.getElementById('updateSpinner');
           const closeBtn = document.getElementById('updateClose');
-          
+
           // Map stages to UI sections
           const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'];
           const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
           const restartStages = ['restart_dashboard'];
-          
+
           // Stage 1: Git operations
           if (gitStages.includes(data.stage)) {
             const currentMsg = msg1.textContent;
             msg1.textContent = currentMsg ? currentMsg + '\n' + data.message : data.message;
-            
+
             if (data.status === 'success') {
               icon1.textContent = '✅';
             } else if (data.status === 'error') {
@@ -1885,13 +1885,13 @@
               icon1.textContent = '⏳';
             }
           }
-          
+
           // Stage 2: Rebuild operations
           if (rebuildStages.includes(data.stage)) {
             stage2.style.display = 'block';
             const currentMsg = msg2.textContent;
             msg2.textContent = currentMsg ? currentMsg + '\n' + data.message : data.message;
-            
+
             if (data.status === 'success') {
               icon2.textContent = '✅';
             } else if (data.status === 'error') {
@@ -1902,12 +1902,12 @@
               icon2.textContent = '⏳';
             }
           }
-          
+
           // Stage 3: Restart
           if (restartStages.includes(data.stage)) {
             stage3.style.display = 'block';
             msg3.textContent = data.message || 'Restarting dashboard...';
-            
+
             if (data.status === 'success') {
               icon3.textContent = '✅';
             } else if (data.status === 'error') {
@@ -1916,20 +1916,20 @@
               icon3.textContent = '⏳';
             }
           }
-          
+
           // Completion
           if (data.stage === 'complete') {
             spinner.style.display = 'none';
             closeBtn.style.display = 'inline-block';
             msg3.textContent = data.message || '🎉 Update complete!';
             icon3.textContent = '✅';
-            
+
             if (data.status === 'success') {
               // Reload after delay to ensure dashboard is fully restarted
               setTimeout(() => { window.location.reload(); }, 5000);
             }
           }
-          
+
           // Error handling
           if (data.status === 'error') {
             spinner.style.display = 'none';

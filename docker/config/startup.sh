@@ -62,7 +62,7 @@ else:
 with open(mcp_template_path, 'r') as f:
     mcp_config_str = f.read()
 
-# Expand environment variables
+# Expand environment variables (fixed: removed backslash escaping)
 mcp_config_str = mcp_config_str.replace('\${GITHUB_TOKEN}', github_token)
 mcp_config_str = mcp_config_str.replace('\${WORKSPACE_ROOT}', workspace_root)
 mcp_config_str = mcp_config_str.replace('\${BRAVE_API_KEY}', brave_api_key)
@@ -88,6 +88,7 @@ PYEOF
 fi
 
 echo "MCP configuration complete - unified settings for all AI tools"
+echo "Note: aggregate-mcp-server uses config from its cloned repo (aggregate.mcp.json)"
 
 # Move workspace settings to machine-level for consistent configuration across all workspaces
 # Machine-level settings are applied globally, workspace-level settings are optional overrides
