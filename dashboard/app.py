@@ -1572,11 +1572,8 @@ def recover_registry():
         return jsonify({'error': str(e)}), 500
 
 def _run_system_update_thread():
-    print("DEBUG: Thread function entered")
     try:
-        print("DEBUG: About to call _append_stage for init")
         _append_stage('init', 'starting', '🚀 Initializing system update...')
-        print("DEBUG: Init stage appended")
         
         # Validate prerequisites
         _append_stage('validate', 'starting', '🔍 Validating environment...')
@@ -1959,16 +1956,12 @@ def system_update_start():
         
         # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
         _append_stage('queued', 'info', 'Update request accepted')
-        print(f"DEBUG: Starting update task. USING_GEVENT={USING_GEVENT}", flush=True)
         
         # Use gevent greenlets when running under gevent workers
         if USING_GEVENT:
             gevent_spawn(_run_system_update_thread)
-            print("DEBUG: Gevent greenlet spawned", flush=True)
         else:
-            t = threading.Thread(target=_run_system_update_thread, daemon=True)
-            t.start()
-            print(f"DEBUG: Thread started, is_alive={t.is_alive()}", flush=True)
+            threading.Thread(target=_run_system_update_thread, daemon=True).start()
         
         return jsonify({'started': True})
     except Exception as e:
