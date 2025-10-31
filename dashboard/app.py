@@ -494,6 +494,13 @@ def create_environment():
             'DEVFARM_ENV_ID': env_id  # Pass environment ID for MCP server tracking
         }
         
+        # Add API keys from farm.config
+        config = load_farm_config()
+        api_keys = config.get('api_keys', {})
+        if api_keys.get('brave_search'):
+            env_vars['BRAVE_API_KEY'] = api_keys['brave_search']
+            print(f"[Config] Added BRAVE_API_KEY from farm.config")
+        
         # Add mode-specific environment variables
         if mode == 'ssh':
             env_vars['SSH_HOST'] = ssh_host

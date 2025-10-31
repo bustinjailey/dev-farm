@@ -7,9 +7,17 @@
   },
   "dashboard": {
     "default_mode": "git",
-    "auto_start_environments": false
+    "auto_start_environments": false,
+    "default_workspace_path": "/home/coder/workspace"
   },
   "api_keys": {
     "brave_search": ""
+  },
+  "_comments": {
+    "personal_access_token": "GitHub PAT from https://github.com/settings/tokens/new with scopes: repo, read:org, workflow",
+    "default_mode": "[NOT IMPLEMENTED] Default environment mode: workspace, git, ssh, or terminal",
+    "auto_start_environments": "[NOT IMPLEMENTED] If true, newly created environments start automatically",
+    "default_workspace_path": "[NOT IMPLEMENTED] Default workspace path for new environments",
+    "brave_search": "Brave Search API key from https://brave.com/search/api/ - Used by aggregate-mcp-server for web search"
   }
 }
