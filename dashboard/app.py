@@ -137,8 +137,9 @@ def load_github_token():
                     return token
         except:
             pass
-    # Fall back to environment variable
-    return os.environ.get('GITHUB_TOKEN', '')
+    # Fall back to environment variable (ignore empty strings)
+    env_token = os.environ.get('GITHUB_TOKEN', '').strip()
+    return env_token if env_token else None
 
 def save_github_token(token):
     """Save GitHub token to shared storage and update environment"""
