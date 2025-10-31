@@ -43,7 +43,7 @@ RUN wget --timeout=60 --tries=3 --inet4-only -O /tmp/vscode.deb 'https://code.vi
   rm -rf /var/lib/apt/lists/*
 
 # Install additional useful tools
-RUN npm install -g yarn typescript ts-node prettier eslint
+RUN npm install -g yarn pnpm typescript ts-node prettier eslint
 
 # Create a non-root user 'coder' (matching previous setup)
 RUN useradd -m -s /bin/bash coder \

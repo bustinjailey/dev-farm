@@ -382,33 +382,97 @@ else
         
         # Fetch updates (uses gh CLI credential helper)
         BEFORE_HASH=$(git rev-parse HEAD 2>/dev/null || echo "none")
-        git fetch origin main 2>&1 | tee -a "$LOG_FILE" || true
-        AFTER_HASH=$(git rev-parse origin/main 2>/dev/null || echo "none")
-        
-        if [ "$BEFORE_HASH" != "$AFTER_HASH" ] && [ "$AFTER_HASH" != "none" ]; then
-            echo "Updates found, pulling latest version..." | tee -a "$LOG_FILE"
-            git pull origin main 2>&1 | tee -a "$LOG_FILE"
-            npm install 2>&1 | tee -a "$LOG_FILE"
-            npm run build 2>&1 | tee -a "$LOG_FILE"
-            echo "✓ Aggregate MCP server updated successfully" | tee -a "$LOG_FILE"
+        if git fetch origin main 2>&1 | tee -a "$LOG_FILE"; then
+            AFTER_HASH=$(git rev-parse origin/main 2>/dev/null || echo "none")
+            
+            if [ "$BEFORE_HASH" != "$AFTER_HASH" ] && [ "$AFTER_HASH" != "none" ]; then
+                echo "Updates found, pulling latest version..." | tee -a "$LOG_FILE"
+                if git pull origin main 2>&1 | tee -a "$LOG_FILE"; then
+                    # Use pnpm if pnpm-lock.yaml exists and pnpm is available, otherwise use npm
+                    UPDATE_SUCCESS=false
+                    if [ -f "pnpm-lock.yaml" ] && command -v pnpm >/dev/null 2>&1; then
+                        echo "Using pnpm for update..." | tee -a "$LOG_FILE"
+                        if pnpm install 2>&1 | tee -a "$LOG_FILE"; then
+                            if pnpm run build 2>&1 | tee -a "$LOG_FILE"; then
+                                UPDATE_SUCCESS=true
+                            else
+                                echo "⚠ pnpm build failed" | tee -a "$LOG_FILE"
+                            fi
+                        else
+                            echo "⚠ pnpm install failed" | tee -a "$LOG_FILE"
+                        fi
+                    else
+                        echo "Using npm for update..." | tee -a "$LOG_FILE"
+                        if npm install 2>&1 | tee -a "$LOG_FILE"; then
+                            if npm run build 2>&1 | tee -a "$LOG_FILE"; then
+                                UPDATE_SUCCESS=true
+                            else
+                                echo "⚠ npm build failed" | tee -a "$LOG_FILE"
+                            fi
+                        else
+                            echo "⚠ npm install failed" | tee -a "$LOG_FILE"
+                        fi
+                    fi
+                    
+                    if [ "$UPDATE_SUCCESS" = true ]; then
+                        echo "✓ Aggregate MCP server updated successfully" | tee -a "$LOG_FILE"
+                    else
+                        echo "✗ Failed to build aggregate MCP server update" | tee -a "$LOG_FILE"
+                        echo "   Check the logs above for npm/pnpm errors" | tee -a "$LOG_FILE"
+                    fi
+                else
+                    echo "⚠ Failed to pull aggregate MCP server updates" | tee -a "$LOG_FILE"
+                fi
+            else
+                echo "✓ Aggregate MCP server already up to date" | tee -a "$LOG_FILE"
+            fi
         else
-            echo "✓ Aggregate MCP server already up to date" | tee -a "$LOG_FILE"
+            echo "⚠ Failed to fetch aggregate MCP server updates" | tee -a "$LOG_FILE"
         fi
         
         cd /home/coder
     else
         echo "Installing aggregate MCP server from private GitHub repo..." | tee -a "$LOG_FILE"
-        # Clone private repo using SSH (key was uploaded to GitHub earlier)
-        git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"
-        
-        if [ -d "$MCP_INSTALL_DIR" ]; then
+        # Clone private repo using HTTPS (uses gh CLI credential helper)
+        if git clone "$MCP_REPO_URL" "$MCP_INSTALL_DIR" 2>&1 | tee -a "$LOG_FILE"; then
             cd "$MCP_INSTALL_DIR"
-            npm install 2>&1 | tee -a "$LOG_FILE"
-            npm run build 2>&1 | tee -a "$LOG_FILE"
-            echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
+            
+            # Use pnpm if pnpm-lock.yaml exists and pnpm is available, otherwise use npm
+            INSTALL_SUCCESS=false
+            if [ -f "pnpm-lock.yaml" ] && command -v pnpm >/dev/null 2>&1; then
+                echo "Using pnpm for installation..." | tee -a "$LOG_FILE"
+                if pnpm install 2>&1 | tee -a "$LOG_FILE"; then
+                    if pnpm run build 2>&1 | tee -a "$LOG_FILE"; then
+                        INSTALL_SUCCESS=true
+                    else
+                        echo "⚠ pnpm build failed" | tee -a "$LOG_FILE"
+                    fi
+                else
+                    echo "⚠ pnpm install failed" | tee -a "$LOG_FILE"
+                fi
+            else
+                echo "Using npm for installation..." | tee -a "$LOG_FILE"
+                if npm install 2>&1 | tee -a "$LOG_FILE"; then
+                    if npm run build 2>&1 | tee -a "$LOG_FILE"; then
+                        INSTALL_SUCCESS=true
+                    else
+                        echo "⚠ npm build failed" | tee -a "$LOG_FILE"
+                    fi
+                else
+                    echo "⚠ npm install failed" | tee -a "$LOG_FILE"
+                fi
+            fi
+            
+            if [ "$INSTALL_SUCCESS" = true ]; then
+                echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
+            else
+                echo "✗ Failed to build aggregate MCP server" | tee -a "$LOG_FILE"
+                echo "   Check the logs above for npm/pnpm errors" | tee -a "$LOG_FILE"
+            fi
+            
             cd /home/coder
         else
-            echo "⚠ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
+            echo "✗ Failed to clone aggregate MCP server repository" | tee -a "$LOG_FILE"
             echo "   This requires GITHUB_TOKEN with 'repo' scope for private repos" | tee -a "$LOG_FILE"
             echo "   Check authentication: gh auth status" | tee -a "$LOG_FILE"
         fi
