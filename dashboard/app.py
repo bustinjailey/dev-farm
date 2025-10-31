@@ -354,11 +354,11 @@ def index():
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 
                 mode = env_data.get('mode', 'workspace')
-                workspace_path = get_workspace_path(mode)
                 
                 # Generate path-based URL using EXTERNAL_URL
+                # Nginx auto-redirects to include ?folder=/home/coder/workspace
                 base_url = EXTERNAL_URL.rstrip('/')
-                env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+                env_url = f"{base_url}/env/{env_id}"
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),  # Use display_name if available
@@ -434,11 +434,11 @@ def api_environments():
                 ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 mode = env_data.get('mode', 'workspace')
-                workspace_path = get_workspace_path(mode)
                 
                 # Generate path-based URL using EXTERNAL_URL
+                # Nginx auto-redirects to include ?folder=/home/coder/workspace
                 base_url = EXTERNAL_URL.rstrip('/')
-                env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+                env_url = f"{base_url}/env/{env_id}"
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),
@@ -677,11 +677,10 @@ def create_environment():
         
         save_registry(registry)
         
-        workspace_path = get_workspace_path(mode)
-        
         # Generate path-based URL using EXTERNAL_URL
+        # Nginx auto-redirects to include ?folder=/home/coder/workspace
         base_url = EXTERNAL_URL.rstrip('/')
-        env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+        env_url = f"{base_url}/env/{env_id}"
         
         return jsonify({
             'success': True,
