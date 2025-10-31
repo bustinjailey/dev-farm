@@ -1565,8 +1565,11 @@ def recover_registry():
         return jsonify({'error': str(e)}), 500
 
 def _run_system_update_thread():
+    print("DEBUG: Thread function entered")
     try:
+        print("DEBUG: About to call _append_stage for init")
         _append_stage('init', 'starting', '🚀 Initializing system update...')
+        print("DEBUG: Init stage appended")
         
         # Validate prerequisites
         _append_stage('validate', 'starting', '🔍 Validating environment...')
@@ -1948,7 +1951,9 @@ def system_update_start():
     
     # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
     _append_stage('queued', 'info', 'Update request accepted')
+    print(f"DEBUG: Starting update thread. UPDATE_PROGRESS after queued: {UPDATE_PROGRESS}")
     threading.Thread(target=_run_system_update_thread, daemon=True).start()
+    print("DEBUG: Thread started")
     return jsonify({'started': True})
 
 
