@@ -46,11 +46,11 @@ def test_kebabify_normalizes_names():
 
 
 def test_get_workspace_path_modes():
-    assert app_module.get_workspace_path("git") == "/home/coder/repo"
-    assert app_module.get_workspace_path("workspace") == "/home/coder/workspace"
-    assert app_module.get_workspace_path("ssh") == "/home/coder/remote"
-    assert app_module.get_workspace_path("terminal") == "/home/coder/remote"
-    assert app_module.get_workspace_path("unknown") == "/home/coder/workspace"
+    assert app_module.get_workspace_path("git") == "/repo"
+    assert app_module.get_workspace_path("workspace") == "/workspace"
+    assert app_module.get_workspace_path("ssh") == "/remote"
+    assert app_module.get_workspace_path("terminal") == "/workspace"
+    assert app_module.get_workspace_path("unknown") == "/workspace"
 
 
 def test_save_and_load_registry(monkeypatch):
@@ -320,7 +320,7 @@ def test_api_environments_returns_ready_status(monkeypatch):
         "port": 8105,
         "status": "running",
         "ready": True,
-        "url": "http://devfarm.test/env/env?folder=/home/coder/repo"
+        "url": "http://devfarm.test/env/env?folder=/repo"
     }]
 
 
@@ -366,7 +366,7 @@ def test_create_environment_success(monkeypatch):
     payload = resp.get_json()
     assert payload["success"] is True
     assert payload["env_id"] == "workspace-env"
-    assert payload["url"] == "http://devfarm.test/env/workspace-env?folder=/home/coder/workspace"
+    assert payload["url"] == "http://devfarm.test/env/workspace-env?folder=/workspace"
 
     # Verify registry persisted
     registry = app_module.load_registry()

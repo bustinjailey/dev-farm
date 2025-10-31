@@ -9,6 +9,15 @@ echo "Preparing workspace directory..."
 mkdir -p /home/coder/workspace || true
 sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
+# Provide sanitized aliases for workspace paths so URLs don't expose internal layout
+echo "Creating workspace path aliases..."
+rm -rf /workspace 2>/dev/null || true
+rm -rf /remote 2>/dev/null || true
+rm -rf /repo 2>/dev/null || true
+ln -sfn /home/coder/workspace /workspace
+ln -sfn /home/coder/remote /remote
+ln -sfn /home/coder/repo /repo
+
 # Create .gitignore for workspace to exclude core dumps and other unwanted files
 cat > /home/coder/workspace/.gitignore <<'GITIGNORE'
 # Core dumps and debug files
@@ -89,11 +98,11 @@ workspace_root = os.environ.get('WORKSPACE_ROOT', '/home/coder/workspace')
 
 # Define allowed paths based on mode
 if dev_mode == 'git':
-    allowed_paths = ['/home/coder/repo']
+    allowed_paths = ['/home/coder/repo', '/repo']
 elif dev_mode == 'ssh':
-    allowed_paths = ['/home/coder/remote']
+    allowed_paths = ['/home/coder/remote', '/remote']
 else:  # workspace mode
-    allowed_paths = ['/home/coder/workspace']
+    allowed_paths = ['/home/coder/workspace', '/workspace']
 
 # Load auto-approval template
 auto_approval_path = "/home/coder/.devfarm/auto-approval-settings.json"
@@ -162,6 +171,7 @@ existing["security.workspace.trust.emptyWindow"] = False
 # Explicitly trust the workspace and parent folder
 existing["security.workspace.trust.trustedFolders"] = [
     "/home/coder/workspace",
+    "/workspace",
     "/home/coder"
 ]
 with open(machine_settings_path, 'w', encoding='utf-8') as f:
@@ -970,24 +980,25 @@ print(f"[MCP Config] After variable expansion: {len(mcp_config_str)} chars")
 
 try:
     mcp_config = json.loads(mcp_config_str)
-    print(f"[MCP Config] Parsed config with {len(mcp_config.get('servers', {}))} servers")
+    servers = mcp_config.get('servers') or {}
+    print(f"[MCP Config] Parsed config with {len(servers)} servers")
     
     # Debug: show what servers were found
-    for server_name in mcp_config.get('servers', {}):
+    for server_name in servers:
         print(f"[MCP Config]   - Found server: {server_name}")
     
     # Verify servers dict is not empty
-    if not mcp_config.get('servers'):
+    if not servers:
         print("[MCP Config] WARNING: No servers found in config!", file=sys.stderr)
         print(f"[MCP Config] Expanded template content:\n{mcp_config_str}", file=sys.stderr)
     
-    # Configure for GitHub Copilot (expects {"servers": {...}})
-    # The mcp_config already has the full structure with "servers" key
-    settings["github.copilot.chat.mcp"] = mcp_config
+    # Configure for GitHub Copilot (expects servers under flattened settings key)
+    settings.pop("github.copilot.chat.mcp", None)
+    settings["github.copilot.chat.mcp.servers"] = servers
     
     # Configure for Cline (expects {"mcpServers": {...}})
     # Cline needs the servers directly under mcpServers key
-    settings["cline.mcpServers"] = mcp_config["servers"]
+    settings["cline.mcpServers"] = servers
     
     # Write back
     os.makedirs(os.path.dirname(settings_path), exist_ok=True)
@@ -995,7 +1006,7 @@ try:
         json.dump(settings, f, indent=2)
     
     print("✓ MCP servers configured in Machine settings.json")
-    print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp']['servers'])} servers")
+    print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp.servers'])} servers")
     print(f"  - Cline: {len(settings['cline.mcpServers'])} servers")
     
     # Verify file was written and read it back
@@ -1006,8 +1017,7 @@ try:
         # Read back and verify
         with open(settings_path, 'r') as f:
             verify_settings = json.load(f)
-        copilot_mcp = verify_settings.get('github.copilot.chat.mcp', {})
-        copilot_servers = copilot_mcp.get('servers', {})
+        copilot_servers = verify_settings.get('github.copilot.chat.mcp.servers', {})
         print(f"[MCP Config] Verification: {len(copilot_servers)} servers in written file")
         for srv_name in copilot_servers:
             print(f"[MCP Config]   ✓ Verified server: {srv_name}")
@@ -1101,6 +1111,7 @@ fi
 # AI Assistants
 install_extension_with_retry "continue.continue" || true  # Continue.dev AI assistant
 install_extension_with_retry "saoudrizwan.claude-dev" || true  # Cline (formerly Claude Dev)
+install_extension_with_retry "openai.chatgpt" || true  # Codex
 
 # General utilities
 install_extension_with_retry "eamodio.gitlens" || true  # GitLens

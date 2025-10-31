@@ -34,11 +34,11 @@ def test_save_and_load_registry_roundtrip(app_with_temp_paths, monkeypatch):
 
 def test_get_workspace_path_modes(app_with_temp_paths):
     module = app_with_temp_paths
-    assert module.get_workspace_path("git") == "/home/coder/repo"
-    assert module.get_workspace_path("workspace") == "/home/coder/workspace"
-    assert module.get_workspace_path("ssh") == "/home/coder/remote"
-    assert module.get_workspace_path("terminal") == "/home/coder/remote"
-    assert module.get_workspace_path("unknown") == "/home/coder/workspace"
+    assert module.get_workspace_path("git") == "/repo"
+    assert module.get_workspace_path("workspace") == "/workspace"
+    assert module.get_workspace_path("ssh") == "/remote"
+    assert module.get_workspace_path("terminal") == "/workspace"
+    assert module.get_workspace_path("unknown") == "/workspace"
 
 
 def test_get_next_port_skips_used_ports(app_with_temp_paths, monkeypatch):

@@ -146,12 +146,12 @@ def save_registry(registry):
 def get_workspace_path(mode):
     """Get the container workspace path based on environment mode"""
     workspace_paths = {
-        'git': '/home/coder/repo',
-        'workspace': '/home/coder/workspace',
-        'ssh': '/home/coder/remote',
-        'terminal': '/home/coder/remote'
+        'git': '/repo',
+        'workspace': '/workspace',
+        'ssh': '/remote',
+        'terminal': '/workspace'
     }
-    return workspace_paths.get(mode, '/home/coder/workspace')
+    return workspace_paths.get(mode, '/workspace')
 
 def load_farm_config():
     """Load farm configuration from JSON file"""
