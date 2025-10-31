@@ -494,9 +494,10 @@ def create_environment():
             'DEVFARM_ENV_ID': env_id  # Pass environment ID for MCP server tracking
         }
         
-        # Add API keys from farm.config
+        # Add API keys from farm.config (MCP server configuration)
         config = load_farm_config()
-        api_keys = config.get('api_keys', {})
+        mcp_config = config.get('mcp', {})
+        api_keys = mcp_config.get('api_keys', {})
         if api_keys.get('brave_search'):
             env_vars['BRAVE_API_KEY'] = api_keys['brave_search']
             print(f"[Config] Added BRAVE_API_KEY from farm.config")
