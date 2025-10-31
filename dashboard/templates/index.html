@@ -1116,16 +1116,23 @@
 
         if (githubData.authenticated && githubData.has_required_scopes && !githubData.needs_reauth) {
           // Fully authenticated with correct scopes
-          githubStatus.innerHTML = `<span class="status-badge badge-success">✓ ${githubData.username || 'Connected'}</span>`;
+          const tokenType = githubData.using_pat ? 'PAT' : 'OAuth';
+          const tokenSource = githubData.using_pat ? ' (farm.config)' : ' (OAuth)';
+          githubStatus.innerHTML = `<span class="status-badge badge-success">✓ ${githubData.username || 'Connected'}</span>` +
+            `<span style="font-size: 0.85em; color: #48bb78; margin-left: 8px;">${tokenType}${tokenSource}</span>`;
           githubConnectBtn.style.display = 'none';
-          githubLogoutBtn.style.display = 'inline-block';
+          // Only show logout for OAuth tokens (PAT is in farm.config, not removable via UI)
+          githubLogoutBtn.style.display = githubData.using_pat ? 'none' : 'inline-block';
         } else if (githubData.authenticated && githubData.needs_reauth) {
           // Token exists but missing scopes
+          const tokenType = githubData.using_pat ? 'PAT' : 'OAuth';
+          const suggestion = githubData.using_pat ? 'Update PAT in farm.config' : 'Reconnect for private repos';
           githubStatus.innerHTML = '<span class="status-badge badge-warning">⚠ Limited Access</span>' +
-            '<span style="font-size: 0.85em; color: #ed8936; margin-left: 8px;">Reconnect for private repos</span>';
-          githubConnectBtn.style.display = 'inline-flex';
+            `<span style="font-size: 0.85em; color: #ed8936; margin-left: 8px;">${tokenType} - ${suggestion}</span>`;
+          githubConnectBtn.style.display = githubData.using_pat ? 'none' : 'inline-flex';
           githubConnectBtn.textContent = '🔄 Reconnect';
-          githubLogoutBtn.style.display = 'inline-block';
+          // Show logout only for OAuth (PAT can't be cleared via UI)
+          githubLogoutBtn.style.display = githubData.using_pat ? 'none' : 'inline-block';
         } else {
           // Not connected
           githubStatus.innerHTML = `<span class="status-badge badge-error">✗ Not connected</span>`;
