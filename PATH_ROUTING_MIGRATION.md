@@ -6,6 +6,7 @@
 ## What Changed
 
 ### Before (Port-Based)
+
 ```
 https://farm.bustinjailey.org/ → Dashboard
 https://farm.bustinjailey.org:8100/ → Environment 1
@@ -14,6 +15,7 @@ https://farm.bustinjailey.org:8101/ → Environment 2
 ```
 
 ### After (Path-Based)
+
 ```
 https://farm.bustinjailey.org/ → Dashboard
 https://farm.bustinjailey.org/env/my-project → Environment
@@ -59,6 +61,7 @@ https://farm.bustinjailey.org/env/test-app → Environment
 ### 1. Update Caddy Configuration
 
 Replace this entire section:
+
 ```caddyfile
 # OLD - Delete these
 farm.bustinjailey.org:8100, farm.bustinjailey.org:8101 ... {
@@ -71,6 +74,7 @@ farm.bustinjailey.org {
 ```
 
 With this simple rule:
+
 ```caddyfile
 # NEW - Just this one rule
 farm.bustinjailey.org {
@@ -79,6 +83,7 @@ farm.bustinjailey.org {
 ```
 
 Apply changes:
+
 ```bash
 sudo systemctl reload caddy
 # Or if using docker:
@@ -131,6 +136,7 @@ New environments will automatically use path-based URLs.
 If you need to revert:
 
 1. Stop the proxy:
+
    ```bash
    ssh root@eagle "pct exec 200 -- docker stop devfarm-proxy"
    ```
@@ -149,10 +155,12 @@ If you need to revert:
 ### "Environment Not Ready" Error
 
 This is normal if:
+
 - Environment container is still starting up (wait 10-30 seconds)
 - Environment is stopped (start it from dashboard)
 
 To debug:
+
 ```bash
 # Check if container exists and is running
 ssh root@eagle "pct exec 200 -- docker ps | grep devfarm-{env-name}"
@@ -169,11 +177,13 @@ ssh root@eagle "pct exec 200 -- docker logs devfarm-{env-name} | grep 'serve-web
 If dashboard still shows old `:8100` style links:
 
 1. Check EXTERNAL_URL is set:
+
    ```bash
    ssh root@eagle "pct exec 200 -- docker exec devfarm-dashboard env | grep EXTERNAL_URL"
    ```
 
 2. Should show:
+
    ```
    EXTERNAL_URL=https://farm.bustinjailey.org
    ```
@@ -186,6 +196,7 @@ If dashboard still shows old `:8100` style links:
 ### WebSocket Connections Fail
 
 Ensure your Caddy config includes WebSocket support (already in your `lan_reverse_proxy_http` snippet):
+
 ```caddyfile
 header_up Upgrade {http.request.header.Upgrade}
 header_up Connection {http.request.header.Connection}
@@ -197,11 +208,13 @@ flush_interval -1
 nginx uses Docker's internal DNS (127.0.0.11). Verify:
 
 1. Environment container exists:
+
    ```bash
    docker ps | grep devfarm-{env-name}
    ```
 
 2. Container is on `devfarm` network:
+
    ```bash
    docker inspect devfarm-{env-name} | grep NetworkMode
    ```
@@ -235,6 +248,7 @@ nginx uses Docker's internal DNS (127.0.0.11). Verify:
 ### nginx Resolver Configuration
 
 nginx uses Docker's internal DNS:
+
 ```nginx
 resolver 127.0.0.11 valid=10s;
 ```
@@ -244,6 +258,7 @@ This allows dynamic container discovery without hardcoding IPs.
 ### Container Name Extraction
 
 nginx extracts environment ID from URL:
+
 ```nginx
 location ~ ^/env/([a-zA-Z0-9_-]+)(/.*)?$ {
     set $env_name $1;
