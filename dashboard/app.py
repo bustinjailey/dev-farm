@@ -226,6 +226,20 @@ def sync_registry_with_containers():
     if registry_modified:
         save_registry(registry)
 
+def prune_dangling_images():
+    """Remove dangling (untagged) images after updates to free space"""
+    if not client:
+        return
+    
+    try:
+        # Remove dangling images (old versions after rebuild)
+        pruned = client.images.prune(filters={'dangling': True})
+        space_reclaimed = pruned.get('SpaceReclaimed', 0)
+        if space_reclaimed > 0:
+            print(f"Pruned dangling images, reclaimed {space_reclaimed / (1024*1024):.1f} MB")
+    except Exception as e:
+        print(f"Error pruning dangling images: {e}")
+
 def get_next_port():
     """Get the next available port"""
     registry = load_registry()
@@ -601,15 +615,22 @@ def create_environment():
             })
 
         # Ensure no stale container exists with this name
+        # This prevents reusing old container images after updates
         container_name = f"devfarm-{env_id}"
         try:
             existing = client.containers.get(container_name)
+            print(f"Found existing container {container_name}, removing...")
             existing.stop(timeout=5)
             existing.remove(force=True)
-        except Exception:
+            print(f"Removed stale container {container_name}")
+        except docker.errors.NotFound:
             pass  # No existing container, proceed
+        except Exception as e:
+            print(f"Error removing stale container: {e}")
 
-        container = client.containers.run(**run_kwargs)
+        # Pull='never' ensures we use the locally built image
+        # This is critical after updates when the image has been rebuilt
+        container = client.containers.run(pull='never', **run_kwargs)
         
         # Register environment with both display name and ID, plus parent-child tracking
         registry[env_id] = {
