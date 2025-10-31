@@ -16,6 +16,7 @@ ENV/
 # Secrets
 PAT
 *.secret
+farm.config
 
 # IDE
 .vscode/

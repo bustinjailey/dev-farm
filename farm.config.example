@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "github": {
+    "personal_access_token": "ghp_your_token_here",
+    "username": "bustinjailey",
+    "email": "bustinjailey@users.noreply.github.com"
+  },
+  "dashboard": {
+    "default_mode": "git",
+    "auto_start_environments": false
+  },
+  "api_keys": {
+    "brave_search": ""
+  }
+}

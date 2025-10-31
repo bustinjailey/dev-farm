@@ -31,6 +31,7 @@ BASE_PORT = 8100
 GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
 REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt/dev-farm')
+FARM_CONFIG_FILE = os.path.join(REPO_PATH, 'farm.config')
 
 # Server-Sent Events support
 SSE_CLIENTS = []
@@ -126,9 +127,38 @@ def get_workspace_path(mode):
     }
     return workspace_paths.get(mode, '/home/coder/workspace')
 
+def load_farm_config():
+    """Load farm configuration from JSON file"""
+    if os.path.exists(FARM_CONFIG_FILE):
+        try:
+            with open(FARM_CONFIG_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[Config] Error loading farm.config: {e}")
+    return {}
+
+def save_farm_config(config):
+    """Save farm configuration to JSON file"""
+    try:
+        os.makedirs(os.path.dirname(FARM_CONFIG_FILE), exist_ok=True)
+        with open(FARM_CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
+        os.chmod(FARM_CONFIG_FILE, 0o600)
+        print(f"[Config] Saved farm.config")
+        return True
+    except Exception as e:
+        print(f"[Config] Error saving farm.config: {e}")
+        return False
+
 def load_github_token():
-    """Load GitHub token from shared storage"""
-    # Try file storage first (persistent across restarts)
+    """Load GitHub token from multiple sources (priority order)"""
+    # 1. farm.config (highest priority - user-editable PAT)
+    config = load_farm_config()
+    pat = config.get('github', {}).get('personal_access_token', '').strip()
+    if pat:
+        return pat
+    
+    # 2. OAuth token file (from device flow)
     if os.path.exists(GITHUB_TOKEN_FILE):
         try:
             with open(GITHUB_TOKEN_FILE, 'r') as f:
@@ -137,7 +167,8 @@ def load_github_token():
                     return token
         except:
             pass
-    # Fall back to environment variable (ignore empty strings)
+    
+    # 3. Environment variable (lowest priority, ignore empty strings)
     env_token = os.environ.get('GITHUB_TOKEN', '').strip()
     return env_token if env_token else None
 
@@ -833,11 +864,13 @@ def get_environment_hierarchy():
 def github_status():
     """Check GitHub authentication status and token scopes"""
     github_token = load_github_token()
+    config = load_farm_config()
+    using_pat = bool(config.get('github', {}).get('personal_access_token'))
     
     if not github_token:
         return jsonify({
             'authenticated': False,
-            'message': 'No GitHub token found. Please connect your GitHub account.'
+            'message': 'No GitHub token found. Please connect your GitHub account or set a PAT.'
         })
     
     try:
@@ -889,7 +922,8 @@ def github_status():
             'has_required_scopes': has_required_scopes,
             'can_access_private_repos': can_access_private,
             'needs_reauth': not has_required_scopes or not can_access_private,
-            'message': 'Token valid but missing required scopes. Please reconnect.' if not has_required_scopes else None
+            'using_pat': using_pat,
+            'message': 'Token valid but missing required scopes. Please set a PAT in farm.config or reconnect.' if not has_required_scopes else None
         })
     
     except Exception as e:
@@ -967,10 +1001,19 @@ def github_repos():
 def github_disconnect():
     """Disconnect GitHub by removing the stored token"""
     try:
-        # Remove token file
+        # Remove OAuth token file
         if os.path.exists(GITHUB_TOKEN_FILE):
             os.remove(GITHUB_TOKEN_FILE)
-            print("[GitHub] Token file removed")
+            print("[GitHub] OAuth token file removed")
+        
+        # Remove PAT from farm.config
+        config = load_farm_config()
+        if config.get('github', {}).get('personal_access_token'):
+            if 'github' not in config:
+                config['github'] = {}
+            config['github']['personal_access_token'] = ''
+            save_farm_config(config)
+            print("[GitHub] PAT removed from farm.config")
         
         # Clear from environment
         if 'GITHUB_TOKEN' in os.environ:
@@ -990,6 +1033,48 @@ def github_disconnect():
         return jsonify({
             'error': f'Failed to disconnect: {str(e)}'
         }), 500
+
+@app.route('/api/config/github', methods=['GET', 'POST'])
+def manage_github_config():
+    """Get or update GitHub configuration in farm.config"""
+    if request.method == 'GET':
+        config = load_farm_config()
+        github_config = config.get('github', {})
+        # Don't expose the actual token, just whether it's set
+        return jsonify({
+            'has_pat': bool(github_config.get('personal_access_token')),
+            'username': github_config.get('username', os.environ.get('GITHUB_USERNAME', '')),
+            'email': github_config.get('email', os.environ.get('GITHUB_EMAIL', ''))
+        })
+    
+    elif request.method == 'POST':
+        data = request.json
+        config = load_farm_config()
+        
+        if 'github' not in config:
+            config['github'] = {}
+        
+        # Update PAT if provided
+        if 'personal_access_token' in data:
+            pat = data['personal_access_token'].strip()
+            if pat:
+                # Validate token format
+                if not (pat.startswith('ghp_') or pat.startswith('github_pat_')):
+                    return jsonify({'error': 'Invalid token format. Must start with ghp_ or github_pat_'}), 400
+                config['github']['personal_access_token'] = pat
+            else:
+                config['github']['personal_access_token'] = ''
+        
+        # Update username/email if provided
+        if 'username' in data:
+            config['github']['username'] = data['username'].strip()
+        if 'email' in data:
+            config['github']['email'] = data['email'].strip()
+        
+        if save_farm_config(config):
+            return jsonify({'success': True, 'message': 'GitHub configuration updated'})
+        else:
+            return jsonify({'error': 'Failed to save configuration'}), 500
 
 @app.route('/api/github/auth/start', methods=['POST'])
 def github_auth_start():
