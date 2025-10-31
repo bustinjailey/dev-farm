@@ -750,7 +750,7 @@
       </div>
       {% endfor %}
       {% else %}
-      <div class="empty-state">
+      <div class="empty-state" id="emptyState">
         <div class="empty-state-icon">🌱</div>
         <h2>No environments yet</h2>
         <p>Create your first development environment to get started!</p>
@@ -1125,6 +1125,13 @@
           hideCreateModal();
           // Show temporary "creating" card immediately
           const envList = document.getElementById('environments');
+          
+          // Hide empty state if it exists
+          const emptyState = document.getElementById('emptyState');
+          if (emptyState) {
+            emptyState.style.display = 'none';
+          }
+          
           const tempCard = document.createElement('div');
           tempCard.className = 'env-card creating';
           tempCard.innerHTML = `
