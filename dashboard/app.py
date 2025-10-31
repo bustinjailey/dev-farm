@@ -2000,6 +2000,9 @@ def system_update_start():
         # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
         _append_stage('queued', 'info', 'Update request accepted')
         
+        # Broadcast SSE event to notify UI that update started
+        broadcast_sse('update-started', {'timestamp': time.time()})
+        
         # Use gevent greenlets when running under gevent workers
         if USING_GEVENT:
             gevent_spawn(_run_system_update_thread)

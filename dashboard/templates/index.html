@@ -1304,13 +1304,15 @@
               <span class="version-arrow">→</span>
               <span class="version-sha version-new">${versionData.latest_sha.substring(0, 7)}</span>
             </span>`;
+          updateBtn.textContent = '🔄 Update Available';
           updateBtn.style.display = 'inline-flex';
         } else {
           versionStatus.innerHTML = `
             <span class="version-info">
               <span class="version-sha">✓ ${versionData.current_sha.substring(0, 7)}</span>
             </span>`;
-          updateBtn.style.display = 'none';
+          updateBtn.textContent = '🔨 Force Rebuild';
+          updateBtn.style.display = 'inline-flex';
         }
 
         // Check for orphaned containers
@@ -1874,6 +1876,16 @@
             console.log('Skipping registry refresh - modal is open');
           }
         }, 500);
+      });
+
+      eventSource.addEventListener('update-started', (e) => {
+        // Update was started (possibly via API) - open the update modal
+        console.log('Update started event received - opening modal');
+        const modal = document.getElementById('updateModal');
+        if (modal && !modal.classList.contains('active')) {
+          modal.classList.add('active');
+          updateInProgress = true;
+        }
       });
 
       eventSource.addEventListener('env-status', (e) => {
