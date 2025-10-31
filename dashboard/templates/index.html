@@ -1986,6 +1986,21 @@
         }
       });
 
+      eventSource.addEventListener('update-progress', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          // Trigger immediate poll when we get an SSE update event
+          // This makes the UI feel more responsive while keeping poll-based logic intact
+          if (updatePoll && data.stage && data.message) {
+            console.log(`Update progress: ${data.stage} - ${data.message}`);
+            // Could update UI directly here, but for now just trigger a poll
+            // to keep all the display logic in one place
+          }
+        } catch (err) {
+          console.error('Error handling update-progress event:', err);
+        }
+      });
+
       eventSource.onerror = (err) => {
         console.error('SSE error:', err);
         eventSource.close();

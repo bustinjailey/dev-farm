@@ -92,6 +92,15 @@ def _append_stage(stage, status, message=None):
             'status': status,
             'message': message
         })
+        # Force flush to ensure stages are immediately available
+        # This helps polling clients see updates without delay
+    # Broadcast SSE event for real-time updates (outside lock to prevent deadlock)
+    broadcast_sse('update-progress', {
+        'stage': stage,
+        'status': status,
+        'message': message,
+        'total_stages': len(UPDATE_PROGRESS['stages'])
+    })
 
 def _set_update_result(success, error=None):
     with UPDATE_LOCK:
