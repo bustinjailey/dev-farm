@@ -68,16 +68,16 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 └─────────────────────────────────────────┘
 ```
 
-## � Secret Management
+## 🔒 Secret Management
 
 **Important:** Never commit secrets to git!
 
-All sensitive data (GitHub tokens, API keys) should be stored in a `.env` file that is automatically ignored by git.
+All sensitive data (GitHub tokens, API keys) should be stored in a `farm.config` file that is automatically ignored by git.
 
 ```bash
 # Quick setup
-cp .env.example .env
-nano .env  # Add your GitHub token and other secrets
+cp farm.config.example farm.config
+nano farm.config  # Add your GitHub token and other secrets
 ```
 
 See [docs/SECRETS.md](docs/SECRETS.md) for complete documentation on managing secrets securely.
@@ -201,7 +201,7 @@ The `devfarm.sh` script provides easy management:
 
 ### GitHub Integration
 
-Each environment is **automatically authenticated** with GitHub using your personal access token from the `.env` file.
+Each environment is **automatically authenticated** with GitHub using your personal access token from the `farm.config` file.
 
 Features:
 
@@ -398,4 +398,3 @@ docker system prune
 **Made with ❤️ for developers who code from anywhere**
 
 _Star this repo if you find it useful!_ ⭐
-# Test update flow

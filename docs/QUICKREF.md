@@ -6,47 +6,38 @@
 
 ```bash
 # Initial setup
-cp .env.example .env
-nano .env  # Add your secrets
-docker compose up -d
+cp farm.config.example farm.config
+chmod 600 farm.config  # Secure permissions
+nano farm.config  # Add your secrets
+./scripts/devfarm.sh setup
 
-# Upgrade to latest
-./scripts/upgrade.sh
-
-# Setup/change secrets
-./scripts/setup-secrets.sh
+# Upgrade to latest (use dashboard UI "Update" button)
+# Or via API:
+curl -X POST http://localhost:5000/api/system/update/start
 ```
 
 ### LXC Deployment
 
 ```bash
-# Deploy from scratch
-./scripts/deploy-to-lxc.sh eagle.bustinjailey.org 200
-
-# Upgrade existing LXC
-ssh root@eagle.bustinjailey.org 'pct exec 200 -- bash -c "cd /opt && ./scripts/upgrade.sh"'
-
-# Setup secrets on LXC
-ssh root@eagle.bustinjailey.org 'pct exec 200 -- /opt/scripts/setup-secrets.sh'
-
 # Check dashboard logs
 ssh root@eagle.bustinjailey.org 'pct exec 200 -- docker logs devfarm-dashboard'
 
 # Restart dashboard
-ssh root@eagle.bustinjailey.org 'pct exec 200 -- bash -c "cd /opt && docker compose restart"'
+ssh root@eagle.bustinjailey.org 'pct exec 200 -- bash -c "cd /opt/dev-farm && docker compose restart"'
+
+# Update system (use dashboard UI "Update" button preferred)
+# Or via API:
+ssh root@eagle.bustinjailey.org 'pct exec 200 -- curl -X POST http://localhost:5000/api/system/update/start'
 ```
 
 ## 📁 Important Files
 
-| File                       | Purpose                    | Tracked in Git? |
-| -------------------------- | -------------------------- | --------------- |
-| `.env`                     | Your actual secrets        | ❌ No - Ignored |
-| `.env.example`             | Template for .env          | ✅ Yes          |
-| `PAT`                      | GitHub token (alternative) | ❌ No - Ignored |
-| `docker-compose.yml`       | Container orchestration    | ✅ Yes          |
-| `scripts/upgrade.sh`       | Pull & rebuild             | ✅ Yes          |
-| `scripts/setup-secrets.sh` | Interactive secret setup   | ✅ Yes          |
-| `scripts/deploy-to-lxc.sh` | Deploy to Proxmox          | ✅ Yes          |
+| File                    | Purpose                      | Tracked in Git? |
+| ----------------------- | ---------------------------- | --------------- |
+| `farm.config`           | Main configuration with secrets | ❌ No - Ignored |
+| `farm.config.example`   | Template for farm.config     | ✅ Yes          |
+| `docker-compose.yml`    | Container orchestration      | ✅ Yes          |
+| `scripts/devfarm.sh`    | Main management script       | ✅ Yes          |
 
 ## 🔑 GitHub Token Scopes
 
@@ -126,11 +117,14 @@ docker exec devfarm-<name> git config --list
 # Check logs
 docker logs devfarm-dashboard
 
-# Verify .env file exists
-ls -la /opt/.env  # or your installation directory
+# Verify farm.config file exists
+ls -la /opt/dev-farm/farm.config
+
+# Check configuration syntax
+cat /opt/dev-farm/farm.config | python3 -m json.tool
 
 # Rebuild and restart
-cd /opt
+cd /opt/dev-farm
 docker compose build
 docker compose down
 docker compose up -d
@@ -139,15 +133,15 @@ docker compose up -d
 ### Cannot pull from GitHub
 
 ```bash
-# Verify token in .env or PAT file
-cat .env | grep GITHUB_TOKEN
-cat PAT
+# Verify token in farm.config
+cat /opt/dev-farm/farm.config
 
 # Test token manually
+# Extract token from farm.config first
 curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user
 
 # Check git remote
-cd /opt
+cd /opt/dev-farm
 git remote -v
 ```
 
@@ -170,13 +164,13 @@ sudo lsof -i :8100-8110
 ### Local Machine
 
 - Dev Farm source: `~/dev-farm`
-- Secrets: `~/dev-farm/.env` or `~/dev-farm/PAT`
+- Configuration: `~/dev-farm/farm.config`
 - Scripts: `~/dev-farm/scripts/`
 
 ### LXC Container
 
-- Installation: `/opt/`
-- Secrets: `/opt/.env`
+- Installation: `/opt/dev-farm/`
+- Configuration: `/opt/dev-farm/farm.config`
 - Docker data: Docker volumes (managed by Docker)
 - Environment registry: `/data/environments.json` (in dashboard container)
 
@@ -184,34 +178,41 @@ sudo lsof -i :8100-8110
 
 ### Creating New Environment
 
-1. Open dashboard: `http://<lxc-ip>:5000`
+1. Open dashboard: `http://<lxc-ip>:5000` or `https://farm.bustinjailey.org`
 2. Click "Create New Environment"
-3. Enter name and select project type
+3. Enter name and select mode (Workspace/Git/SSH/Terminal)
 4. Wait for container creation (~10-30 seconds)
-5. Click "Open VS Code"
+5. Click "Open" to access environment
 6. Verify GitHub auth: Run `gh auth status` in terminal
 
 ### Upgrading Dev Farm
 
-1. Local: `./scripts/upgrade.sh`
-2. LXC: `ssh root@host 'pct exec ID -- bash -c "cd /opt && ./scripts/upgrade.sh"'`
-3. Create new environment to use updated image
-4. Old environments continue working with old image
+1. Use dashboard UI: Click "⬆️ Update Now" button
+2. System will automatically pull latest code, rebuild images, and restart
+3. Wait for update to complete (~2-3 minutes)
+4. Dashboard will reload with new version
+5. Create new environments to use updated images
+6. Old environments continue working with old images
 
 ### Rotating Secrets
 
 1. Generate new GitHub token
-2. Update `.env`: `nano .env`
-3. Restart: `docker compose restart`
+2. Update `farm.config`: `nano farm.config`
+3. No restart needed - changes apply to new environments automatically
 4. New environments will use new token
 5. Existing environments keep old token (until recreated)
 
 ## 🌐 URLs
 
+### Path-Based Routing (Current)
+
+- Dashboard: `https://farm.bustinjailey.org/`
+- Environment: `https://farm.bustinjailey.org/env/<environment-name>`
+
+### Direct Access (LAN)
+
 - Dashboard: `http://<lxc-ip>:5000`
-- Environment 1: `http://<lxc-ip>:8100`
-- Environment 2: `http://<lxc-ip>:8101`
-- Environment N: `http://<lxc-ip>:810(N-1)`
+- Environment: `http://<lxc-ip>:5000/env/<environment-name>`
 
 ## 📚 Additional Resources
 

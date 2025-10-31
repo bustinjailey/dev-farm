@@ -14,9 +14,8 @@ ENV/
 *.log
 
 # Secrets
-PAT
-*.secret
 farm.config
+*.secret
 
 # IDE
 .vscode/
