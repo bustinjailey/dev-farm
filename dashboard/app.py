@@ -3,7 +3,7 @@
 Dev Farm Dashboard - Mobile-friendly web interface for managing development environments
 """
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response, stream_with_context
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response, stream_with_context, send_from_directory
 import docker
 import os
 import json
@@ -18,6 +18,10 @@ from threading import RLock
 import queue
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-farm-secret-key')
+
+# Create static directory if it doesn't exist
+STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 # Docker client
 try:
@@ -291,6 +295,16 @@ def is_env_ready(container_name, port=None):
         return False
     except Exception:
         return False
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files (favicon, etc.)"""
+    return send_from_directory(STATIC_DIR, filename)
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon.ico (redirect to SVG for modern browsers)"""
+    return send_from_directory(STATIC_DIR, 'favicon.svg', mimetype='image/svg+xml')
 
 @app.route('/')
 def index():
