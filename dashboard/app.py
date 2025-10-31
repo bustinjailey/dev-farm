@@ -1944,17 +1944,25 @@ exit 1
 @app.route('/api/system/update/start', methods=['POST'])
 def system_update_start():
     """Start system update in background and return immediately"""
-    with UPDATE_LOCK:
-        if UPDATE_PROGRESS.get('running'):
-            return jsonify({'started': False, 'message': 'Update already in progress'}), 409
-        _reset_update_progress()
-    
-    # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
-    _append_stage('queued', 'info', 'Update request accepted')
-    print(f"DEBUG: Starting update thread. UPDATE_PROGRESS after queued: {UPDATE_PROGRESS}")
-    threading.Thread(target=_run_system_update_thread, daemon=True).start()
-    print("DEBUG: Thread started")
-    return jsonify({'started': True})
+    try:
+        with UPDATE_LOCK:
+            if UPDATE_PROGRESS.get('running'):
+                return jsonify({'started': False, 'message': 'Update already in progress'}), 409
+            _reset_update_progress()
+        
+        # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
+        _append_stage('queued', 'info', 'Update request accepted')
+        print(f"DEBUG: Starting update thread. UPDATE_PROGRESS after queued: {UPDATE_PROGRESS}", flush=True)
+        
+        t = threading.Thread(target=_run_system_update_thread, daemon=True)
+        t.start()
+        print(f"DEBUG: Thread started, is_alive={t.is_alive()}", flush=True)
+        return jsonify({'started': True})
+    except Exception as e:
+        print(f"ERROR in system_update_start: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({'started': False, 'error': str(e)}), 500
 
 
 @app.route('/api/system/update/status')
