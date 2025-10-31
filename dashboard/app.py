@@ -1826,11 +1826,41 @@ def _run_system_update_thread():
                     time.sleep(2)
                 
                 _append_stage('rebuild_codeserver', 'progress', '⏳ Building... (this may take 1-2 minutes)')
-                exec_result = updater.exec_run(
-                    cmd=['sh', '-c', f'docker build --no-cache -t dev-farm/code-server:latest -f {REPO_PATH}/docker/Dockerfile.code-server {REPO_PATH}/docker'],
-                    demux=False
-                )
-                if exec_result.exit_code == 0:
+                
+                # Run build in background and poll for completion
+                # Using sh to redirect output to file so we can monitor progress
+                build_cmd = f'docker build --no-cache -t dev-farm/code-server:latest -f {REPO_PATH}/docker/Dockerfile.code-server {REPO_PATH}/docker > /tmp/codeserver-build.log 2>&1; echo $? > /tmp/codeserver-build.exit'
+                exec_id = updater.client.api.exec_create(
+                    updater.id,
+                    ['sh', '-c', build_cmd]
+                )['Id']
+                updater.client.api.exec_start(exec_id, detach=True)
+                
+                # Poll for completion (check every 2 seconds for up to 5 minutes)
+                for i in range(150):
+                    time.sleep(2)
+                    check_result = updater.exec_run(['sh', '-c', 'test -f /tmp/codeserver-build.exit && cat /tmp/codeserver-build.exit || echo "running"'], demux=False)
+                    status = check_result.output.decode('utf-8').strip() if check_result.output else 'running'
+                    
+                    if status != 'running':
+                        exit_code = int(status)
+                        # Get the last 50 lines of build output for context
+                        log_result = updater.exec_run(['sh', '-c', 'tail -50 /tmp/codeserver-build.log'], demux=False)
+                        build_log = log_result.output.decode('utf-8', errors='replace') if log_result.output else ''
+                        
+                        # Clean up temp files
+                        updater.exec_run(['sh', '-c', 'rm -f /tmp/codeserver-build.log /tmp/codeserver-build.exit'], demux=False)
+                        break
+                    
+                    if i % 15 == 0 and i > 0:  # Every 30 seconds
+                        _append_stage('rebuild_codeserver', 'progress', f'⏳ Still building... ({i*2}s elapsed)')
+                else:
+                    # Timeout after 5 minutes
+                    _append_stage('rebuild_codeserver', 'error', '❌ Build timeout after 5 minutes')
+                    _set_update_result(False, 'Code-server build timeout')
+                    return
+                
+                if exit_code == 0:
                     _append_stage('rebuild_codeserver', 'success', '✅ Code-server image rebuilt successfully')
                     
                     # Prune old/dangling images to free space and prevent confusion
@@ -1845,8 +1875,7 @@ def _run_system_update_thread():
                     except Exception:
                         pass  # Non-critical, continue
                 else:
-                    error_output = exec_result.output.decode('utf-8', errors='replace') if exec_result.output else 'unknown error'
-                    _append_stage('rebuild_codeserver', 'error', f'❌ Build failed: {error_output[-200:]}')
+                    _append_stage('rebuild_codeserver', 'error', f'❌ Build failed (exit {exit_code}): {build_log[-400:]}')
                     _set_update_result(False, 'Failed to rebuild code-server image')
                     return
             except Exception as e:
@@ -1881,13 +1910,37 @@ def _run_system_update_thread():
                 time.sleep(2)
 
             _append_stage('rebuild_dashboard', 'progress', '⏳ Building dashboard...')
-            exec_result = updater.exec_run(
-                cmd=['sh', '-c', f'cd {REPO_PATH} && docker build --no-cache -t dev-farm-dashboard:latest ./dashboard'],
-                demux=False
-            )
-            if exec_result.exit_code != 0:
-                error_output = exec_result.output.decode('utf-8', errors='replace') if exec_result.output else 'unknown error'
-                _append_stage('rebuild_dashboard', 'error', f'❌ Build failed: {error_output[-200:]}')
+            
+            # Run build in background and poll for completion
+            build_cmd = f'cd {REPO_PATH} && docker build --no-cache -t dev-farm-dashboard:latest ./dashboard > /tmp/dashboard-build.log 2>&1; echo $? > /tmp/dashboard-build.exit'
+            exec_id = updater.client.api.exec_create(
+                updater.id,
+                ['sh', '-c', build_cmd]
+            )['Id']
+            updater.client.api.exec_start(exec_id, detach=True)
+            
+            # Poll for completion
+            for i in range(150):
+                time.sleep(2)
+                check_result = updater.exec_run(['sh', '-c', 'test -f /tmp/dashboard-build.exit && cat /tmp/dashboard-build.exit || echo "running"'], demux=False)
+                status = check_result.output.decode('utf-8').strip() if check_result.output else 'running'
+                
+                if status != 'running':
+                    exit_code = int(status)
+                    log_result = updater.exec_run(['sh', '-c', 'tail -50 /tmp/dashboard-build.log'], demux=False)
+                    build_log = log_result.output.decode('utf-8', errors='replace') if log_result.output else ''
+                    updater.exec_run(['sh', '-c', 'rm -f /tmp/dashboard-build.log /tmp/dashboard-build.exit'], demux=False)
+                    break
+                
+                if i % 15 == 0 and i > 0:
+                    _append_stage('rebuild_dashboard', 'progress', f'⏳ Still building dashboard... ({i*2}s elapsed)')
+            else:
+                _append_stage('rebuild_dashboard', 'error', '❌ Dashboard build timeout after 5 minutes')
+                _set_update_result(False, 'Dashboard build timeout')
+                return
+            
+            if exit_code != 0:
+                _append_stage('rebuild_dashboard', 'error', f'❌ Build failed (exit {exit_code}): {build_log[-400:]}')
                 _set_update_result(False, 'Failed to rebuild dashboard image')
                 return
             
