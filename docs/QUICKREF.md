@@ -6,8 +6,8 @@
 
 ```bash
 # Initial setup
-cp .env.example .env
-nano .env  # Add your secrets
+cp farm.config.example farm.config
+nano farm.config  # Add your secrets
 ./scripts/devfarm.sh setup
 
 # Upgrade to latest (use dashboard UI "Update" button)
@@ -31,13 +31,12 @@ ssh root@eagle.bustinjailey.org 'pct exec 200 -- curl -X POST http://localhost:5
 
 ## 📁 Important Files
 
-| File                 | Purpose                   | Tracked in Git? |
-| -------------------- | ------------------------- | --------------- |
-| `.env`               | Your actual secrets       | ❌ No - Ignored |
-| `.env.example`       | Template for .env         | ✅ Yes          |
-| `docker-compose.yml` | Container orchestration   | ✅ Yes          |
-| `scripts/devfarm.sh` | Main management script    | ✅ Yes          |
-| `farm.config`        | GitHub token (alternative)| ❌ No - Ignored |
+| File                    | Purpose                      | Tracked in Git? |
+| ----------------------- | ---------------------------- | --------------- |
+| `farm.config`           | Main configuration with secrets | ❌ No - Ignored |
+| `farm.config.example`   | Template for farm.config     | ✅ Yes          |
+| `docker-compose.yml`    | Container orchestration      | ✅ Yes          |
+| `scripts/devfarm.sh`    | Main management script       | ✅ Yes          |
 
 ## 🔑 GitHub Token Scopes
 
@@ -117,11 +116,14 @@ docker exec devfarm-<name> git config --list
 # Check logs
 docker logs devfarm-dashboard
 
-# Verify .env file exists
-ls -la /opt/.env  # or your installation directory
+# Verify farm.config file exists
+ls -la /opt/dev-farm/farm.config
+
+# Check configuration syntax
+cat /opt/dev-farm/farm.config | python3 -m json.tool
 
 # Rebuild and restart
-cd /opt
+cd /opt/dev-farm
 docker compose build
 docker compose down
 docker compose up -d
@@ -130,15 +132,15 @@ docker compose up -d
 ### Cannot pull from GitHub
 
 ```bash
-# Verify token in .env or PAT file
-cat .env | grep GITHUB_TOKEN
-cat PAT
+# Verify token in farm.config
+cat /opt/dev-farm/farm.config
 
 # Test token manually
+# Extract token from farm.config first
 curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user
 
 # Check git remote
-cd /opt
+cd /opt/dev-farm
 git remote -v
 ```
 
@@ -161,13 +163,13 @@ sudo lsof -i :8100-8110
 ### Local Machine
 
 - Dev Farm source: `~/dev-farm`
-- Secrets: `~/dev-farm/.env` or `~/dev-farm/PAT`
+- Configuration: `~/dev-farm/farm.config`
 - Scripts: `~/dev-farm/scripts/`
 
 ### LXC Container
 
-- Installation: `/opt/`
-- Secrets: `/opt/.env`
+- Installation: `/opt/dev-farm/`
+- Configuration: `/opt/dev-farm/farm.config`
 - Docker data: Docker volumes (managed by Docker)
 - Environment registry: `/data/environments.json` (in dashboard container)
 
@@ -194,8 +196,8 @@ sudo lsof -i :8100-8110
 ### Rotating Secrets
 
 1. Generate new GitHub token
-2. Update `.env` or `farm.config`: `nano .env`
-3. Restart: `docker compose restart`
+2. Update `farm.config`: `nano farm.config`
+3. No restart needed - changes apply to new environments automatically
 4. New environments will use new token
 5. Existing environments keep old token (until recreated)
 

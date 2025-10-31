@@ -503,10 +503,12 @@ def create_environment():
     port = get_next_port()
     
     try:
-        # Get GitHub configuration from shared storage or environment
+        # Get GitHub configuration from farm.config
         github_token = load_github_token()
-        github_username = os.environ.get('GITHUB_USERNAME', 'bustinjailey')
-        github_email = os.environ.get('GITHUB_EMAIL', f'{github_username}@users.noreply.github.com')
+        config = load_farm_config()
+        github_config = config.get('github', {})
+        github_username = github_config.get('username', 'bustinjailey')
+        github_email = github_config.get('email', f'{github_username}@users.noreply.github.com')
         
         # Validate token has required scopes for git mode with private repos
         if mode == 'git' and github_token and git_url:
@@ -1129,8 +1131,8 @@ def manage_github_config():
         # Don't expose the actual token, just whether it's set
         return jsonify({
             'has_pat': bool(github_config.get('personal_access_token')),
-            'username': github_config.get('username', os.environ.get('GITHUB_USERNAME', '')),
-            'email': github_config.get('email', os.environ.get('GITHUB_EMAIL', ''))
+            'username': github_config.get('username', 'bustinjailey'),
+            'email': github_config.get('email', 'bustinjailey@users.noreply.github.com')
         })
     
     elif request.method == 'POST':
