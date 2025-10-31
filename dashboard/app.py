@@ -82,7 +82,9 @@ def _reset_update_progress():
             'running': True,
             'success': None,
             'stages': [],
-            'error': None
+            'error': None,
+            'stage': 'idle',
+            'status': 'idle'
         })
 
 def _append_stage(stage, status, message=None):
@@ -92,6 +94,9 @@ def _append_stage(stage, status, message=None):
             'status': status,
             'message': message
         })
+        # Store latest stage/status at top level for easy access
+        UPDATE_PROGRESS['stage'] = stage
+        UPDATE_PROGRESS['status'] = status
         # Force flush to ensure stages are immediately available
         # This helps polling clients see updates without delay
     # Broadcast SSE event for real-time updates (outside lock to prevent deadlock)
