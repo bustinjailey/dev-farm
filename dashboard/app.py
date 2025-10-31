@@ -1945,8 +1945,9 @@ def system_update_start():
         if UPDATE_PROGRESS.get('running'):
             return jsonify({'started': False, 'message': 'Update already in progress'}), 409
         _reset_update_progress()
-        _append_stage('queued', 'info', 'Update request accepted')
-
+    
+    # Call _append_stage OUTSIDE the lock since it also acquires UPDATE_LOCK
+    _append_stage('queued', 'info', 'Update request accepted')
     threading.Thread(target=_run_system_update_thread, daemon=True).start()
     return jsonify({'started': True})
 
