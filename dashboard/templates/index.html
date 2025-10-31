@@ -1918,42 +1918,46 @@
             if (status === 'running') {
               openBtn.disabled = false;
               openBtn.style.opacity = '';
-              const hostname = window.location.hostname;
-              openBtn.onclick = () => window.open(`http://${hostname}:${port}`, '_blank');
-              openBtn.textContent = '🚀 Open VS Code';
-            } else if (status === 'starting') {
-              openBtn.disabled = true;
-              openBtn.style.opacity = '0.6';
-              openBtn.onclick = null;
-              openBtn.textContent = '⏳ Starting...';
-            } else {
-              openBtn.disabled = false;
-              openBtn.style.opacity = '';
-              openBtn.onclick = () => startEnvironment(env_id);
-              openBtn.textContent = '▶️ Start';
-            }
+              const usePathRouting = {{ 'true' if use_path_routing else 'false' }
+            };
+            const envUrl = usePathRouting
+              ? `${window.location.origin}/env/${env_id}`
+              : `${window.location.protocol}//${window.location.hostname}:${port}`;
+            openBtn.onclick = () => window.open(envUrl, '_blank');
+            openBtn.textContent = '🚀 Open VS Code';
+          } else if (status === 'starting') {
+            openBtn.disabled = true;
+            openBtn.style.opacity = '0.6';
+            openBtn.onclick = null;
+            openBtn.textContent = '⏳ Starting...';
+          } else {
+            openBtn.disabled = false;
+            openBtn.style.opacity = '';
+            openBtn.onclick = () => startEnvironment(env_id);
+            openBtn.textContent = '▶️ Start';
           }
+        }
 
           // Still do a debounced full refresh to ensure consistency
           if (refreshTimeout) clearTimeout(refreshTimeout);
-          refreshTimeout = setTimeout(refreshEnvironments, 2000);
-        } catch (err) {
-          console.error('Error handling env-status event:', err);
-        }
-      });
+        refreshTimeout = setTimeout(refreshEnvironments, 2000);
+      } catch (err) {
+        console.error('Error handling env-status event:', err);
+      }
+    });
 
-      eventSource.onerror = (err) => {
-        console.error('SSE error:', err);
-        eventSource.close();
+    eventSource.onerror = (err) => {
+      console.error('SSE error:', err);
+      eventSource.close();
 
-        // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
-        reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
-        console.log(`SSE will reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
+      // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+      console.log(`SSE will reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
 
-        if (reconnectTimeout) clearTimeout(reconnectTimeout);
-        reconnectTimeout = setTimeout(setupSSE, delay);
-      };
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      reconnectTimeout = setTimeout(setupSSE, delay);
+    };
     }
 
     setupSSE();

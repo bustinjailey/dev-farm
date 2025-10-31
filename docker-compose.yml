@@ -1,11 +1,29 @@
 version: '3.8'
 
 services:
+  proxy:
+    image: nginx:alpine
+    container_name: devfarm-proxy
+    ports:
+      - "5000:80"
+    volumes:
+      - ./proxy/nginx.conf.template:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/proxy-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - devfarm
+    depends_on:
+      - dashboard
+
   dashboard:
     build: ./dashboard
     container_name: devfarm-dashboard
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - devfarm-data:/data
@@ -16,6 +34,8 @@ services:
       - GITHUB_EMAIL=${GITHUB_EMAIL:-bustinjailey@users.noreply.github.com}
       - DEBUG=false
       - HOST_REPO_PATH=/opt/dev-farm
+      - EXTERNAL_URL=https://farm.bustinjailey.org
+      - USE_PATH_ROUTING=true
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]

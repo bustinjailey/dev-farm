@@ -32,6 +32,8 @@ GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
 REPO_PATH = os.environ.get('HOST_REPO_PATH', '/opt/dev-farm')
 FARM_CONFIG_FILE = os.path.join(REPO_PATH, 'farm.config')
+EXTERNAL_URL = os.environ.get('EXTERNAL_URL', 'http://localhost:5000')
+USE_PATH_ROUTING = os.environ.get('USE_PATH_ROUTING', 'false').lower() == 'true'
 
 # Server-Sent Events support
 SSE_CLIENTS = []
@@ -329,7 +331,10 @@ def index():
                 # Container no longer exists
                 pass
     
-    return render_template('index.html', environments=environments)
+    return render_template('index.html', 
+                         environments=environments,
+                         use_path_routing=USE_PATH_ROUTING,
+                         external_url=EXTERNAL_URL)
 
 @app.route('/api/stream')
 def stream():
