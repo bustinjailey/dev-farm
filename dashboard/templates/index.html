@@ -1787,6 +1787,15 @@
     let reconnectAttempts = 0;
     let reconnectTimeout = null;
 
+    // Helper function to check if any modal is currently open
+    function isAnyModalOpen() {
+      const modals = ['githubAuthModal', 'oauthModal', 'updateModal', 'createModal', 'logsModal'];
+      return modals.some(modalId => {
+        const modal = document.getElementById(modalId);
+        return modal && (modal.classList.contains('active') || modal.style.display === 'flex');
+      });
+    }
+
     function setupSSE() {
       if (eventSource) {
         eventSource.close();
@@ -1801,8 +1810,15 @@
 
       eventSource.addEventListener('registry-update', (e) => {
         // Registry changed - debounced refresh to prevent storm
+        // Skip refresh if any modal is currently open to avoid disrupting user input
         if (refreshTimeout) clearTimeout(refreshTimeout);
-        refreshTimeout = setTimeout(refreshEnvironments, 500);
+        refreshTimeout = setTimeout(() => {
+          if (!isAnyModalOpen()) {
+            refreshEnvironments();
+          } else {
+            console.log('Skipping registry refresh - modal is open');
+          }
+        }, 500);
       });
 
       eventSource.addEventListener('env-status', (e) => {
@@ -2050,9 +2066,8 @@
 
     // Fallback: Still check system status periodically for updates not covered by SSE
     setInterval(() => {
-      const oauthModal = document.getElementById('oauthModal');
-      const updateModal = document.getElementById('updateModal');
-      if (!oauthModal.classList.contains('active') && !updateModal.classList.contains('active')) {
+      // Don't check system status if any modal is open
+      if (!isAnyModalOpen()) {
         checkSystemStatus();
       }
     }, 30000); // Reduced to 30 seconds since SSE handles environment updates
