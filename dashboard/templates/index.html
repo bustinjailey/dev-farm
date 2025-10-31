@@ -1125,13 +1125,13 @@
           hideCreateModal();
           // Show temporary "creating" card immediately
           const envList = document.getElementById('environments');
-          
+
           // Hide empty state if it exists
           const emptyState = document.getElementById('emptyState');
           if (emptyState) {
             emptyState.style.display = 'none';
           }
-          
+
           const tempCard = document.createElement('div');
           tempCard.className = 'env-card creating';
           tempCard.innerHTML = `
