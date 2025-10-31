@@ -108,6 +108,40 @@
       color: white;
     }
 
+    /* Version info display */
+    .version-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: #4a5568;
+    }
+
+    .version-sha {
+      background: #edf2f7;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .version-sha.version-new {
+      background: #fef3c7;
+      color: #92400e;
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    .version-arrow {
+      color: #a0aec0;
+      font-weight: bold;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
     .badge-ai {
       background: #9f7aea;
       color: white;
@@ -593,11 +627,13 @@
         <span class="status-label">⚙️ System Version</span>
         <span class="status-value">
           <span id="versionStatus">
-            <span class="status-badge badge-warning">Checking...</span>
+            <span class="version-info">
+              <span class="version-sha">...</span>
+            </span>
           </span>
           <button class="btn" onclick="updateSystem()" id="updateBtn"
             style="display: none; background: #667eea; color: white;">
-            ⬆️ Update Now
+            ⬆️ Update
           </button>
         </span>
       </div>
@@ -1251,10 +1287,18 @@
         const updateBtn = document.getElementById('updateBtn');
 
         if (versionData.updates_available) {
-          versionStatus.innerHTML = `<span class="status-badge badge-warning">UPDATE AVAILABLE (${versionData.latest_sha.substring(0, 7)})</span>`;
+          versionStatus.innerHTML = `
+            <span class="version-info">
+              <span class="version-sha">${versionData.current_sha.substring(0, 7)}</span>
+              <span class="version-arrow">→</span>
+              <span class="version-sha version-new">${versionData.latest_sha.substring(0, 7)}</span>
+            </span>`;
           updateBtn.style.display = 'inline-flex';
         } else {
-          versionStatus.innerHTML = `<span class="status-badge badge-success">✓ LATEST (${versionData.current_sha.substring(0, 7)})</span>`;
+          versionStatus.innerHTML = `
+            <span class="version-info">
+              <span class="version-sha">✓ ${versionData.current_sha.substring(0, 7)}</span>
+            </span>`;
           updateBtn.style.display = 'none';
         }
 
