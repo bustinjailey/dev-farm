@@ -1076,6 +1076,13 @@ echo "Starting VS Code Server (workspace will be set via URL parameter)" | tee -
 # Ensure workspace directory exists
 mkdir -p "${WORKSPACE_ROOT}"
 
+# Build base path for URL routing if ENV_NAME is set
+BASE_PATH_ARG=""
+if [ -n "${ENV_NAME}" ]; then
+    BASE_PATH_ARG="--server-base-path /env/${ENV_NAME}"
+    echo "Using base path: /env/${ENV_NAME}" | tee -a "$LOG_FILE"
+fi
+
 # Start official VS Code Insiders Server with serve-web command
 # NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
 # Users access workspace via URL: http://host:port/?folder=/path/to/folder
@@ -1085,4 +1092,5 @@ exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
   --server-data-dir /home/coder/.vscode-server-insiders \
   --without-connection-token \
   --accept-server-license-terms \
-  --disable-telemetry
+  --disable-telemetry \
+  ${BASE_PATH_ARG}

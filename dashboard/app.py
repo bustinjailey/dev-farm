@@ -522,7 +522,8 @@ def create_environment():
             'GITHUB_EMAIL': github_email,
             'DEV_MODE': mode,
             'WORKSPACE_NAME': display_name,  # Pass display name for workspace tab
-            'DEVFARM_ENV_ID': env_id  # Pass environment ID for MCP server tracking
+            'DEVFARM_ENV_ID': env_id,  # Pass environment ID for MCP server tracking
+            'ENV_NAME': env_id  # Pass environment name for URL base path
         }
         
         # Add API keys from farm.config (MCP server configuration)
