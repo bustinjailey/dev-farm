@@ -111,6 +111,7 @@ http://<your-lxc-ip>:5000
 3. **(Recommended) Configure GitHub Authentication:**
 
 **Option A: farm.config (Best for local development)**
+
 ```bash
 cp farm.config.example farm.config
 nano farm.config  # Add your GitHub PAT
@@ -119,11 +120,13 @@ nano farm.config  # Add your GitHub PAT
 Create a PAT at https://github.com/settings/tokens/new with scopes: `repo`, `read:org`, `workflow`
 
 **Option B: OAuth Device Flow**
+
 - Click the "🔗 Connect" button in the dashboard
 - Follow the OAuth device flow to authenticate
 - Note: OAuth Apps may have scope limitations
 
 **Option C: Environment Variable (Legacy)**
+
 ```bash
 export GITHUB_TOKEN="your_github_token_here"
 ```
