@@ -975,6 +975,11 @@ try:
     for server_name in mcp_config.get('servers', {}):
         print(f"[MCP Config]   - Found server: {server_name}")
     
+    # Verify servers dict is not empty
+    if not mcp_config.get('servers'):
+        print("[MCP Config] WARNING: No servers found in config!", file=sys.stderr)
+        print(f"[MCP Config] Expanded template content:\n{mcp_config_str}", file=sys.stderr)
+    
     # Configure for GitHub Copilot
     settings["github.copilot.chat.mcp.servers"] = mcp_config["servers"]
     
@@ -990,10 +995,18 @@ try:
     print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp.servers'])} servers")
     print(f"  - Cline: {len(settings['cline.mcpServers'])} servers")
     
-    # Verify file was written
+    # Verify file was written and read it back
     if os.path.exists(settings_path):
         file_size = os.path.getsize(settings_path)
         print(f"  - Settings file size: {file_size} bytes")
+        
+        # Read back and verify
+        with open(settings_path, 'r') as f:
+            verify_settings = json.load(f)
+        copilot_servers = verify_settings.get('github.copilot.chat.mcp.servers', {})
+        print(f"[MCP Config] Verification: {len(copilot_servers)} servers in written file")
+        for srv_name in copilot_servers:
+            print(f"[MCP Config]   ✓ Verified server: {srv_name}")
     
 except json.JSONDecodeError as e:
     print(f"[MCP Config] ERROR: Failed to parse JSON: {e}", file=sys.stderr)

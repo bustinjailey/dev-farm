@@ -19,6 +19,8 @@
   "security.workspace.trust.emptyWindow": false,
   "security.workspace.trust.trustedFolders": [
     "/home/coder/workspace",
+    "/home/coder/repo",
+    "/home/coder/remote",
     "/home/coder"
   ],
   "explorer.confirmDelete": false,
@@ -43,5 +45,8 @@
   "editor.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
   "window.restoreWindows": "none",
+  "window.restoreFullscreen": false,
+  "workbench.editor.restoreViewState": false,
+  "workbench.editor.enablePreview": false,
   "keyboard.dispatch": "keyCode"
 }
