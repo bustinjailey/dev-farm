@@ -1778,8 +1778,9 @@ def _run_system_update_thread():
         codeserver_changed = any(
             'Dockerfile.code-server' in f or 
             'docker/config/startup.sh' in f or
-            'docker/config/mcp.json' in f or
-            'docker/config/settings.json' in f
+            'docker/config/mcp-copilot.json' in f or
+            'docker/config/workspace-settings.json' in f or
+            'docker/config/auto-approval-settings.json' in f
             for f in files_changed
         )
         
