@@ -326,6 +326,10 @@ def index():
                 mode = env_data.get('mode', 'workspace')
                 workspace_path = get_workspace_path(mode)
                 
+                # Generate path-based URL using EXTERNAL_URL
+                base_url = EXTERNAL_URL.rstrip('/')
+                env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+                
                 environments.append({
                     'name': env_data.get('display_name', env_id),  # Use display_name if available
                     'id': env_id,
@@ -338,7 +342,7 @@ def index():
                     'git_url': env_data.get('git_url'),
                     'stats': stats,
                     'ready': ready,
-                    'url': f"http://{request.host.split(':')[0]}:{env_data['port']}?folder={workspace_path}"
+                    'url': env_url
                 })
             except docker.errors.NotFound:
                 # Container no longer exists
@@ -399,9 +403,12 @@ def api_environments():
                 status = container.status
                 ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
-                hostname = request.host.split(':')[0]
                 mode = env_data.get('mode', 'workspace')
                 workspace_path = get_workspace_path(mode)
+                
+                # Generate path-based URL using EXTERNAL_URL
+                base_url = EXTERNAL_URL.rstrip('/')
+                env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),
@@ -409,7 +416,7 @@ def api_environments():
                     'port': env_data['port'],
                     'status': display_status,
                     'ready': ready,
-                    'url': f"http://{hostname}:{env_data['port']}?folder={workspace_path}"
+                    'url': env_url
                 })
             except docker.errors.NotFound:
                 pass
@@ -627,12 +634,17 @@ def create_environment():
         save_registry(registry)
         
         workspace_path = get_workspace_path(mode)
+        
+        # Generate path-based URL using EXTERNAL_URL
+        base_url = EXTERNAL_URL.rstrip('/')
+        env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+        
         return jsonify({
             'success': True,
             'env_id': env_id,
             'display_name': display_name,
             'port': port,
-            'url': f"http://{request.host.split(':')[0]}:{port}?folder={workspace_path}",
+            'url': env_url,
             'mode': mode,
             'project': project
         })
