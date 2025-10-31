@@ -35,7 +35,6 @@ services:
       - DEBUG=false
       - HOST_REPO_PATH=/opt/dev-farm
       - EXTERNAL_URL=https://farm.bustinjailey.org
-      - USE_PATH_ROUTING=true
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]

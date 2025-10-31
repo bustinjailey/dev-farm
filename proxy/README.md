@@ -62,7 +62,8 @@ The nginx config template (`nginx.conf.template`) handles:
 Set in `docker-compose.yml`:
 
 - `EXTERNAL_URL=https://farm.bustinjailey.org` - Public URL for link generation
-- `USE_PATH_ROUTING=true` - Enable path-based URLs instead of port-based
+
+Path-based routing is always enabled (the only routing mode).
 
 ## Testing
 

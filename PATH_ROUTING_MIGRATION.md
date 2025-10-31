@@ -137,10 +137,7 @@ If you need to revert:
 
 2. Restore Caddy config with port-based rules
 
-3. Change environment variables in docker-compose.yml:
-   ```yaml
-   - USE_PATH_ROUTING=false
-   ```
+3. Remove proxy from docker-compose.yml and expose dashboard port 5000 directly
 
 4. Restart dashboard:
    ```bash
@@ -171,18 +168,17 @@ ssh root@eagle "pct exec 200 -- docker logs devfarm-{env-name} | grep 'serve-web
 
 If dashboard still shows old `:8100` style links:
 
-1. Check environment variables are set:
+1. Check EXTERNAL_URL is set:
    ```bash
-   ssh root@eagle "pct exec 200 -- docker exec devfarm-dashboard env | grep ROUTING"
+   ssh root@eagle "pct exec 200 -- docker exec devfarm-dashboard env | grep EXTERNAL_URL"
    ```
 
 2. Should show:
    ```
-   USE_PATH_ROUTING=true
    EXTERNAL_URL=https://farm.bustinjailey.org
    ```
 
-3. If not, rebuild dashboard:
+3. If not correct, rebuild dashboard:
    ```bash
    ssh root@eagle "pct exec 200 -- bash -c 'cd /opt/dev-farm && docker compose up -d --force-recreate dashboard'"
    ```
