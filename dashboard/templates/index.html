@@ -1838,21 +1838,17 @@
               closeBtn.style.display = 'inline-block';
             } else if (!status.running) {
               // Update finished running (either success or failure handled above)
-              // If we have stages, the update ran - stop polling
-              if (status.stages && status.stages.length > 0) {
-                clearInterval(updatePoll);
-                spinner.style.display = 'none';
-                closeBtn.style.display = 'inline-block';
-              } else {
-                // Only show "did not start" error if we waited and got nothing
-                if (Date.now() - pollStart > 10000) {
-                  clearInterval(updatePoll);
-                  icon1.textContent = '❌';
-                  msg1.textContent = 'Update did not start. Please try again.';
-                  spinner.style.display = 'none';
-                  closeBtn.style.display = 'inline-block';
-                }
-              }
+              // Stop polling once update stops running (regardless of stages)
+              clearInterval(updatePoll);
+              spinner.style.display = 'none';
+              closeBtn.style.display = 'inline-block';
+            } else if (status.stages && status.stages.length === 0 && Date.now() - pollStart > 10000) {
+              // Only show "did not start" error if we waited 10s and got NO stages at all
+              clearInterval(updatePoll);
+              icon1.textContent = '❌';
+              msg1.textContent = 'Update did not start. Please try again.';
+              spinner.style.display = 'none';
+              closeBtn.style.display = 'inline-block';
             }
             // While update is running, ensure spinner is shown and button is hidden
             if (status.running) {
