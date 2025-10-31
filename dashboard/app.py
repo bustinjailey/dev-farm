@@ -1701,8 +1701,7 @@ def _run_system_update_thread():
             
             if current_sha == remote_sha:
                 _append_stage('version_compare', 'success', f'✅ Already up to date at {current_sha}')
-                _set_update_result(True)
-                return
+                _append_stage('version_compare', 'info', 'ℹ️ Force rebuild - will rebuild images anyway')
             else:
                 _append_stage('version_compare', 'success', f'🆕 Update available: {current_sha} → {remote_sha}')
         except subprocess.CalledProcessError:
