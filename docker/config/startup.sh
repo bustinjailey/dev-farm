@@ -40,7 +40,7 @@ VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/User/settings.jso
 
 if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
     echo "Configuring MCP servers in User settings (applies to all AI tools)..."
-    /usr/bin/python3 - <<PYEOF
+    /usr/bin/python3 - <<'PYEOF'
 import json, os
 
 settings_path = "/home/coder/.vscode-server-insiders/data/User/settings.json"
@@ -62,10 +62,10 @@ else:
 with open(mcp_template_path, 'r') as f:
     mcp_config_str = f.read()
 
-# Expand environment variables (fixed: removed backslash escaping)
-mcp_config_str = mcp_config_str.replace('\${GITHUB_TOKEN}', github_token)
-mcp_config_str = mcp_config_str.replace('\${WORKSPACE_ROOT}', workspace_root)
-mcp_config_str = mcp_config_str.replace('\${BRAVE_API_KEY}', brave_api_key)
+# Expand environment variables
+mcp_config_str = mcp_config_str.replace('${GITHUB_TOKEN}', github_token)
+mcp_config_str = mcp_config_str.replace('${WORKSPACE_ROOT}', workspace_root)
+mcp_config_str = mcp_config_str.replace('${BRAVE_API_KEY}', brave_api_key)
 
 mcp_config = json.loads(mcp_config_str)
 
