@@ -41,50 +41,80 @@ VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/User/settings.jso
 if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
     echo "Configuring MCP servers in User settings (applies to all AI tools)..."
     /usr/bin/python3 - <<'PYEOF'
-import json, os
+import json, os, sys
 
 settings_path = "/home/coder/.vscode-server-insiders/data/User/settings.json"
 mcp_template_path = "/home/coder/.devfarm/mcp-copilot.json"
+
+print(f"[MCP Config] Template path: {mcp_template_path}")
+print(f"[MCP Config] Template exists: {os.path.exists(mcp_template_path)}")
 
 # Get environment variables
 github_token = os.environ.get('GITHUB_TOKEN', '')
 workspace_root = os.environ.get('WORKSPACE_ROOT', '/home/coder/workspace')
 brave_api_key = os.environ.get('BRAVE_API_KEY', '')
 
+print(f"[MCP Config] GITHUB_TOKEN length: {len(github_token)}")
+print(f"[MCP Config] WORKSPACE_ROOT: {workspace_root}")
+print(f"[MCP Config] BRAVE_API_KEY length: {len(brave_api_key)}")
+
 # Load existing settings or create empty dict
 if os.path.exists(settings_path):
     with open(settings_path, 'r') as f:
         settings = json.load(f)
+    print(f"[MCP Config] Loaded existing settings with {len(settings)} keys")
 else:
     settings = {}
+    print("[MCP Config] Creating new settings file")
 
 # Load MCP configuration template
 with open(mcp_template_path, 'r') as f:
     mcp_config_str = f.read()
+
+print(f"[MCP Config] Template content length: {len(mcp_config_str)}")
 
 # Expand environment variables
 mcp_config_str = mcp_config_str.replace('${GITHUB_TOKEN}', github_token)
 mcp_config_str = mcp_config_str.replace('${WORKSPACE_ROOT}', workspace_root)
 mcp_config_str = mcp_config_str.replace('${BRAVE_API_KEY}', brave_api_key)
 
-mcp_config = json.loads(mcp_config_str)
+print(f"[MCP Config] After variable expansion: {len(mcp_config_str)} chars")
 
-# Configure for GitHub Copilot
-settings["github.copilot.chat.mcp.servers"] = mcp_config["servers"]
-
-# Configure for Cline (uses same servers, different key format)
-settings["cline.mcpServers"] = mcp_config["servers"]
-
-# Write back
-os.makedirs(os.path.dirname(settings_path), exist_ok=True)
-with open(settings_path, 'w') as f:
-    json.dump(settings, f, indent=2)
-
-print("✓ MCP servers configured in User settings.json")
-print("  - GitHub Copilot: github.copilot.chat.mcp.servers")
-print("  - Cline: cline.mcpServers")
+try:
+    mcp_config = json.loads(mcp_config_str)
+    print(f"[MCP Config] Parsed config with {len(mcp_config.get('servers', {}))} servers")
+    
+    # Configure for GitHub Copilot
+    settings["github.copilot.chat.mcp.servers"] = mcp_config["servers"]
+    
+    # Configure for Cline (uses same servers, different key format)
+    settings["cline.mcpServers"] = mcp_config["servers"]
+    
+    # Write back
+    os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+    with open(settings_path, 'w') as f:
+        json.dump(settings, f, indent=2)
+    
+    print("✓ MCP servers configured in User settings.json")
+    print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp.servers'])} servers")
+    print(f"  - Cline: {len(settings['cline.mcpServers'])} servers")
+    
+    # Verify file was written
+    if os.path.exists(settings_path):
+        file_size = os.path.getsize(settings_path)
+        print(f"  - Settings file size: {file_size} bytes")
+    
+except json.JSONDecodeError as e:
+    print(f"[MCP Config] ERROR: Failed to parse JSON: {e}", file=sys.stderr)
+    print(f"[MCP Config] Content: {mcp_config_str}", file=sys.stderr)
+    sys.exit(1)
+except Exception as e:
+    print(f"[MCP Config] ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
 PYEOF
-    chown coder:coder "$VSCODE_SETTINGS_FILE"
+    chown coder:coder "$VSCODE_SETTINGS_FILE" 2>/dev/null || true
+else
+    echo "[MCP Config] WARNING: mcp-copilot.json template not found!"
 fi
 
 echo "MCP configuration complete - unified settings for all AI tools"

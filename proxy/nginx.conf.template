@@ -90,19 +90,6 @@ http {
                 set $env_path "/";
             }
             
-            # Auto-redirect to workspace if accessing root without folder parameter
-            # This makes the workspace "inherent" to the environment URL
-            set $needs_folder_redirect "";
-            if ($env_path = "/") {
-                set $needs_folder_redirect "Y";
-            }
-            if ($arg_folder != "") {
-                set $needs_folder_redirect "";
-            }
-            if ($needs_folder_redirect = "Y") {
-                return 302 /env/$env_name/?folder=/home/coder/workspace;
-            }
-            
             # Pass to backend - VS Code Server expects to be at root
             proxy_pass http://$backend$env_path$is_args$args;
             proxy_http_version 1.1;
