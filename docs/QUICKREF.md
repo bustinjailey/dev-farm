@@ -7,6 +7,7 @@
 ```bash
 # Initial setup
 cp farm.config.example farm.config
+chmod 600 farm.config  # Secure permissions
 nano farm.config  # Add your secrets
 ./scripts/devfarm.sh setup
 

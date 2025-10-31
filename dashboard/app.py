@@ -507,6 +507,8 @@ def create_environment():
         github_token = load_github_token()
         config = load_farm_config()
         github_config = config.get('github', {})
+        # Default to 'bustinjailey' for backward compatibility with existing deployments
+        # Users should set their own username in farm.config
         github_username = github_config.get('username', 'bustinjailey')
         github_email = github_config.get('email', f'{github_username}@users.noreply.github.com')
         

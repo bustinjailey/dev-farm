@@ -31,6 +31,9 @@ services:
     environment:
       - DEBUG=false
       - HOST_REPO_PATH=/opt/dev-farm
+      # EXTERNAL_URL: Set this to your public URL for correct link generation
+      # For local development: http://localhost:5000
+      # For production: https://farm.bustinjailey.org (or your domain)
       - EXTERNAL_URL=https://farm.bustinjailey.org
     restart: unless-stopped
     healthcheck:

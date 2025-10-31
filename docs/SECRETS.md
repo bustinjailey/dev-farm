@@ -10,8 +10,14 @@ This document explains how to manage secrets securely in Dev Farm without commit
 # Copy the example file
 cp farm.config.example farm.config
 
+# Set secure permissions (readable only by owner)
+chmod 600 farm.config
+
 # Edit with your values
 nano farm.config  # or use your preferred editor
+
+# Validate JSON syntax
+cat farm.config | python3 -m json.tool
 ```
 
 ### 2. Required Configuration
@@ -23,7 +29,7 @@ Add your GitHub Personal Access Token to `farm.config`:
   "version": "1.0",
   "github": {
     "personal_access_token": "ghp_your_actual_token_here",
-    "username": "bustinjailey",
+    "username": "your-github-username",
     "email": "your-email@example.com"
   },
   "mcp": {
@@ -33,6 +39,12 @@ Add your GitHub Personal Access Token to `farm.config`:
   }
 }
 ```
+
+**Important:** farm.config must be valid JSON. Common mistakes to avoid:
+- Don't forget commas between fields
+- Don't add trailing commas after the last field in an object
+- Use double quotes ("), not single quotes (')
+- Ensure proper bracket matching: { } and [ ]
 
 ### 3. Get a GitHub Token
 
