@@ -280,12 +280,37 @@ Or use the **Accounts** menu in the bottom left corner (👤 icon)
 - **SSH Mode**: Your remote filesystem is mounted at `remote/`
 - **Workspace Mode**: Use this directory directly for your code
 
+## 🔄 Persistent Terminal Sessions
+
+This environment uses **tmux** for persistent terminal sessions:
+- **Your terminals survive disconnections** - Long-running processes continue even when you close the browser
+- **Resume from any device** - Reconnect to see your work in progress
+- **Perfect for terminal-based agentic workflows** - CLI AI agents can work continuously in the background
+
+### Important: What Persists?
+
+✅ **Terminal processes** - Commands running in terminals continue when you disconnect
+✅ **Workspace files** - All your code and changes are saved
+✅ **Chat history** - Previous Copilot conversations are preserved
+
+❌ **Active Copilot Chat generation** - Stops when browser closes (browser-based)
+❌ **Extension processes** - VS Code extensions run in the browser
+
+💡 **For continuous AI work**: Use terminal-based agents like `aider` or `gh copilot` in tmux!
+
+### Tmux Quick Reference
+- Terminals automatically attach to the persistent session
+- **Detach manually**: Press `Ctrl+B` then `D` (rarely needed)
+- **List sessions**: Run `tmux ls` in a new terminal
+- **Reattach**: Run `tmux attach -t devfarm`
+
 ## 💡 Tips
 
 - Git and the GitHub CLI (gh) are pre-authenticated if you connected GitHub in the dashboard
 - Press `Ctrl+`` (backtick) to open the integrated terminal
 - Press `Ctrl+Shift+E` to focus the file explorer
 - Press `Ctrl+P` to quickly open files
+- Long-running processes in terminals will continue even when you close your browser
 
 Happy hacking!
 EOWELCOME
@@ -1288,6 +1313,65 @@ cat > /home/coder/.vscode-server-insiders/data/User/keybindings.json <<'EOFKEYS'
   }
 ]
 EOFKEYS
+
+# ============================================================================
+# Configure tmux for persistent sessions
+# ============================================================================
+echo "Configuring tmux for persistent terminal sessions..." | tee -a "$LOG_FILE"
+
+# Create tmux configuration for better user experience
+cat > /home/coder/.tmux.conf <<'EOTMUX'
+# Enable mouse support
+set -g mouse on
+
+# Increase scrollback buffer
+set -g history-limit 50000
+
+# Use 256 colors
+set -g default-terminal "screen-256color"
+
+# Start window numbering at 1
+set -g base-index 1
+
+# Renumber windows when one is closed
+set -g renumber-windows on
+
+# Status bar styling
+set -g status-style 'bg=colour236 fg=colour250'
+set -g status-left '[#S] '
+set -g status-right '%Y-%m-%d %H:%M '
+
+# Pane border colors
+set -g pane-border-style 'fg=colour238'
+set -g pane-active-border-style 'fg=colour39'
+
+# Message styling
+set -g message-style 'bg=colour39 fg=colour232'
+
+# Activity monitoring
+setw -g monitor-activity on
+set -g visual-activity off
+
+# Vi mode for copy mode
+setw -g mode-keys vi
+EOTMUX
+
+# Create a tmux startup script that ensures a persistent session exists
+# This will be used by VS Code's integrated terminal
+cat > /home/coder/.local/bin/tmux-persistent <<'EOTMUXSCRIPT'
+#!/bin/bash
+# Attach to existing devfarm session or create new one
+if tmux has-session -t devfarm 2>/dev/null; then
+    exec tmux attach-session -t devfarm
+else
+    exec tmux new-session -s devfarm
+fi
+EOTMUXSCRIPT
+
+mkdir -p /home/coder/.local/bin
+chmod +x /home/coder/.local/bin/tmux-persistent
+
+echo "✓ Tmux configured for persistent sessions (session name: devfarm)" | tee -a "$LOG_FILE"
 
 # Start VS Code Server
 echo "Starting VS Code Server (workspace will be set via URL parameter)" | tee -a "$LOG_FILE"
