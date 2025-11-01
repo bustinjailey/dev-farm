@@ -161,11 +161,16 @@ def load_path_aliases():
 
 
 def get_workspace_path(mode):
-    """Get the container workspace path based on environment mode."""
+    """Get the container workspace path based on environment mode.
+    
+    Note: SSH mode now uses /workspace as the initial path since we use
+    VS Code Remote-SSH instead of SSHFS mounting. Users will connect to
+    the remote host using the Remote-SSH extension.
+    """
     alias_lookup = {
         'git': ('repo', '/repo'),
         'workspace': ('workspace', '/workspace'),
-        'ssh': ('remote', '/remote'),
+        'ssh': ('workspace', '/workspace'),  # Changed: SSH mode uses workspace, not remote mount
         'terminal': ('workspace', '/workspace')
     }
     alias_key, default_path = alias_lookup.get(mode, ('workspace', '/workspace'))
@@ -644,12 +649,9 @@ def create_environment():
                 f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             }
 
-        # For ssh mode, enable FUSE for SSHFS mounts
-        # Using privileged mode to ensure FUSE mounts work properly
-        if mode == 'ssh':
-            run_kwargs.update({
-                'privileged': True
-            })
+        # SSH mode no longer requires privileged mode
+        # We now use VS Code Remote-SSH instead of SSHFS mounting
+        # This is more reliable and doesn't require FUSE or special permissions
 
         # Ensure no stale container exists with this name
         # This prevents reusing old container images after updates

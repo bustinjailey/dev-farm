@@ -49,10 +49,12 @@ Dev Farm supports three different modes for development environments, each optim
 
 **Best for**: Working with existing servers or remote systems
 
-- Installs Remote-SSH extension automatically
-- Connects to remote servers via SSH
+- Uses VS Code's native Remote-SSH extension
+- Connects directly to remote servers via SSH
 - Edit files directly on remote systems
 - Full VS Code experience on remote machines
+- More reliable than SSHFS mounting
+- No privileged containers required
 - No trust prompts
 
 **Use cases**:
@@ -68,15 +70,21 @@ Dev Farm supports three different modes for development environments, each optim
 2. Enter:
    - **SSH Host**: IP address or hostname (e.g., `192.168.1.100`)
    - **SSH User**: Username for SSH connection (default: `root`)
+   - **SSH Password**: Password for authentication (recommended)
+   - **SSH Private Key**: Alternative to password (optional)
    - **Remote Path**: Default folder to open (default: `/home`)
-3. Make sure SSH keys are configured on the remote host
-4. Once the environment opens, use Remote-SSH extension to connect
+3. Environment will test SSH connectivity on startup
+4. Open VS Code Command Palette (`Ctrl+Shift+P`)
+5. Select **Remote-SSH: Connect to Host...**
+6. Choose **remote-target** from the list
+7. VS Code opens a new window connected to the remote host
 
 **SSH Setup Requirements**:
 
-- SSH key authentication must be configured
+- SSH server running on remote host
+- SSH password OR private key configured
 - The remote host must be accessible from the container
-- Public key should be in remote's `~/.ssh/authorized_keys`
+- No SFTP subsystem required (unlike SSHFS)
 
 ## 🔒 Trust Mode
 
@@ -215,6 +223,8 @@ Each container receives these variables:
 - `SSH_HOST`: Remote hostname/IP
 - `SSH_USER`: SSH username
 - `SSH_PATH`: Remote folder path
+- `SSH_PASSWORD`: Password for authentication (optional)
+- `SSH_PRIVATE_KEY`: Private key for authentication (optional)
 
 ## 🔍 Troubleshooting
 
@@ -226,9 +236,18 @@ Each container receives these variables:
 
 ### SSH Connection Fails
 
-- Verify SSH key is added to remote `~/.ssh/authorized_keys`
+**New SSH Mode (Remote-SSH)**:
+- Check the connection guide file `CONNECT_TO_REMOTE.md` or `SSH_CONNECTION_ERROR.md` in your workspace
+- Verify SSH credentials (password or private key)
+- Test connection: `docker exec -it devfarm-<name> ssh remote-target`
 - Check network connectivity from container to remote host
-- Try manual SSH: `docker exec -it devfarm-<name> ssh user@host`
+- View detailed logs: `docker exec -it devfarm-<name> cat ~/.devfarm/startup.log`
+
+**What Changed**:
+- SSH mode now uses VS Code Remote-SSH instead of SSHFS mounting
+- More reliable and works with any SSH server
+- No SFTP subsystem required
+- No privileged containers needed
 
 ### Repository List Empty
 
