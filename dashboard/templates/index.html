@@ -607,7 +607,6 @@
   <div class="container">
     <header>
       <h1>🚜 Dev Farm</h1>
-      <p class="subtitle">Your on-demand development environments</p>
     </header>
 
     <!-- System Status -->
@@ -1843,26 +1842,45 @@
       eventSource = new EventSource('/api/stream');
 
       eventSource.onopen = () => {
-        console.log('SSE connected');
+        console.log('✅ SSE connected');
         reconnectAttempts = 0; // Reset on successful connection
 
         // If we were doing an update and SSE reconnected, check if update completed
         if (updateInProgress) {
-          console.log('SSE reconnected during update - checking completion status');
+          console.log('🔄 SSE reconnected during update - checking completion status');
           fetch('/api/system/update/status')
             .then(r => r.json())
             .then(data => {
               if (data.stage === 'complete' && data.status === 'success') {
-                console.log('Update completed while disconnected - showing completion UI');
+                console.log('✅ Update completed while disconnected - showing completion UI');
                 showUpdateComplete();
               } else if (data.stage === 'idle') {
                 // Update failed or was cancelled
-                console.log('Update no longer active - closing modal');
+                console.log('⚠️ Update no longer active - closing modal');
                 closeUpdateModal();
+              } else {
+                // Update still in progress, force a status check to update UI
+                console.log('🔄 Update still in progress:', data.stage);
+                // The backend will send updates via SSE, but we recovered connection
               }
             })
-            .catch(err => console.error('Failed to check update status:', err));
+            .catch(err => console.error('❌ Failed to check update status:', err));
         }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('❌ SSE connection error:', error);
+        eventSource.close();
+
+        // Exponential backoff for reconnection
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        console.log(`🔄 Will reconnect in ${delay / 1000}s (attempt ${reconnectAttempts})`);
+
+        setTimeout(() => {
+          console.log('🔄 Attempting to reconnect SSE...');
+          setupSSE();
+        }, delay);
       };
 
       eventSource.addEventListener('registry-update', (e) => {
@@ -2129,6 +2147,75 @@
       }
     });
 
+    // Watchdog timer for stuck update modal
+    let lastUpdateProgressTime = null;
+    let updateWatchdogInterval = null;
+
+    function startUpdateWatchdog() {
+      lastUpdateProgressTime = Date.now();
+      if (updateWatchdogInterval) clearInterval(updateWatchdogInterval);
+      
+      updateWatchdogInterval = setInterval(() => {
+        if (!updateInProgress) {
+          clearInterval(updateWatchdogInterval);
+          updateWatchdogInterval = null;
+          return;
+        }
+
+        const modal = document.getElementById('updateModal');
+        if (!modal || !modal.classList.contains('active')) {
+          clearInterval(updateWatchdogInterval);
+          updateWatchdogInterval = null;
+          return;
+        }
+
+        // If no progress update for 90 seconds, check backend status
+        const timeSinceLastUpdate = Date.now() - lastUpdateProgressTime;
+        if (timeSinceLastUpdate > 90000) {
+          console.warn('⚠️ No update progress for 90s - checking backend status');
+          fetch('/api/system/update/status')
+            .then(r => r.json())
+            .then(data => {
+              console.log('Update status check:', data);
+              if (data.stage === 'complete') {
+                console.log('✅ Update actually completed - showing completion UI');
+                if (data.status === 'success') {
+                  showUpdateComplete();
+                } else {
+                  closeUpdateModal();
+                }
+              } else if (data.stage === 'idle') {
+                console.log('⚠️ Update no longer running - closing stuck modal');
+                closeUpdateModal();
+              } else {
+                // Update is still running, reset timer
+                console.log('🔄 Update still in progress, resetting watchdog');
+                lastUpdateProgressTime = Date.now();
+              }
+            })
+            .catch(err => {
+              console.error('❌ Failed to check update status:', err);
+              // Add a retry button to the modal
+              const msg3 = document.getElementById('updateMsg3');
+              if (msg3 && !msg3.textContent.includes('Connection lost')) {
+                msg3.textContent = (msg3.textContent || '') + '\\n\\n⚠️ Connection lost. Refresh page if stuck.';
+              }
+            });
+        }
+      }, 30000); // Check every 30 seconds
+    }
+
+    function stopUpdateWatchdog() {
+      if (updateWatchdogInterval) {
+        clearInterval(updateWatchdogInterval);
+        updateWatchdogInterval = null;
+      }
+      lastUpdateProgressTime = null;
+    }
+
+    // Update the event listener to track progress time
+    const originalUpdateProgressHandler = eventSource?.addEventListener;
+    
     // Fallback: Still check system status periodically for updates not covered by SSE
     setInterval(() => {
       // Don't check system status if any modal is open

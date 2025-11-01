@@ -420,14 +420,14 @@ def stream():
             
             while True:
                 try:
-                    # Get message from queue with timeout
-                    message = client_queue.get(timeout=30)
+                    # Get message from queue with timeout (longer for better stability)
+                    message = client_queue.get(timeout=45)
                     event_type = message.get('event', 'message')
                     data = message.get('data', {})
                     yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
                 except queue.Empty:
-                    # Send heartbeat to keep connection alive
-                    yield f": heartbeat\n\n"
+                    # Send heartbeat to keep connection alive (every 45 seconds)
+                    yield f": heartbeat {datetime.now().isoformat()}\n\n"
         except GeneratorExit:
             # Client disconnected
             with SSE_LOCK:
