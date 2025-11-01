@@ -1652,20 +1652,8 @@
               badgeClass = 'badge-error';
             }
           } else {
-            // Show current stage in the badge
-            const stageNames = {
-              'init': 'Initializing',
-              'validate': 'Validating',
-              'version_check': 'Checking Version',
-              'git_clean': 'Cleaning',
-              'git_fetch': 'Fetching',
-              'version_compare': 'Comparing',
-              'git_checkout': 'Checking Out',
-              'git_pull': 'Pulling Code',
-              'build': 'Building Images',
-              'restart': 'Restarting'
-            };
-            statusText = stageNames[statusData.stage] || statusData.stage;
+            // Show current stage in the badge using shared constant
+            statusText = UPDATE_STAGE_NAMES[statusData.stage] || statusData.stage;
           }
           
           updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
@@ -2264,6 +2252,26 @@
     let reconnectTimeout = null;
     let updateInProgress = false; // Track if system update is running
 
+    // Shared mapping of update stages to human-readable names
+    const UPDATE_STAGE_NAMES = {
+      'init': 'Initializing',
+      'validate': 'Validating',
+      'version_check': 'Checking Version',
+      'git_clean': 'Cleaning',
+      'git_fetch': 'Fetching',
+      'version_compare': 'Comparing',
+      'git_checkout': 'Checking Out',
+      'git_pull': 'Pulling Code',
+      'verify_update': 'Verifying Update',
+      'check_changes': 'Checking Changes',
+      'rebuild_codeserver': 'Building Code Server',
+      'rebuild_dashboard': 'Building Dashboard',
+      'restart_dashboard': 'Restarting',
+      'build': 'Building Images',
+      'restart': 'Restarting',
+      'complete': 'Complete'
+    };
+
     // Helper function to check if any modal is currently open
     function isAnyModalOpen() {
       const modals = ['githubAuthModal', 'oauthModal', 'updateModal', 'createModal', 'logsModal'];
@@ -2447,24 +2455,8 @@
           if (updateProgressRow && updateProgressStatus) {
             updateProgressRow.style.display = 'flex';
             
-            // Update status badge based on stage
-            const stageNames = {
-              'init': 'Initializing',
-              'validate': 'Validating',
-              'version_check': 'Checking Version',
-              'git_clean': 'Cleaning',
-              'git_fetch': 'Fetching',
-              'version_compare': 'Comparing',
-              'git_checkout': 'Checking Out',
-              'git_pull': 'Pulling Code',
-              'check_changes': 'Checking Changes',
-              'rebuild_codeserver': 'Building Code Server',
-              'rebuild_dashboard': 'Building Dashboard',
-              'restart_dashboard': 'Restarting',
-              'complete': 'Complete'
-            };
-            
-            let statusText = stageNames[data.stage] || data.stage;
+            // Update status badge based on stage using shared constant
+            let statusText = UPDATE_STAGE_NAMES[data.stage] || data.stage;
             let badgeClass = 'badge-warning';
             
             if (data.stage === 'complete') {
