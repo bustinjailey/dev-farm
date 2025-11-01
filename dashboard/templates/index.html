@@ -1730,6 +1730,7 @@
 
         // Mark update as in progress
         updateInProgress = true;
+        startUpdateWatchdog(); // Start monitoring for stuck updates
 
         // SSE will handle all progress updates via 'update-progress' events
         // No polling needed - pure SSE-driven UI updates
@@ -1745,6 +1746,7 @@
 
     function hideUpdateModal() {
       document.getElementById('updateModal').classList.remove('active');
+      stopUpdateWatchdog();
     }
 
     async function cleanupOrphans() {
@@ -1820,6 +1822,7 @@
       spinner.style.display = 'none';
       closeBtn.style.display = 'inline-block';
       updateInProgress = false;
+      stopUpdateWatchdog();
 
       // Reload after delay to ensure dashboard is fully restarted
       setTimeout(() => { window.location.reload(); }, 5000);
@@ -1832,6 +1835,7 @@
         modal.classList.remove('active');
       }
       updateInProgress = false;
+      stopUpdateWatchdog();
     }
 
     function setupSSE() {
@@ -1903,6 +1907,7 @@
         if (modal && !modal.classList.contains('active')) {
           modal.classList.add('active');
           updateInProgress = true;
+          startUpdateWatchdog(); // Start monitoring for stuck updates
         }
       });
 
@@ -1954,6 +1959,9 @@
         try {
           const data = JSON.parse(e.data);
           if (!data.stage) return;
+
+          // Reset watchdog timer - we got an update
+          lastUpdateProgressTime = Date.now();
 
           console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
 
@@ -2154,7 +2162,7 @@
     function startUpdateWatchdog() {
       lastUpdateProgressTime = Date.now();
       if (updateWatchdogInterval) clearInterval(updateWatchdogInterval);
-      
+
       updateWatchdogInterval = setInterval(() => {
         if (!updateInProgress) {
           clearInterval(updateWatchdogInterval);
@@ -2215,7 +2223,7 @@
 
     // Update the event listener to track progress time
     const originalUpdateProgressHandler = eventSource?.addEventListener;
-    
+
     // Fallback: Still check system status periodically for updates not covered by SSE
     setInterval(() => {
       // Don't check system status if any modal is open

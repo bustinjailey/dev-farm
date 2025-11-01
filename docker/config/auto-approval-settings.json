@@ -1,16 +1,12 @@
 {
   "kilocode.autoApproveCommands": {
     "enabled": true,
-    "allowedPaths": [
-      "PLACEHOLDER_PATHS"
-    ],
+    "allowedPaths": ["PLACEHOLDER_PATHS"],
     "allowAllInWorkspace": true
   },
   "cline.autoApprove": {
     "enabled": true,
-    "allowedDirectories": [
-      "PLACEHOLDER_PATHS"
-    ]
+    "allowedDirectories": ["PLACEHOLDER_PATHS"]
   },
   "cline.autoApproveCommands": [
     "ls",
