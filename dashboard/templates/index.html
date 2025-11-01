@@ -867,6 +867,18 @@
           </button>
         </span>
       </div>
+      <div class="status-row" id="updateProgressRow" style="display: none;">
+        <span class="status-label">🔄 System Update</span>
+        <span class="status-value">
+          <span id="updateProgressStatus">
+            <span class="status-badge badge-warning">In Progress</span>
+          </span>
+          <button class="btn" onclick="reopenUpdateModal()" id="reopenUpdateBtn"
+            style="background: #667eea; color: white;">
+            📋 View Progress
+          </button>
+        </span>
+      </div>
       <div class="status-row" id="orphanRow" style="display: none;">
         <span class="status-label">⚠️ Orphaned Containers</span>
         <span class="status-value">
@@ -1617,6 +1629,64 @@
       }
     }
 
+    async function checkUpdateProgress() {
+      try {
+        const statusData = await safeFetch('/api/system/update/status');
+        const updateProgressRow = document.getElementById('updateProgressRow');
+        const updateProgressStatus = document.getElementById('updateProgressStatus');
+        
+        if (statusData.running && statusData.stage !== 'idle') {
+          // Update is in progress
+          updateProgressRow.style.display = 'flex';
+          
+          // Update status badge based on stage
+          let statusText = 'In Progress';
+          let badgeClass = 'badge-warning';
+          
+          if (statusData.stage === 'complete') {
+            if (statusData.status === 'success') {
+              statusText = 'Complete';
+              badgeClass = 'badge-success';
+            } else {
+              statusText = 'Failed';
+              badgeClass = 'badge-error';
+            }
+          } else {
+            // Show current stage in the badge
+            const stageNames = {
+              'init': 'Initializing',
+              'validate': 'Validating',
+              'version_check': 'Checking Version',
+              'git_clean': 'Cleaning',
+              'git_fetch': 'Fetching',
+              'version_compare': 'Comparing',
+              'git_checkout': 'Checking Out',
+              'git_pull': 'Pulling Code',
+              'build': 'Building Images',
+              'restart': 'Restarting'
+            };
+            statusText = stageNames[statusData.stage] || statusData.stage;
+          }
+          
+          updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
+          
+          // Mark update as in progress for SSE handling
+          if (!updateInProgress) {
+            updateInProgress = true;
+            console.log('🔄 Detected ongoing update on page load');
+          }
+        } else {
+          // No update in progress
+          updateProgressRow.style.display = 'none';
+          if (updateInProgress) {
+            updateInProgress = false;
+          }
+        }
+      } catch (error) {
+        console.error('Update progress check failed:', error);
+      }
+    }
+
     let oauthPollInterval = null;
     let oauthExpiresAt = null;
 
@@ -2032,6 +2102,120 @@
       stopUpdateWatchdog();
     }
 
+    async function reopenUpdateModal() {
+      const modal = document.getElementById('updateModal');
+      
+      // Show modal immediately
+      modal.classList.add('active');
+      
+      // Mark update as in progress and start watchdog
+      updateInProgress = true;
+      startUpdateWatchdog();
+      
+      // Fetch current status and populate modal
+      try {
+        const statusData = await safeFetch('/api/system/update/status');
+        
+        // Get modal elements
+        const stage1 = document.getElementById('updateStage1');
+        const stage2 = document.getElementById('updateStage2');
+        const stage3 = document.getElementById('updateStage3');
+        const icon1 = document.getElementById('updateIcon1');
+        const icon2 = document.getElementById('updateIcon2');
+        const icon3 = document.getElementById('updateIcon3');
+        const msg1 = document.getElementById('updateMsg1');
+        const msg2 = document.getElementById('updateMsg2');
+        const msg3 = document.getElementById('updateMsg3');
+        const closeBtn = document.getElementById('updateCloseBtn');
+        const spinner = document.getElementById('updateSpinner');
+        
+        // Reset all stages first
+        stage1.style.display = 'block';
+        stage2.style.display = 'none';
+        stage3.style.display = 'none';
+        icon1.textContent = '⏳';
+        icon2.textContent = '⏳';
+        icon3.textContent = '⏳';
+        msg1.textContent = '';
+        msg2.textContent = '';
+        msg3.textContent = '';
+        closeBtn.style.display = 'none';
+        spinner.style.display = 'block';
+        
+        // Populate with current progress
+        if (statusData.stages && statusData.stages.length > 0) {
+          // Process all stages and show them
+          statusData.stages.forEach((stageInfo, index) => {
+            const stage = stageInfo.stage;
+            const status = stageInfo.status;
+            const message = stageInfo.message || '';
+            
+            // Map stages to UI stages (simplified mapping)
+            let stageNum = 1;
+            if (stage.includes('git') || stage === 'validate' || stage === 'version') {
+              stageNum = 1;
+            } else if (stage.includes('build') || stage.includes('image')) {
+              stageNum = 2;
+            } else if (stage.includes('restart') || stage === 'complete') {
+              stageNum = 3;
+            }
+            
+            const stageEl = document.getElementById(`updateStage${stageNum}`);
+            const iconEl = document.getElementById(`updateIcon${stageNum}`);
+            const msgEl = document.getElementById(`updateMsg${stageNum}`);
+            
+            if (stageEl) {
+              stageEl.style.display = 'block';
+              
+              // Update icon based on status
+              if (status === 'success') {
+                iconEl.textContent = '✅';
+              } else if (status === 'error') {
+                iconEl.textContent = '❌';
+              } else if (status === 'warning') {
+                iconEl.textContent = '⚠️';
+              } else {
+                iconEl.textContent = '⏳';
+              }
+              
+              // Append message (don't overwrite, accumulate)
+              if (message && !msgEl.textContent.includes(message)) {
+                msgEl.textContent = msgEl.textContent ? msgEl.textContent + '\n' + message : message;
+              }
+            }
+          });
+        }
+        
+        // Check if update completed
+        if (statusData.stage === 'complete') {
+          if (statusData.status === 'success') {
+            showUpdateComplete();
+          } else {
+            icon1.textContent = '❌';
+            msg1.textContent = statusData.error || 'Update failed';
+            spinner.style.display = 'none';
+            closeBtn.style.display = 'inline-block';
+            updateInProgress = false;
+            stopUpdateWatchdog();
+          }
+        } else if (statusData.stage === 'idle' || !statusData.running) {
+          // Update not running anymore
+          icon1.textContent = '⚠️';
+          msg1.textContent = 'Update is no longer running';
+          spinner.style.display = 'none';
+          closeBtn.style.display = 'inline-block';
+          updateInProgress = false;
+          stopUpdateWatchdog();
+        }
+        
+        console.log('✅ Update modal reopened with current progress');
+      } catch (error) {
+        console.error('Failed to fetch update status:', error);
+        const msg1 = document.getElementById('updateMsg1');
+        msg1.textContent = 'Error loading update status: ' + error.message;
+      }
+    }
+
     async function cleanupOrphans() {
       if (!confirm('Clean up all orphaned containers? This will stop and remove containers not tracked in the registry.')) {
         return;
@@ -2070,6 +2254,7 @@
     // Run status check on page load
     let isCheckingStatus = false;
     checkSystemStatus();
+    checkUpdateProgress();
 
     // Set up Server-Sent Events for real-time updates
     let eventSource = null;
@@ -2186,6 +2371,13 @@
       eventSource.addEventListener('update-started', (e) => {
         // Update was started (possibly via API) - open the update modal
         console.log('Update started event received - opening modal');
+        
+        // Show the progress indicator
+        const updateProgressRow = document.getElementById('updateProgressRow');
+        if (updateProgressRow) {
+          updateProgressRow.style.display = 'flex';
+        }
+        
         const modal = document.getElementById('updateModal');
         if (modal && !modal.classList.contains('active')) {
           modal.classList.add('active');
@@ -2247,6 +2439,45 @@
           lastUpdateProgressTime = Date.now();
 
           console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
+
+          // Update the progress indicator
+          const updateProgressRow = document.getElementById('updateProgressRow');
+          const updateProgressStatus = document.getElementById('updateProgressStatus');
+          
+          if (updateProgressRow && updateProgressStatus) {
+            updateProgressRow.style.display = 'flex';
+            
+            // Update status badge based on stage
+            const stageNames = {
+              'init': 'Initializing',
+              'validate': 'Validating',
+              'version_check': 'Checking Version',
+              'git_clean': 'Cleaning',
+              'git_fetch': 'Fetching',
+              'version_compare': 'Comparing',
+              'git_checkout': 'Checking Out',
+              'git_pull': 'Pulling Code',
+              'check_changes': 'Checking Changes',
+              'rebuild_codeserver': 'Building Code Server',
+              'rebuild_dashboard': 'Building Dashboard',
+              'restart_dashboard': 'Restarting',
+              'complete': 'Complete'
+            };
+            
+            let statusText = stageNames[data.stage] || data.stage;
+            let badgeClass = 'badge-warning';
+            
+            if (data.stage === 'complete') {
+              if (data.status === 'success') {
+                badgeClass = 'badge-success';
+              } else {
+                badgeClass = 'badge-error';
+                statusText = 'Failed';
+              }
+            }
+            
+            updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
+          }
 
           // Get modal elements
           const modal = document.getElementById('updateModal');
