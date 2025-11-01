@@ -11,12 +11,18 @@ sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
 # Provide sanitized aliases for workspace paths so URLs don't expose internal layout
 echo "Creating workspace path aliases..."
-rm -rf /workspace 2>/dev/null || true
-rm -rf /remote 2>/dev/null || true
-rm -rf /repo 2>/dev/null || true
-ln -sfn /home/coder/workspace /workspace
-ln -sfn /home/coder/remote /remote
-ln -sfn /home/coder/repo /repo
+# Ensure backing directories exist for symlink targets
+mkdir -p /home/coder/workspace
+mkdir -p /home/coder/remote
+mkdir -p /home/coder/repo
+
+# Refresh root-level aliases with elevated permissions
+sudo rm -rf /workspace 2>/dev/null || true
+sudo rm -rf /remote 2>/dev/null || true
+sudo rm -rf /repo 2>/dev/null || true
+sudo ln -sfn /home/coder/workspace /workspace
+sudo ln -sfn /home/coder/remote /remote
+sudo ln -sfn /home/coder/repo /repo
 
 # Create .gitignore for workspace to exclude core dumps and other unwanted files
 cat > /home/coder/workspace/.gitignore <<'GITIGNORE'
