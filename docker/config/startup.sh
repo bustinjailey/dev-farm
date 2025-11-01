@@ -211,7 +211,7 @@ PYEOF
 
 # Configure workspace trust settings via User settings (proper location)
 # Security workspace trust settings are user-scoped, not machine-scoped
-echo "Configuring workspace trust settings..." | tee -a "$LOG_FILE"
+echo "Configuring workspace trust settings..."
 /usr/bin/python3 - <<'PYEOF'
 import json, os
 
