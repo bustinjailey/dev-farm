@@ -362,8 +362,8 @@ def test_build_image_code_server_success(monkeypatch, flask_client, app_with_tem
         exec_run=MagicMock(return_value=exec_result),
         client=SimpleNamespace(
             api=SimpleNamespace(
-                exec_create=lambda *a, **k: {"Id": "123"}, 
-                exec_start=lambda *a, **k: None
+                exec_create=lambda *_args, **_kwargs: {"Id": "123"}, 
+                exec_start=lambda *_args, **_kwargs: None
             )
         ),
     )
