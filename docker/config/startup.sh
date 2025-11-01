@@ -1336,8 +1336,33 @@ echo "✓ Tmux configured for persistent sessions (session name: devfarm)" | tee
 # Start tmux server immediately to prevent "error connecting to /tmp/tmux-1000/default" errors
 # This ensures the tmux server is always running for AI assistant and other tmux operations
 echo "Starting tmux server..." | tee -a "$LOG_FILE"
-tmux start-server 2>&1 | tee -a "$LOG_FILE" || true
-echo "✓ Tmux server started" | tee -a "$LOG_FILE"
+
+# Log tmux state before starting
+echo "DEBUG: Checking tmux state before server start..." | tee -a "$LOG_FILE"
+ls -la /tmp/tmux-* 2>&1 | tee -a "$LOG_FILE" || echo "No tmux sockets found" | tee -a "$LOG_FILE"
+ps aux | grep tmux | grep -v grep | tee -a "$LOG_FILE" || echo "No tmux processes found" | tee -a "$LOG_FILE"
+
+# Start the server
+if tmux start-server 2>&1 | tee -a "$LOG_FILE"; then
+    echo "✓ Tmux server started successfully" | tee -a "$LOG_FILE"
+else
+    echo "⚠ Tmux server start returned error code: $?" | tee -a "$LOG_FILE"
+fi
+
+# Create a persistent background session to keep the server alive
+# This session will never be attached to by users, it just keeps the server running
+echo "Creating persistent background session to keep tmux server alive..." | tee -a "$LOG_FILE"
+if tmux new-session -d -s background-keepalive -c /home/coder 2>&1 | tee -a "$LOG_FILE"; then
+    echo "✓ Background session 'background-keepalive' created" | tee -a "$LOG_FILE"
+else
+    echo "⚠ Failed to create background session" | tee -a "$LOG_FILE"
+fi
+
+# Log tmux state after starting
+echo "DEBUG: Checking tmux state after server start..." | tee -a "$LOG_FILE"
+ls -la /tmp/tmux-* 2>&1 | tee -a "$LOG_FILE" || echo "No tmux sockets found" | tee -a "$LOG_FILE"
+ps aux | grep tmux | grep -v grep | tee -a "$LOG_FILE" || echo "No tmux processes found" | tee -a "$LOG_FILE"
+tmux list-sessions 2>&1 | tee -a "$LOG_FILE" || echo "No sessions exist yet" | tee -a "$LOG_FILE"
 
 # ============================================================================
 # Deferred Extension Installation (Background Process)
