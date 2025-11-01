@@ -1333,6 +1333,12 @@ chmod +x /home/coder/.local/bin/tmux-persistent
 
 echo "✓ Tmux configured for persistent sessions (session name: devfarm)" | tee -a "$LOG_FILE"
 
+# Start tmux server immediately to prevent "error connecting to /tmp/tmux-1000/default" errors
+# This ensures the tmux server is always running for AI assistant and other tmux operations
+echo "Starting tmux server..." | tee -a "$LOG_FILE"
+tmux start-server 2>&1 | tee -a "$LOG_FILE" || true
+echo "✓ Tmux server started" | tee -a "$LOG_FILE"
+
 # ============================================================================
 # Deferred Extension Installation (Background Process)
 # ============================================================================
