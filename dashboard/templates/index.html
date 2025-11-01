@@ -1639,24 +1639,8 @@
           // Update is in progress
           updateProgressRow.style.display = 'flex';
           
-          // Update status badge based on stage
-          let statusText = 'In Progress';
-          let badgeClass = 'badge-warning';
-          
-          if (statusData.stage === 'complete') {
-            if (statusData.status === 'success') {
-              statusText = 'Complete';
-              badgeClass = 'badge-success';
-            } else {
-              statusText = 'Failed';
-              badgeClass = 'badge-error';
-            }
-          } else {
-            // Show current stage in the badge using shared constant
-            statusText = UPDATE_STAGE_NAMES[statusData.stage] || statusData.stage;
-          }
-          
-          updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
+          // Update status badge using helper function
+          updateProgressIndicatorBadge(statusData.stage, statusData.status);
           
           // Mark update as in progress for SSE handling
           if (!updateInProgress) {
@@ -2272,6 +2256,27 @@
       'complete': 'Complete'
     };
 
+    // Helper function to update the update progress indicator badge
+    function updateProgressIndicatorBadge(stage, status) {
+      const updateProgressStatus = document.getElementById('updateProgressStatus');
+      if (!updateProgressStatus) return;
+      
+      let statusText = UPDATE_STAGE_NAMES[stage] || stage;
+      let badgeClass = 'badge-warning';
+      
+      if (stage === 'complete') {
+        if (status === 'success') {
+          statusText = 'Complete';
+          badgeClass = 'badge-success';
+        } else {
+          statusText = 'Failed';
+          badgeClass = 'badge-error';
+        }
+      }
+      
+      updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
+    }
+
     // Helper function to check if any modal is currently open
     function isAnyModalOpen() {
       const modals = ['githubAuthModal', 'oauthModal', 'updateModal', 'createModal', 'logsModal'];
@@ -2450,25 +2455,9 @@
 
           // Update the progress indicator
           const updateProgressRow = document.getElementById('updateProgressRow');
-          const updateProgressStatus = document.getElementById('updateProgressStatus');
-          
-          if (updateProgressRow && updateProgressStatus) {
+          if (updateProgressRow) {
             updateProgressRow.style.display = 'flex';
-            
-            // Update status badge based on stage using shared constant
-            let statusText = UPDATE_STAGE_NAMES[data.stage] || data.stage;
-            let badgeClass = 'badge-warning';
-            
-            if (data.stage === 'complete') {
-              if (data.status === 'success') {
-                badgeClass = 'badge-success';
-              } else {
-                badgeClass = 'badge-error';
-                statusText = 'Failed';
-              }
-            }
-            
-            updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
+            updateProgressIndicatorBadge(data.stage, data.status);
           }
 
           // Get modal elements
