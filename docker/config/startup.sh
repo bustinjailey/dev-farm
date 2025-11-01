@@ -293,8 +293,8 @@ This environment uses **tmux** for persistent terminal sessions:
 ✅ **Workspace files** - All your code and changes are saved
 ✅ **Chat history** - Previous Copilot conversations are preserved
 
-❌ **Active Copilot Chat generation** - Stops when browser closes (browser-based)
-❌ **Extension processes** - VS Code extensions run in the browser
+❌ **Active Copilot Chat generation** - Stops when browser closes (Extension Host shuts down)
+❌ **Extension processes** - Extension Host terminates after idle timeout
 
 💡 **For continuous AI work**: Use terminal-based agents like `aider` or `gh copilot` in tmux!
 
