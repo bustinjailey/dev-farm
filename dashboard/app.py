@@ -644,12 +644,9 @@ def create_environment():
                 f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
             }
 
-        # For ssh mode, enable FUSE for SSHFS mounts
-        # Using privileged mode to ensure FUSE mounts work properly
-        if mode == 'ssh':
-            run_kwargs.update({
-                'privileged': True
-            })
+        # SSH mode no longer requires privileged mode
+        # We now use VS Code Remote-SSH instead of SSHFS mounting
+        # This is more reliable and doesn't require FUSE or special permissions
 
         # Ensure no stale container exists with this name
         # This prevents reusing old container images after updates
