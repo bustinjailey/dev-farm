@@ -1036,41 +1036,120 @@ fi
 # Install essential extensions with retry logic
 echo "Installing default extensions..." | tee -a "$LOG_FILE"
 
+# Extension directory for VS Code Server Insiders
+EXT_DIR="/home/coder/.vscode-server-insiders/extensions"
+
+# ============================================================================
+# Pre-Installation Diagnostics
+# ============================================================================
+echo "=== Extension Installation Diagnostics ===" | tee -a "$LOG_FILE"
+
+# Check VS Code Insiders binary
+if [ -x "/usr/bin/code-insiders" ]; then
+    echo "✓ VS Code Insiders binary found at /usr/bin/code-insiders" | tee -a "$LOG_FILE"
+    CODE_VERSION=$(/usr/bin/code-insiders --version 2>&1 | head -n1 || echo "unknown")
+    echo "  Version: $CODE_VERSION" | tee -a "$LOG_FILE"
+else
+    echo "✗ VS Code Insiders binary not found or not executable!" | tee -a "$LOG_FILE"
+fi
+
+# Check extension directory
+if [ -d "$EXT_DIR" ]; then
+    echo "✓ Extension directory exists: $EXT_DIR" | tee -a "$LOG_FILE"
+    EXT_COUNT=$(find "$EXT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+    echo "  Current extension count: $EXT_COUNT" | tee -a "$LOG_FILE"
+    
+    if [ "$EXT_COUNT" -gt 0 ]; then
+        echo "  Existing extensions:" | tee -a "$LOG_FILE"
+        find "$EXT_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | head -5 | while read ext; do
+            echo "    - $ext" | tee -a "$LOG_FILE"
+        done
+        if [ "$EXT_COUNT" -gt 5 ]; then
+            echo "    ... and $((EXT_COUNT - 5)) more" | tee -a "$LOG_FILE"
+        fi
+    fi
+else
+    echo "⚠ Extension directory does not exist yet: $EXT_DIR" | tee -a "$LOG_FILE"
+    echo "  Will be created during first extension install" | tee -a "$LOG_FILE"
+fi
+
+# Test extension installation capability with a quick dry-run
+echo "Testing extension installation capability..." | tee -a "$LOG_FILE"
+TEST_OUTPUT=$(/usr/bin/code-insiders --list-extensions --extensions-dir "$EXT_DIR" 2>&1 || echo "failed")
+if echo "$TEST_OUTPUT" | grep -q "failed"; then
+    echo "⚠ Extension listing failed - installation may have issues" | tee -a "$LOG_FILE"
+    echo "  Output: $TEST_OUTPUT" | tee -a "$LOG_FILE"
+else
+    echo "✓ Extension system is responsive" | tee -a "$LOG_FILE"
+fi
+
+echo "=== End Diagnostics ===" | tee -a "$LOG_FILE"
+echo "" | tee -a "$LOG_FILE"
+
 install_extension_with_retry() {
     local ext_id="$1"
     local max_attempts=3
     local attempt=1
+    local delay=3
     
     while [ $attempt -le $max_attempts ]; do
-        echo "Installing $ext_id (attempt $attempt/$max_attempts)..." | tee -a "$LOG_FILE"
+        echo "[$attempt/$max_attempts] Installing $ext_id..." | tee -a "$LOG_FILE"
         
-        # Capture output and check for both exit code and error messages
+        # Capture full output including stderr with detailed logging
         local output
-        output=$(/usr/bin/code-insiders --install-extension "$ext_id" 2>&1)
-        local exit_code=$?
+        local exit_code
+        output=$(/usr/bin/code-insiders --install-extension "$ext_id" --extensions-dir "$EXT_DIR" 2>&1)
+        exit_code=$?
         
-        # Log the output
-        echo "$output" | tee -a "$LOG_FILE"
+        # Log everything for diagnostics
+        echo "  Exit code: $exit_code" | tee -a "$LOG_FILE"
+        echo "  Full output:" | tee -a "$LOG_FILE"
+        echo "$output" | sed 's/^/    /' | tee -a "$LOG_FILE"
         
-        # Check for success: exit code 0 AND no "Error while installing" or "not compatible" messages
-        if [ $exit_code -eq 0 ] && ! echo "$output" | grep -qi "error while installing\|not compatible\|failed installing"; then
-            echo "✓ Successfully installed $ext_id" | tee -a "$LOG_FILE"
+        # Verify extension was actually installed by checking if it appears in list
+        local installed=false
+        if /usr/bin/code-insiders --list-extensions --extensions-dir "$EXT_DIR" 2>/dev/null | grep -qi "^${ext_id}$"; then
+            installed=true
+        fi
+        
+        # Detect specific error types
+        local error_type="unknown"
+        if echo "$output" | grep -qi "not compatible\|incompatible"; then
+            error_type="compatibility"
+        elif echo "$output" | grep -qi "network\|timeout\|econnrefused\|enotfound"; then
+            error_type="network"
+        elif echo "$output" | grep -qi "marketplace\|gallery"; then
+            error_type="marketplace"
+        fi
+        
+        # Check for success: exit code 0, no error messages, AND extension is listed
+        if [ $exit_code -eq 0 ] && [ "$installed" = true ] && ! echo "$output" | grep -qi "error\|failed"; then
+            echo "  ✓ Successfully installed and verified $ext_id" | tee -a "$LOG_FILE"
+            return 0
+        elif [ "$installed" = true ]; then
+            # Extension is installed even though there were warnings
+            echo "  ✓ Extension $ext_id installed (with warnings)" | tee -a "$LOG_FILE"
             return 0
         else
-            if echo "$output" | grep -qi "not compatible"; then
-                echo "⚠ $ext_id is not compatible with this version of VS Code" | tee -a "$LOG_FILE"
+            echo "  ✗ Installation failed (error type: $error_type)" | tee -a "$LOG_FILE"
+            
+            # Don't retry on compatibility errors
+            if [ "$error_type" = "compatibility" ]; then
+                echo "  ⚠ $ext_id is not compatible with this version of VS Code Insiders" | tee -a "$LOG_FILE"
                 return 1
             fi
             
+            # Retry with exponential backoff for other errors
             if [ $attempt -lt $max_attempts ]; then
-                echo "Retrying in 2 seconds..." | tee -a "$LOG_FILE"
-                sleep 2
+                echo "  ⏳ Retrying in ${delay}s... (error type: $error_type)" | tee -a "$LOG_FILE"
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
             fi
             attempt=$((attempt + 1))
         fi
     done
     
-    echo "⚠ Failed to install $ext_id after $max_attempts attempts" | tee -a "$LOG_FILE"
+    echo "  ✗ Failed to install $ext_id after $max_attempts attempts" | tee -a "$LOG_FILE"
     return 1
 }
 
@@ -1087,7 +1166,7 @@ install_extension_with_retry "github.copilot" || true
 # GitHub Copilot Chat requires pre-release version for VS Code Insiders compatibility
 # The stable version uses proposed APIs that may not be compatible with latest Insiders builds
 echo "Installing github.copilot-chat pre-release (required for VS Code Insiders)..." | tee -a "$LOG_FILE"
-if /usr/bin/code-insiders --install-extension "github.copilot-chat" --pre-release 2>&1 | tee -a "$LOG_FILE"; then
+if /usr/bin/code-insiders --install-extension "github.copilot-chat" --pre-release --extensions-dir "$EXT_DIR" 2>&1 | tee -a "$LOG_FILE"; then
     echo "✓ Successfully installed github.copilot-chat (pre-release)" | tee -a "$LOG_FILE"
 else
     echo "⚠ Failed to install github.copilot-chat pre-release, trying stable version..." | tee -a "$LOG_FILE"
@@ -1108,6 +1187,61 @@ install_extension_with_retry "esbenp.prettier-vscode" || true  # Prettier
 
 echo "Extension installation complete" | tee -a "$LOG_FILE"
 
+# ============================================================================
+# Post-Installation Verification
+# ============================================================================
+echo "=== Extension Installation Verification ===" | tee -a "$LOG_FILE"
+
+# List all installed extensions
+echo "Listing all installed extensions:" | tee -a "$LOG_FILE"
+INSTALLED_EXTS=$(/usr/bin/code-insiders --list-extensions --extensions-dir "$EXT_DIR" 2>&1 || echo "")
+if [ -n "$INSTALLED_EXTS" ]; then
+    echo "$INSTALLED_EXTS" | tee -a "$LOG_FILE"
+    INSTALLED_COUNT=$(echo "$INSTALLED_EXTS" | wc -l)
+    echo "Total installed extensions: $INSTALLED_COUNT" | tee -a "$LOG_FILE"
+else
+    echo "⚠ No extensions found or unable to list extensions" | tee -a "$LOG_FILE"
+    INSTALLED_COUNT=0
+fi
+
+# Check for critical extensions
+echo "" | tee -a "$LOG_FILE"
+echo "Checking critical extensions:" | tee -a "$LOG_FILE"
+CRITICAL_EXTS=(
+    "ms-vscode-remote.remote-ssh"
+    "github.copilot"
+    "github.copilot-chat"
+)
+
+MISSING_CRITICAL=()
+for ext in "${CRITICAL_EXTS[@]}"; do
+    if echo "$INSTALLED_EXTS" | grep -qi "^${ext}$"; then
+        echo "  ✓ $ext" | tee -a "$LOG_FILE"
+    else
+        echo "  ✗ $ext (MISSING)" | tee -a "$LOG_FILE"
+        MISSING_CRITICAL+=("$ext")
+    fi
+done
+
+if [ ${#MISSING_CRITICAL[@]} -gt 0 ]; then
+    echo "" | tee -a "$LOG_FILE"
+    echo "⚠ WARNING: ${#MISSING_CRITICAL[@]} critical extension(s) missing:" | tee -a "$LOG_FILE"
+    for ext in "${MISSING_CRITICAL[@]}"; do
+        echo "  - $ext" | tee -a "$LOG_FILE"
+    done
+fi
+
+# Show extension storage size
+EXT_DIR="/home/coder/.vscode-server-insiders/extensions"
+if [ -d "$EXT_DIR" ]; then
+    EXT_SIZE=$(du -sh "$EXT_DIR" 2>/dev/null | cut -f1 || echo "unknown")
+    echo "" | tee -a "$LOG_FILE"
+    echo "Extension storage size: $EXT_SIZE" | tee -a "$LOG_FILE"
+fi
+
+echo "=== End Verification ===" | tee -a "$LOG_FILE"
+echo "" | tee -a "$LOG_FILE"
+
 # Create keybindings to make Chat/Inline Chat more accessible
 # VS Code Insiders Server uses ~/.vscode-server-insiders/data/User/ for user data
 mkdir -p /home/coder/.vscode-server-insiders/data/User
@@ -1124,7 +1258,6 @@ cat > /home/coder/.vscode-server-insiders/data/User/keybindings.json <<'EOFKEYS'
 ]
 EOFKEYS
 
-# ============================================================================
 # Configure tmux for persistent sessions
 # ============================================================================
 echo "Configuring tmux for persistent terminal sessions..." | tee -a "$LOG_FILE"
@@ -1199,6 +1332,35 @@ EOTMUXSCRIPT
 chmod +x /home/coder/.local/bin/tmux-persistent
 
 echo "✓ Tmux configured for persistent sessions (session name: devfarm)" | tee -a "$LOG_FILE"
+
+# ============================================================================
+# Deferred Extension Installation (Background Process)
+# ============================================================================
+# If extension count is low, schedule a background retry after VS Code starts
+if [ "$INSTALLED_COUNT" -lt 5 ] || [ ${#MISSING_CRITICAL[@]} -gt 0 ]; then
+    echo "Extension count is low ($INSTALLED_COUNT) or critical extensions missing" | tee -a "$LOG_FILE"
+    echo "Scheduling background extension installation retry in 30 seconds..." | tee -a "$LOG_FILE"
+    
+    (
+        sleep 30
+        echo "=== Background Extension Installation Retry ===" >> "$LOG_FILE"
+        echo "$(date -Is): Starting deferred extension installation" >> "$LOG_FILE"
+        
+        # Retry missing critical extensions
+        for ext in "${MISSING_CRITICAL[@]}"; do
+            echo "Retrying $ext..." >> "$LOG_FILE"
+            install_extension_with_retry "$ext" >> "$LOG_FILE" 2>&1 || true
+        done
+        
+        # Verify after retry
+        FINAL_EXTS=$(/usr/bin/code-insiders --list-extensions --extensions-dir "$EXT_DIR" 2>&1 || echo "")
+        FINAL_COUNT=$(echo "$FINAL_EXTS" | wc -l)
+        echo "$(date -Is): Deferred installation complete. Final count: $FINAL_COUNT" >> "$LOG_FILE"
+        echo "=== End Background Installation ===" >> "$LOG_FILE"
+    ) &
+    
+    echo "Background installation process started (PID: $!)" | tee -a "$LOG_FILE"
+fi
 
 # Start VS Code Server
 echo "Starting VS Code Server (workspace will be set via URL parameter)" | tee -a "$LOG_FILE"

@@ -157,9 +157,11 @@ Welcome to your terminal-focused development environment!
 💡 TERMINAL TIPS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  • tmux                    Start a terminal multiplexer
-  • ctrl+a then d           Detach from tmux
-  • tmux attach             Reattach to session
+  • ctrl+a then c           Create new tmux window
+  • ctrl+a then n           Next tmux window
+  • ctrl+a then p           Previous tmux window
+  • ctrl+a then d           Detach from tmux session
+  • ctrl+a then ?           Show all tmux keybindings
   • ll                      List files (alias for ls -alh)
 
 🚀 GET STARTED:
@@ -179,9 +181,51 @@ echo ""
 echo "Starting web terminal on port 8080..."
 echo ""
 
-# Start ttyd (web-based terminal) with zsh
+# Initialize tmux session
+echo "Initializing tmux session..." | tee -a "$LOG_FILE"
+
+# Create tmux configuration
+cat > /home/coder/.tmux.conf <<'TMUXCONF'
+# Dev Farm tmux configuration
+# Set prefix to Ctrl+a (more ergonomic than Ctrl+b)
+unbind C-b
+set-option -g prefix C-a
+bind-key C-a send-prefix
+
+# Enable mouse support
+set -g mouse on
+
+# Start window numbering at 1
+set -g base-index 1
+
+# Enable 256 color support
+set -g default-terminal "screen-256color"
+
+# Status bar customization
+set -g status-style bg=blue,fg=white
+set -g status-left '[Dev Farm] '
+set -g status-right '%Y-%m-%d %H:%M'
+
+# Window status formatting
+setw -g window-status-current-style bg=white,fg=blue,bold
+TMUXCONF
+
+# Start tmux server with initial session
+if tmux new-session -d -s dev-farm -c /home/coder/workspace /bin/zsh 2>&1 | tee -a "$LOG_FILE"; then
+    echo "✓ Tmux session 'dev-farm' created successfully" | tee -a "$LOG_FILE"
+    TMUX_READY=true
+else
+    echo "⚠ Failed to create tmux session, falling back to direct zsh" | tee -a "$LOG_FILE"
+    TMUX_READY=false
+fi
+
+# Start ttyd (web-based terminal) with tmux or zsh fallback
 # --writable: Allow input
 # --port 8080: Listen on port 8080
 # --interface 0.0.0.0: Bind to all interfaces
-# --credential: No authentication (handled by Docker network)
-exec /usr/local/bin/ttyd --writable --port 8080 --interface 0.0.0.0 /bin/zsh
+# -2: Force 256 color mode for better tmux rendering
+if [ "$TMUX_READY" = true ]; then
+    exec /usr/local/bin/ttyd --writable --port 8080 --interface 0.0.0.0 tmux -2 attach-session -t dev-farm
+else
+    exec /usr/local/bin/ttyd --writable --port 8080 --interface 0.0.0.0 /bin/zsh
+fi
