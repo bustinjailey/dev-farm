@@ -52,7 +52,7 @@ def test_kebabify_normalizes_names():
 def test_get_workspace_path_modes():
     assert app_module.get_workspace_path("git") == "/repo"
     assert app_module.get_workspace_path("workspace") == "/workspace"
-    assert app_module.get_workspace_path("ssh") == "/remote"
+    assert app_module.get_workspace_path("ssh") == "/workspace"  # Changed: SSH mode now uses workspace
     assert app_module.get_workspace_path("terminal") == "/workspace"
     assert app_module.get_workspace_path("unknown") == "/workspace"
 
@@ -69,7 +69,7 @@ def test_get_workspace_path_uses_alias_config(tmp_path, monkeypatch):
     app_module.load_path_aliases.cache_clear()
 
     assert app_module.get_workspace_path("git") == alias_data["repo"]
-    assert app_module.get_workspace_path("ssh") == alias_data["remote"]
+    assert app_module.get_workspace_path("ssh") == alias_data["workspace"]  # Changed: SSH now uses workspace
     assert app_module.get_workspace_path("workspace") == alias_data["workspace"]
 
 

@@ -161,11 +161,16 @@ def load_path_aliases():
 
 
 def get_workspace_path(mode):
-    """Get the container workspace path based on environment mode."""
+    """Get the container workspace path based on environment mode.
+    
+    Note: SSH mode now uses /workspace as the initial path since we use
+    VS Code Remote-SSH instead of SSHFS mounting. Users will connect to
+    the remote host using the Remote-SSH extension.
+    """
     alias_lookup = {
         'git': ('repo', '/repo'),
         'workspace': ('workspace', '/workspace'),
-        'ssh': ('remote', '/remote'),
+        'ssh': ('workspace', '/workspace'),  # Changed: SSH mode uses workspace, not remote mount
         'terminal': ('workspace', '/workspace')
     }
     alias_key, default_path = alias_lookup.get(mode, ('workspace', '/workspace'))
