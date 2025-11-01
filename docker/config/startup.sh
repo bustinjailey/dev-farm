@@ -93,22 +93,6 @@ with open(alias_file, 'w', encoding='utf-8') as fp:
     json.dump(aliases, fp, indent=2)
 PYEOF
 
-# Create .gitignore for workspace to exclude core dumps and other unwanted files
-cat > /home/coder/workspace/.gitignore <<'GITIGNORE'
-# Core dumps and debug files
-core.*
-*.core
-vgcore.*
-
-# VS Code workspace files (user-specific)
-.vscode/
-.devfarm/
-
-# OS files
-.DS_Store
-Thumbs.db
-GITIGNORE
-
 echo "Applying VS Code Insiders workspace settings..."
 # VS Code Insiders Server uses ~/.vscode-server-insiders/data/ for settings
 mkdir -p /home/coder/.vscode-server-insiders/data/Machine
@@ -1003,115 +987,171 @@ export WORKSPACE_ROOT
 echo "Workspace root set to: ${WORKSPACE_ROOT}" | tee -a "$LOG_FILE"
 
 # ============================================================================
-# Configure MCP Servers (Machine-Level Settings)
+# Configure MCP Servers (Isolated .vscode/mcp.json file)
 # ============================================================================
-# All AI tools (Copilot, Cline, etc.) use the same MCP config from Machine settings.json
+# VS Code's proper MCP configuration method is via .vscode/mcp.json file
+# To avoid polluting user workspaces (especially git repos), we:
+#   1. Create MCP config in /home/coder/.devfarm/vscode-config/
+#   2. Symlink it as .vscode in the workspace root
+#   3. Add .vscode to workspace .gitignore (created below based on mode)
 # This must happen AFTER WORKSPACE_ROOT is set for the correct mode
-# VS Code Insiders Server uses Machine settings as the primary config
-
-VSCODE_SETTINGS_FILE="/home/coder/.vscode-server-insiders/data/Machine/settings.json"
 
 if [ -f /home/coder/.devfarm/mcp-copilot.json ]; then
-    echo "Configuring MCP servers in Machine settings (applies to all AI tools)..."
+    echo "Configuring MCP servers in isolated .vscode directory..." | tee -a "$LOG_FILE"
     /usr/bin/python3 - <<'PYEOF'
 import json, os, sys
 
-settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
 mcp_template_path = "/home/coder/.devfarm/mcp-copilot.json"
+workspace_root = os.environ.get('WORKSPACE_ROOT', '/home/coder/workspace')
+
+# Create isolated .vscode directory in devfarm state dir (not in workspace)
+vscode_config_dir = "/home/coder/.devfarm/vscode-config"
+os.makedirs(vscode_config_dir, exist_ok=True)
+
+mcp_json_path = os.path.join(vscode_config_dir, 'mcp.json')
 
 print(f"[MCP Config] Template path: {mcp_template_path}")
-print(f"[MCP Config] Template exists: {os.path.exists(mcp_template_path)}")
+print(f"[MCP Config] Workspace: {workspace_root}")
+print(f"[MCP Config] Isolated config dir: {vscode_config_dir}")
+print(f"[MCP Config] MCP config will be written to: {mcp_json_path}")
 
 # Get environment variables
 github_token = os.environ.get('GITHUB_TOKEN', '')
-workspace_root = os.environ.get('WORKSPACE_ROOT', '/home/coder/workspace')
 brave_api_key = os.environ.get('BRAVE_API_KEY', '')
 
-print(f"[MCP Config] GITHUB_TOKEN length: {len(github_token)}")
-print(f"[MCP Config] WORKSPACE_ROOT: {workspace_root}")
-print(f"[MCP Config] BRAVE_API_KEY length: {len(brave_api_key)}")
-
-# Load existing settings or create empty dict
-if os.path.exists(settings_path):
-    with open(settings_path, 'r') as f:
-        settings = json.load(f)
-    print(f"[MCP Config] Loaded existing settings with {len(settings)} keys")
-else:
-    settings = {}
-    print("[MCP Config] Creating new settings file")
+print(f"[MCP Config] GITHUB_TOKEN present: {bool(github_token)}")
+print(f"[MCP Config] BRAVE_API_KEY present: {bool(brave_api_key)}")
 
 # Load MCP configuration template
 with open(mcp_template_path, 'r') as f:
     mcp_config_str = f.read()
-
-print(f"[MCP Config] Template content length: {len(mcp_config_str)}")
 
 # Expand environment variables
 mcp_config_str = mcp_config_str.replace('${GITHUB_TOKEN}', github_token)
 mcp_config_str = mcp_config_str.replace('${WORKSPACE_ROOT}', workspace_root)
 mcp_config_str = mcp_config_str.replace('${BRAVE_API_KEY}', brave_api_key)
 
-print(f"[MCP Config] After variable expansion: {len(mcp_config_str)} chars")
-
 try:
     mcp_config = json.loads(mcp_config_str)
-    servers = mcp_config.get('servers') or {}
+    servers = mcp_config.get('servers', {})
+    
     print(f"[MCP Config] Parsed config with {len(servers)} servers")
-    
-    # Debug: show what servers were found
     for server_name in servers:
-        print(f"[MCP Config]   - Found server: {server_name}")
+        print(f"[MCP Config]   - Server: {server_name}")
     
-    # Verify servers dict is not empty
-    if not servers:
-        print("[MCP Config] WARNING: No servers found in config!", file=sys.stderr)
-        print(f"[MCP Config] Expanded template content:\n{mcp_config_str}", file=sys.stderr)
+    # Write to isolated mcp.json
+    with open(mcp_json_path, 'w') as f:
+        json.dump(mcp_config, f, indent=2)
     
-    # Configure for GitHub Copilot (expects servers under flattened settings key)
-    settings.pop("github.copilot.chat.mcp", None)
-    settings["github.copilot.chat.mcp.servers"] = servers
+    print(f"✓ MCP configuration written to {mcp_json_path}")
     
-    # Configure for Cline (expects {"mcpServers": {...}})
-    # Cline needs the servers directly under mcpServers key
-    settings["cline.mcpServers"] = servers
+    # Create symlink from workspace to isolated config directory
+    # This makes .vscode appear in workspace without polluting it
+    workspace_vscode_link = os.path.join(workspace_root, '.vscode')
     
-    # Write back
-    os.makedirs(os.path.dirname(settings_path), exist_ok=True)
-    with open(settings_path, 'w') as f:
-        json.dump(settings, f, indent=2)
+    # Remove existing .vscode if it exists (file, dir, or symlink)
+    if os.path.islink(workspace_vscode_link):
+        os.unlink(workspace_vscode_link)
+        print(f"[MCP Config] Removed existing .vscode symlink")
+    elif os.path.exists(workspace_vscode_link):
+        import shutil
+        if os.path.isdir(workspace_vscode_link):
+            # Backup existing .vscode directory if it has user content
+            backup_path = workspace_vscode_link + '.backup'
+            shutil.move(workspace_vscode_link, backup_path)
+            print(f"[MCP Config] Backed up existing .vscode to {backup_path}")
+        else:
+            os.remove(workspace_vscode_link)
     
-    print("✓ MCP servers configured in Machine settings.json")
-    print(f"  - GitHub Copilot: {len(settings['github.copilot.chat.mcp.servers'])} servers")
-    print(f"  - Cline: {len(settings['cline.mcpServers'])} servers")
-    
-    # Verify file was written and read it back
-    if os.path.exists(settings_path):
-        file_size = os.path.getsize(settings_path)
-        print(f"  - Settings file size: {file_size} bytes")
-        
-        # Read back and verify
-        with open(settings_path, 'r') as f:
-            verify_settings = json.load(f)
-        copilot_servers = verify_settings.get('github.copilot.chat.mcp.servers', {})
-        print(f"[MCP Config] Verification: {len(copilot_servers)} servers in written file")
-        for srv_name in copilot_servers:
-            print(f"[MCP Config]   ✓ Verified server: {srv_name}")
+    # Create symlink: workspace/.vscode -> /home/coder/.devfarm/vscode-config
+    try:
+        os.symlink(vscode_config_dir, workspace_vscode_link)
+        print(f"✓ Symlinked {workspace_vscode_link} -> {vscode_config_dir}")
+        print(f"  MCP servers are now accessible to all AI tools in workspace")
+    except Exception as e:
+        print(f"⚠ Failed to create .vscode symlink: {e}", file=sys.stderr)
+        print(f"  MCP servers may not be accessible", file=sys.stderr)
     
 except json.JSONDecodeError as e:
     print(f"[MCP Config] ERROR: Failed to parse JSON: {e}", file=sys.stderr)
-    print(f"[MCP Config] Content: {mcp_config_str}", file=sys.stderr)
     sys.exit(1)
 except Exception as e:
     print(f"[MCP Config] ERROR: {e}", file=sys.stderr)
     sys.exit(1)
 PYEOF
-    chown coder:coder "$VSCODE_SETTINGS_FILE" 2>/dev/null || true
+    
+    # Also add minimal Copilot-specific setting to Machine/settings.json to enable MCP
+    # This is just to enable the feature, actual servers are in .vscode/mcp.json
+    /usr/bin/python3 - <<'PYEOF'
+import json, os
+
+settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
+
+# Load existing settings
+if os.path.exists(settings_path):
+    with open(settings_path, 'r') as f:
+        settings = json.load(f)
+else:
+    settings = {}
+
+# Only add the access control setting, not the servers themselves
+# The servers will be read from .vscode/mcp.json automatically
+settings["chat.mcp.access"] = "all"  # Allow all MCP servers
+
+# Write back
+os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+
+print("✓ MCP access enabled in Machine settings")
+PYEOF
+    
 else
-    echo "[MCP Config] WARNING: mcp-copilot.json template not found!"
+    echo "[MCP Config] WARNING: mcp-copilot.json template not found!" | tee -a "$LOG_FILE"
 fi
 
-echo "MCP configuration complete - unified settings for all AI tools"
-echo "Note: aggregate-mcp-server uses config from its cloned repo (aggregate.mcp.json)"
+echo "MCP configuration complete" | tee -a "$LOG_FILE"
+echo "Note: MCP servers are in isolated .vscode directory (symlinked to workspace)" | tee -a "$LOG_FILE"
+echo "Note: aggregate-mcp-server uses config from its cloned repo (aggregate.mcp.json)" | tee -a "$LOG_FILE"
+
+# Create workspace-specific .gitignore based on mode
+# This prevents .vscode symlink and other dev-farm files from being committed
+if [ "${DEV_MODE}" = "git" ]; then
+    # In git mode, user has cloned repo - add .gitignore to prevent committing our .vscode symlink
+    echo "Creating .gitignore for git mode to exclude dev-farm files..." | tee -a "$LOG_FILE"
+    cat > "${WORKSPACE_ROOT}/.gitignore.devfarm" <<'GITIGNORE'
+# Dev Farm managed files (auto-generated)
+# Add these entries to your .gitignore if needed
+.vscode/
+.devfarm/
+core.*
+*.core
+vgcore.*
+.DS_Store
+Thumbs.db
+GITIGNORE
+    echo "✓ Created ${WORKSPACE_ROOT}/.gitignore.devfarm (reference file)" | tee -a "$LOG_FILE"
+    echo "  Add these entries to your repository's .gitignore if needed" | tee -a "$LOG_FILE"
+elif [ "${DEV_MODE}" = "workspace" ]; then
+    # In workspace mode, create .gitignore to keep workspace clean
+    echo "Creating .gitignore for workspace mode..." | tee -a "$LOG_FILE"
+    cat > "${WORKSPACE_ROOT}/.gitignore" <<'GITIGNORE'
+# Core dumps and debug files
+core.*
+*.core
+vgcore.*
+
+# VS Code workspace files (dev-farm managed)
+.vscode/
+.devfarm/
+
+# OS files
+.DS_Store
+Thumbs.db
+GITIGNORE
+    echo "✓ Created ${WORKSPACE_ROOT}/.gitignore" | tee -a "$LOG_FILE"
+fi
+# SSH mode: Don't create .gitignore as we're working on remote filesystem
 
 # Create WELCOME.md in the workspace root (unless it's SSH/Git mode with custom info files)
 if [ "${DEV_MODE}" = "workspace" ]; then
@@ -1182,6 +1222,9 @@ else
     echo "⚠ Failed to install github.copilot-chat pre-release, trying stable version..." | tee -a "$LOG_FILE"
     install_extension_with_retry "github.copilot-chat" || true
 fi
+
+# GitHub Copilot Web Search extension
+install_extension_with_retry "ms-vscode.vscode-websearchforcopilot" || true
 
 # AI Assistants
 install_extension_with_retry "continue.continue" || true  # Continue.dev AI assistant
