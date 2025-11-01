@@ -373,3 +373,49 @@ def test_build_image_code_server_success(monkeypatch, flask_client, app_with_tem
     payload = response.get_json()
     assert response.status_code == 200
     assert payload["success"] is True
+
+
+def test_get_environment_logs_returns_logs(flask_client, app_with_temp_paths, monkeypatch):
+    module = app_with_temp_paths
+    module.save_registry({"test-env": {"container_id": "cid123", "port": 8100}})
+    
+    container = SimpleNamespace(
+        status="running",
+        name="devfarm-test-env",
+        logs=MagicMock(return_value=b"Container log output\nAnother line\n"),
+    )
+    module.client.containers.get.return_value = container
+    monkeypatch.setattr(module, "is_env_ready", lambda name, port: True)
+    
+    response = flask_client.get("/api/environments/test-env/logs")
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["success"] is True
+    assert "Container log output" in payload["logs"]
+    assert payload["status"] == "running"
+
+
+def test_get_environment_logs_not_found(flask_client, app_with_temp_paths):
+    response = flask_client.get("/api/environments/nonexistent/logs")
+    assert response.status_code == 404
+
+
+def test_get_environment_logs_container_deleted(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    module.save_registry({"test-env": {"container_id": "deleted123"}})
+    module.client.containers.get.side_effect = module.docker.errors.NotFound("missing")
+    
+    response = flask_client.get("/api/environments/test-env/logs")
+    assert response.status_code == 404
+    assert "Container not found" in response.get_json()["error"]
+
+
+def test_api_environments_empty_registry(flask_client, app_with_temp_paths, monkeypatch):
+    module = app_with_temp_paths
+    monkeypatch.setattr(module, "load_registry", lambda: {})
+    monkeypatch.setattr(module, "sync_registry_with_containers", lambda: None)
+    
+    response = flask_client.get("/api/environments")
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload == []

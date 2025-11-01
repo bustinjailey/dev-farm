@@ -151,3 +151,56 @@ def test_is_env_ready_handles_failures(monkeypatch, app_with_temp_paths):
 
     monkeypatch.setattr(requests, "get", MagicMock(side_effect=requests.RequestException))
     assert module.is_env_ready("missing", port=8123) is False
+
+
+def test_load_registry_handles_missing_file(app_with_temp_paths):
+    module = app_with_temp_paths
+    # Registry file doesn't exist
+    registry = module.load_registry()
+    assert registry == {}
+
+
+def test_save_registry_creates_directory(app_with_temp_paths, tmp_path):
+    module = app_with_temp_paths
+    # Set registry file to a non-existent directory
+    nested_path = tmp_path / "nested" / "dir" / "registry.json"
+    module.REGISTRY_FILE = str(nested_path)
+    
+    module.save_registry({"test": {"port": 8100}})
+    assert nested_path.exists()
+    loaded = module.load_registry()
+    assert loaded == {"test": {"port": 8100}}
+
+
+def test_kebabify_handles_edge_cases(app_with_temp_paths):
+    module = app_with_temp_paths
+    assert module.kebabify("") == ""
+    assert module.kebabify("   ") == ""
+    assert module.kebabify("!!!@@@###") == ""
+    assert module.kebabify("CamelCase") == "camelcase"
+    assert module.kebabify("snake_case") == "snake-case"
+    assert module.kebabify("with-emoji-😀") == "with-emoji"  # Trailing dashes are trimmed
+
+
+def test_get_next_port_handles_empty_registry(app_with_temp_paths, monkeypatch):
+    module = app_with_temp_paths
+    monkeypatch.setattr(module, "load_registry", lambda: {})
+    assert module.get_next_port() == module.BASE_PORT
+
+
+def test_get_container_stats_handles_missing_fields(app_with_temp_paths):
+    module = app_with_temp_paths
+    
+    class IncompleteStatsContainer:
+        def stats(self, stream=False):
+            # Missing some expected fields
+            return {
+                "cpu_stats": {"cpu_usage": {"total_usage": 100}},
+                "precpu_stats": {},
+                "memory_stats": {}
+            }
+    
+    stats = module.get_container_stats(IncompleteStatsContainer())
+    # Should return defaults without crashing
+    assert "cpu" in stats
+    assert "memory" in stats
