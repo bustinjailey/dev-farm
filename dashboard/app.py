@@ -2110,6 +2110,16 @@ def system_update_status():
 AI_SESSIONS = {}
 AI_SESSIONS_LOCK = threading.Lock()
 
+def ensure_tmux_server(container):
+    """
+    Ensure tmux server is running in the container.
+    This prevents "error connecting to /tmp/tmux-1000/default" errors.
+    """
+    container.exec_run(
+        'tmux start-server',
+        user='coder'
+    )
+
 @app.route('/api/environments/<env_id>/ai/chat', methods=['POST'])
 def ai_chat(env_id):
     """Send a message to AI tools (Aider or gh copilot) in the environment"""
@@ -2140,6 +2150,9 @@ def ai_chat(env_id):
         
         # Send message to AI tool via tmux
         if tool == 'aider':
+            # Ensure tmux server is running to prevent connection errors
+            ensure_tmux_server(container)
+            
             # Start aider in tmux if not running
             session_check = container.exec_run(
                 'tmux has-session -t devfarm-ai 2>/dev/null',
@@ -2207,6 +2220,9 @@ def ai_output(env_id):
     try:
         container = client.containers.get(container_name)
         
+        # Ensure tmux server is running to prevent connection errors
+        ensure_tmux_server(container)
+        
         # Get output from AI tmux session
         result = container.exec_run(
             'tmux capture-pane -t devfarm-ai -p -S -50',
@@ -2233,6 +2249,9 @@ def ai_stop(env_id):
     
     try:
         container = client.containers.get(container_name)
+        
+        # Ensure tmux server is running to prevent connection errors
+        ensure_tmux_server(container)
         
         # Kill AI tmux session
         container.exec_run(
@@ -2267,6 +2286,9 @@ def get_terminal_preview(env_id):
     
     try:
         container = client.containers.get(container_name)
+        
+        # Ensure tmux server is running to prevent connection errors
+        ensure_tmux_server(container)
         
         # Capture tmux output
         result = container.exec_run(
