@@ -209,33 +209,45 @@ with open(machine_settings_path, 'w', encoding='utf-8') as f:
 print(f"✓ Auto-approval configured for {dev_mode} mode with paths: {', '.join(allowed_paths)}")
 PYEOF
 
-# Ensure minimal user-level settings for features that require user scope (workspace trust)
-# VS Code Server uses Machine/settings.json for machine-level settings
+# Configure workspace trust settings via User settings (proper location)
+# Security workspace trust settings are user-scoped, not machine-scoped
+echo "Configuring workspace trust settings..." | tee -a "$LOG_FILE"
 /usr/bin/python3 - <<'PYEOF'
 import json, os
-# Machine-level settings (used by VS Code Insiders Server)
-machine_settings_path = "/home/coder/.vscode-server-insiders/data/Machine/settings.json"
-os.makedirs(os.path.dirname(machine_settings_path), exist_ok=True)
+
+# User-level settings (proper location for workspace trust)
+user_settings_path = "/home/coder/.vscode-server-insiders/data/User/settings.json"
+os.makedirs(os.path.dirname(user_settings_path), exist_ok=True)
+
 existing = {}
-if os.path.exists(machine_settings_path):
+if os.path.exists(user_settings_path):
     try:
-        with open(machine_settings_path, 'r', encoding='utf-8') as f:
+        with open(user_settings_path, 'r', encoding='utf-8') as f:
             existing = json.load(f)
     except Exception:
         existing = {}
-# Enforce: disable workspace trust prompts globally (must be user scope)
+
+# Configure workspace trust (disable prompts, trust all folders)
+existing["security.workspace.trust.untrustedFiles"] = "open"
 existing["security.workspace.trust.enabled"] = False
 existing["security.workspace.trust.startupPrompt"] = "never"
 existing["security.workspace.trust.emptyWindow"] = False
-# Explicitly trust the workspace and parent folder
+
+# Trust all common workspace paths
 existing["security.workspace.trust.trustedFolders"] = [
     "/home/coder/workspace",
+    "/home/coder/repo", 
+    "/home/coder/remote",
     "/workspace",
+    "/repo",
+    "/remote",
     "/home/coder"
 ]
-with open(machine_settings_path, 'w', encoding='utf-8') as f:
+
+with open(user_settings_path, 'w', encoding='utf-8') as f:
     json.dump(existing, f, indent=2)
-print("Machine-level settings updated for VS Code Server")
+
+print("✓ Workspace trust disabled - all folders trusted")
 PYEOF
 
 # Create a friendly WELCOME.md in the appropriate workspace root
@@ -368,6 +380,30 @@ elif [ -f "/data/.github_token" ]; then
 else
     echo "Warning: GITHUB_TOKEN not set and no shared token found. Skipping GitHub authentication."
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
+fi
+
+# ============================================================================
+# Setup GitHub Copilot Authentication (Optional)
+# ============================================================================
+# Copilot stores authentication in ~/.config/github-copilot/hosts.json
+# If a shared auth file exists, copy it to automatically sign in to Copilot
+
+COPILOT_AUTH_SOURCE="/data/.github-copilot-hosts.json"
+COPILOT_AUTH_DEST="/home/coder/.config/github-copilot/hosts.json"
+
+if [ -f "$COPILOT_AUTH_SOURCE" ]; then
+    echo "Configuring GitHub Copilot authentication from shared storage..." | tee -a "$LOG_FILE"
+    mkdir -p "$(dirname "$COPILOT_AUTH_DEST")"
+    cp "$COPILOT_AUTH_SOURCE" "$COPILOT_AUTH_DEST"
+    chmod 600 "$COPILOT_AUTH_DEST"
+    echo "✓ GitHub Copilot authentication configured - you should be automatically signed in" | tee -a "$LOG_FILE"
+elif [ -n "${GITHUB_TOKEN}" ]; then
+    echo "Note: GITHUB_TOKEN is set but Copilot auth file not found at $COPILOT_AUTH_SOURCE" | tee -a "$LOG_FILE"
+    echo "      Copilot requires interactive sign-in on first use." | tee -a "$LOG_FILE"
+    echo "      To enable auto-signin: Sign in once, then run this command on the host:" | tee -a "$LOG_FILE"
+    echo "      docker cp devfarm-<env>:/home/coder/.config/github-copilot/hosts.json /opt/dev-farm/data/.github-copilot-hosts.json" | tee -a "$LOG_FILE"
+else
+    echo "Note: No GitHub authentication found. Copilot requires interactive sign-in." | tee -a "$LOG_FILE"
 fi
 
 # ============================================================================

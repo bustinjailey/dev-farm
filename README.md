@@ -391,6 +391,7 @@ docker system prune
 - **[docs/ENVIRONMENT_MODES.md](docs/ENVIRONMENT_MODES.md)** - Detailed guide to workspace, git, and SSH modes
 - **[docs/TERMINAL_MODE.md](docs/TERMINAL_MODE.md)** - Terminal mode with CLI AI tools
 - **[docs/SECRETS.md](docs/SECRETS.md)** - Secret management and GitHub authentication
+- **[docs/COPILOT_AUTO_SIGNIN.md](docs/COPILOT_AUTO_SIGNIN.md)** - Enable automatic Copilot authentication
 - **[docs/QUICKREF.md](docs/QUICKREF.md)** - Quick reference for common commands
 
 ---
