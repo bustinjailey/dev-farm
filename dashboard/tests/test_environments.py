@@ -257,3 +257,119 @@ def test_system_update_status_returns_snapshot(flask_client):
     payload = response.get_json()
     assert "running" in payload
     assert "stages" in payload
+
+
+def test_create_environment_generates_default_name(flask_client, app_with_temp_paths):
+    # When no name is provided, a default name is auto-generated
+    module = app_with_temp_paths
+    module.client.containers.list.return_value = []
+    module.client.containers.get.side_effect = module.docker.errors.NotFound("missing")
+    module.client.images.get.return_value = object()
+    created_container = SimpleNamespace(id="container789", name="devfarm-env-123")
+    module.client.containers.run.return_value = created_container
+
+    response = flask_client.post("/create", json={})
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["success"] is True
+    # Name should be auto-generated with timestamp pattern
+    assert "env-" in payload["env_id"]
+
+
+def test_create_environment_git_mode(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    module.client.containers.list.return_value = []
+    module.client.containers.get.side_effect = module.docker.errors.NotFound("missing")
+    module.client.images.get.return_value = object()
+    created_container = SimpleNamespace(id="container456", name="devfarm-git-env")
+    module.client.containers.run.return_value = created_container
+
+    response = flask_client.post(
+        "/create",
+        json={
+            "name": "Git Env",
+            "project": "test-project",
+            "mode": "git",
+            "git_url": "https://github.com/user/repo.git",
+        },
+    )
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["success"] is True
+    assert payload["env_id"] == "git-env"
+
+    registry = module.load_registry()
+    env = registry["git-env"]
+    assert env["mode"] == "git"
+    assert env["git_url"] == "https://github.com/user/repo.git"
+
+
+def test_delete_environment_handles_missing_container(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    module.save_registry({"orphan-env": {"container_id": "missing123"}})
+
+    # Container doesn't exist
+    module.client.containers.get.side_effect = module.docker.errors.NotFound("missing")
+    module.client.volumes.get.side_effect = module.docker.errors.NotFound("missing")
+
+    response = flask_client.post("/delete/orphan-env")
+    assert response.status_code == 200
+    assert response.get_json()["success"] is True
+    # Should still remove from registry
+    assert module.load_registry() == {}
+
+
+def test_start_environment_not_found(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    response = flask_client.post("/start/nonexistent")
+    assert response.status_code == 404
+
+
+def test_stop_environment_not_found(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    response = flask_client.post("/stop/nonexistent")
+    assert response.status_code == 404
+
+
+def test_restart_environment_not_found(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    response = flask_client.post("/api/environments/nonexistent/restart")
+    assert response.status_code == 404
+
+
+def test_get_environment_status_not_found(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    response = flask_client.get("/api/environments/nonexistent/status")
+    assert response.status_code == 404
+
+
+def test_list_images_handles_no_images(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    module.client.images.list.return_value = []
+    response = flask_client.get("/api/images")
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["images"] == []
+
+
+def test_build_image_code_server_success(monkeypatch, flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    exec_result = SimpleNamespace(exit_code=0, output=b"Build successful")
+
+    updater = SimpleNamespace(
+        status="running",
+        start=MagicMock(),
+        exec_run=MagicMock(return_value=exec_result),
+        client=SimpleNamespace(
+            api=SimpleNamespace(
+                exec_create=lambda *a, **k: {"Id": "123"}, 
+                exec_start=lambda *a, **k: None
+            )
+        ),
+    )
+
+    module.client.containers.get.side_effect = lambda name: updater
+    response = flask_client.post("/api/images/build", json={"image_type": "code-server"})
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["success"] is True
