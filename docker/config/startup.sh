@@ -611,8 +611,17 @@ EOFERR
         # This makes the connection appear in VS Code's Remote Explorer
         echo "Creating SSH config for remote-target..." | tee -a "$LOG_FILE"
         
+        # Security Note: StrictHostKeyChecking=no and UserKnownHostsFile=/dev/null are used
+        # to avoid host key verification errors in ephemeral container environments.
+        # This is a trade-off for usability in development environments.
+        # For production use, consider implementing proper host key management:
+        #   1. Pre-populate known_hosts with target host keys
+        #   2. Use SSH certificate authorities
+        #   3. Or require users to manually verify host keys
+        
         if [ -n "${SSH_PASSWORD}" ]; then
             # Password-based authentication
+            # keyboard-interactive is included to support servers that use PAM/challenge-response
             cat > /home/coder/.ssh/config <<EOF
 Host remote-target
     HostName ${SSH_HOST}
@@ -722,6 +731,15 @@ If connection fails:
 2. Verify SSH credentials are correct
 3. Check remote host firewall settings
 4. View logs in `.devfarm/startup.log`
+
+## 🔒 Security Note
+
+**Host Key Verification Disabled**: This environment is configured with `StrictHostKeyChecking=no` 
+for ease of use in development. This means:
+- First connections won't prompt for host key verification
+- Connections are vulnerable to man-in-the-middle attacks
+- Suitable for trusted networks and development environments
+- For production use, implement proper host key management
 
 ## 🎯 What's Different from SSHFS?
 
