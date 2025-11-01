@@ -2114,11 +2114,26 @@ def ensure_tmux_server(container):
     """
     Ensure tmux server is running in the container.
     This prevents "error connecting to /tmp/tmux-1000/default" errors.
+    
+    Args:
+        container: Docker container object (from docker.containers.get())
+        
+    Note:
+        This function is idempotent - calling it multiple times is safe.
+        tmux start-server will not fail if a server is already running.
     """
-    container.exec_run(
-        'tmux start-server',
-        user='coder'
-    )
+    try:
+        result = container.exec_run(
+            'tmux start-server',
+            user='coder'
+        )
+        # tmux start-server typically returns 0 even if server already running
+        # Log only if there's an unexpected error
+        if result.exit_code != 0 and result.output:
+            print(f"Warning: tmux start-server returned {result.exit_code}: {result.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        # Log but don't fail - the subsequent tmux commands will show the real error
+        print(f"Warning: Failed to start tmux server: {e}")
 
 @app.route('/api/environments/<env_id>/ai/chat', methods=['POST'])
 def ai_chat(env_id):
