@@ -280,12 +280,37 @@ Or use the **Accounts** menu in the bottom left corner (👤 icon)
 - **SSH Mode**: Your remote filesystem is mounted at `remote/`
 - **Workspace Mode**: Use this directory directly for your code
 
+## 🔄 Persistent Terminal Sessions
+
+This environment uses **tmux** for persistent terminal sessions:
+- **Your terminals survive disconnections** - Long-running processes continue even when you close the browser
+- **Resume from any device** - Reconnect to see your work in progress
+- **Perfect for terminal-based agentic workflows** - CLI AI agents can work continuously in the background
+
+### Important: What Persists?
+
+✅ **Terminal processes** - Commands running in terminals continue when you disconnect
+✅ **Workspace files** - All your code and changes are saved
+✅ **Chat history** - Previous Copilot conversations are preserved
+
+❌ **Active Copilot Chat generation** - Stops when browser closes (Extension Host shuts down)
+❌ **Extension processes** - Extension Host terminates after idle timeout
+
+💡 **For continuous AI work**: Use terminal-based agents like `aider` or `gh copilot` in tmux!
+
+### Tmux Quick Reference
+- Terminals automatically attach to the persistent session
+- **Detach manually**: Press `Ctrl+B` then `D` (rarely needed)
+- **List sessions**: Run `tmux ls` in a new terminal
+- **Reattach**: Run `tmux attach -t devfarm`
+
 ## 💡 Tips
 
 - Git and the GitHub CLI (gh) are pre-authenticated if you connected GitHub in the dashboard
 - Press `Ctrl+`` (backtick) to open the integrated terminal
 - Press `Ctrl+Shift+E` to focus the file explorer
 - Press `Ctrl+P` to quickly open files
+- Long-running processes in terminals will continue even when you close your browser
 
 Happy hacking!
 EOWELCOME
@@ -1099,6 +1124,82 @@ cat > /home/coder/.vscode-server-insiders/data/User/keybindings.json <<'EOFKEYS'
 ]
 EOFKEYS
 
+# ============================================================================
+# Configure tmux for persistent sessions
+# ============================================================================
+echo "Configuring tmux for persistent terminal sessions..." | tee -a "$LOG_FILE"
+
+# Create tmux configuration for better user experience
+cat > /home/coder/.tmux.conf <<'EOTMUX'
+# Enable mouse support
+set -g mouse on
+
+# Increase scrollback buffer
+set -g history-limit 50000
+
+# Use 256 colors
+set -g default-terminal "screen-256color"
+
+# Start window numbering at 1
+set -g base-index 1
+
+# Renumber windows when one is closed
+set -g renumber-windows on
+
+# Status bar styling
+set -g status-style 'bg=colour236 fg=colour250'
+set -g status-left '[#S] '
+set -g status-right '%Y-%m-%d %H:%M '
+
+# Pane border colors
+set -g pane-border-style 'fg=colour238'
+set -g pane-active-border-style 'fg=colour39'
+
+# Message styling
+set -g message-style 'bg=colour39 fg=colour232'
+
+# Activity monitoring
+setw -g monitor-activity on
+set -g visual-activity off
+
+# Vi mode for copy mode
+setw -g mode-keys vi
+EOTMUX
+
+# Create a tmux startup script that ensures a persistent session exists
+# This will be used by VS Code's integrated terminal
+mkdir -p /home/coder/.local/bin
+
+cat > /home/coder/.local/bin/tmux-persistent <<'EOTMUXSCRIPT'
+#!/bin/bash
+# Attach to existing devfarm session or create new one
+# This script handles edge cases like sessions with no windows
+
+SESSION_NAME="devfarm"
+
+# Check if session exists and has windows
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    # Check if session has any windows
+    WINDOW_COUNT=$(tmux list-windows -t "$SESSION_NAME" 2>/dev/null | wc -l)
+    
+    if [ "$WINDOW_COUNT" -gt 0 ]; then
+        # Session exists and has windows, attach to it
+        exec tmux attach-session -t "$SESSION_NAME"
+    else
+        # Session exists but has no windows, kill it and create new
+        tmux kill-session -t "$SESSION_NAME" 2>/dev/null
+        exec tmux new-session -s "$SESSION_NAME"
+    fi
+else
+    # Session doesn't exist, create it
+    exec tmux new-session -s "$SESSION_NAME"
+fi
+EOTMUXSCRIPT
+
+chmod +x /home/coder/.local/bin/tmux-persistent
+
+echo "✓ Tmux configured for persistent sessions (session name: devfarm)" | tee -a "$LOG_FILE"
+
 # Start VS Code Server
 echo "Starting VS Code Server (workspace will be set via URL parameter)" | tee -a "$LOG_FILE"
 
@@ -1112,14 +1213,42 @@ if [ -n "${ENV_NAME}" ]; then
     echo "Using base path: /env/${ENV_NAME}" | tee -a "$LOG_FILE"
 fi
 
-# Start official VS Code Insiders Server with serve-web command
-# NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
-# Users access workspace via URL: http://host:port/?folder=/path/to/folder
-# Accept server license terms automatically
-# Disable telemetry to reduce network noise and log clutter
-exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
-  --server-data-dir /home/coder/.vscode-server-insiders \
-  --without-connection-token \
-  --accept-server-license-terms \
-  --disable-telemetry \
-  ${BASE_PATH_ARG}
+# Determine connection mode (web or tunnel)
+CONNECTION_MODE="${CONNECTION_MODE:-web}"
+
+if [ "$CONNECTION_MODE" = "tunnel" ]; then
+    echo "🔄 Starting VS Code in tunnel mode (persistent extensions)" | tee -a "$LOG_FILE"
+    echo "Extension Host will stay alive across browser disconnections" | tee -a "$LOG_FILE"
+    
+    # Authenticate tunnel if token available
+    if [ -n "${GITHUB_TOKEN}" ]; then
+        echo "Authenticating tunnel with GitHub..." | tee -a "$LOG_FILE"
+        echo "${GITHUB_TOKEN}" | /usr/bin/code-insiders tunnel user login \
+          --provider github \
+          --access-token 2>&1 | tee -a "$LOG_FILE" || true
+    fi
+    
+    # Start tunnel with unique name
+    TUNNEL_NAME="devfarm-${DEVFARM_ENV_ID:-unknown}"
+    echo "Starting tunnel with name: ${TUNNEL_NAME}" | tee -a "$LOG_FILE"
+    echo "Access via: https://vscode.dev/tunnel/${TUNNEL_NAME}" | tee -a "$LOG_FILE"
+    
+    exec /usr/bin/code-insiders tunnel \
+      --accept-server-license-terms \
+      --name "${TUNNEL_NAME}" \
+      --disable-telemetry
+else
+    echo "🌐 Starting VS Code in web mode (browser access)" | tee -a "$LOG_FILE"
+    
+    # Start official VS Code Insiders Server with serve-web command
+    # NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
+    # Users access workspace via URL: http://host:port/?folder=/path/to/folder
+    # Accept server license terms automatically
+    # Disable telemetry to reduce network noise and log clutter
+    exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
+      --server-data-dir /home/coder/.vscode-server-insiders \
+      --without-connection-token \
+      --accept-server-license-terms \
+      --disable-telemetry \
+      ${BASE_PATH_ARG}
+fi

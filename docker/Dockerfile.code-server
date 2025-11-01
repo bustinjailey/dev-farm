@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
   fuse3 \
   sshpass \
   locales \
+  tmux \
   && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
   && locale-gen \
   && apt-get clean autoclean \

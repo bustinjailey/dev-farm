@@ -11,6 +11,20 @@
   "files.autoSaveDelay": 1000,
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.shellIntegration.enabled": true,
+  "terminal.integrated.profiles.linux": {
+    "persistent-bash": {
+      "path": "/home/coder/.local/bin/tmux-persistent",
+      "icon": "terminal-tmux"
+    },
+    "bash": {
+      "path": "/bin/bash"
+    }
+  },
+  "terminal.integrated.defaultProfile.linux": "persistent-bash",
+  "terminal.integrated.persistentSessionReviveProcess": "onExitAndWindowClose",
+  "github.copilot.chat.persistentSessions": true,
+  "workbench.editor.limit.enabled": false,
+  "workbench.editor.limit.perEditorGroup": false,
   "git.enableSmartCommit": true,
   "git.confirmSync": false,
   "explorer.confirmDelete": false,
