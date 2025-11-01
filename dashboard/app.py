@@ -2110,6 +2110,31 @@ def system_update_status():
 AI_SESSIONS = {}
 AI_SESSIONS_LOCK = threading.Lock()
 
+def ensure_tmux_server(container):
+    """
+    Ensure tmux server is running in the container.
+    This prevents "error connecting to /tmp/tmux-1000/default" errors.
+    
+    Args:
+        container: Docker container object (from docker.containers.get())
+        
+    Note:
+        This function is idempotent - calling it multiple times is safe.
+        tmux start-server will not fail if a server is already running.
+    """
+    try:
+        result = container.exec_run(
+            'tmux start-server',
+            user='coder'
+        )
+        # tmux start-server typically returns 0 even if server already running
+        # Log only if there's an unexpected error
+        if result.exit_code != 0 and result.output:
+            print(f"Warning: tmux start-server returned {result.exit_code}: {result.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        # Log but don't fail - the subsequent tmux commands will show the real error
+        print(f"Warning: Failed to start tmux server: {e}")
+
 @app.route('/api/environments/<env_id>/ai/chat', methods=['POST'])
 def ai_chat(env_id):
     """Send a message to AI tools (Aider or gh copilot) in the environment"""
@@ -2140,6 +2165,9 @@ def ai_chat(env_id):
         
         # Send message to AI tool via tmux
         if tool == 'aider':
+            # Ensure tmux server is running to prevent connection errors
+            ensure_tmux_server(container)
+            
             # Start aider in tmux if not running
             session_check = container.exec_run(
                 'tmux has-session -t devfarm-ai 2>/dev/null',
@@ -2207,6 +2235,9 @@ def ai_output(env_id):
     try:
         container = client.containers.get(container_name)
         
+        # Ensure tmux server is running to prevent connection errors
+        ensure_tmux_server(container)
+        
         # Get output from AI tmux session
         result = container.exec_run(
             'tmux capture-pane -t devfarm-ai -p -S -50',
@@ -2233,6 +2264,9 @@ def ai_stop(env_id):
     
     try:
         container = client.containers.get(container_name)
+        
+        # Ensure tmux server is running to prevent connection errors
+        ensure_tmux_server(container)
         
         # Kill AI tmux session
         container.exec_run(
@@ -2267,6 +2301,9 @@ def get_terminal_preview(env_id):
     
     try:
         container = client.containers.get(container_name)
+        
+        # Ensure tmux server is running to prevent connection errors
+        ensure_tmux_server(container)
         
         # Capture tmux output
         result = container.exec_run(
