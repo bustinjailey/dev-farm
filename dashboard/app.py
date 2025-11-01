@@ -487,7 +487,8 @@ def create_environment():
     env_id = kebabify(display_name)
     
     project = data.get('project', 'general')
-    mode = data.get('mode', 'workspace')  # workspace, ssh, or git
+    mode = data.get('mode', 'workspace')  # workspace, ssh, git, or terminal
+    connection_mode = data.get('connection_mode', 'web')  # web or tunnel
     
     # Mode-specific parameters
     ssh_host = data.get('ssh_host', '')
@@ -572,6 +573,7 @@ def create_environment():
             'GITHUB_USERNAME': github_username,
             'GITHUB_EMAIL': github_email,
             'DEV_MODE': mode,
+            'CONNECTION_MODE': connection_mode,  # web or tunnel
             'WORKSPACE_NAME': display_name,  # Pass display name for workspace tab
             'DEVFARM_ENV_ID': env_id,  # Pass environment ID for MCP server tracking
             'ENV_NAME': env_id  # Pass environment name for URL base path
@@ -2097,6 +2099,268 @@ def system_update_status():
     """Return current update progress"""
     with UPDATE_LOCK:
         return jsonify(UPDATE_PROGRESS)
+
+# ============================================================================
+# AI Chat Interface (Aider and gh copilot CLI)
+# ============================================================================
+
+# Track active AI sessions per environment
+AI_SESSIONS = {}
+AI_SESSIONS_LOCK = threading.Lock()
+
+@app.route('/api/environments/<env_id>/ai/chat', methods=['POST'])
+def ai_chat(env_id):
+    """Send a message to AI tools (Aider or gh copilot) in the environment"""
+    data = request.get_json()
+    message = data.get('message', '')
+    tool = data.get('tool', 'aider')  # 'aider' or 'copilot'
+    
+    if not message:
+        return jsonify({'error': 'Message is required'}), 400
+    
+    registry = load_registry()
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    container_name = f"devfarm-{env_id}"
+    
+    try:
+        container = client.containers.get(container_name)
+        
+        # Start AI session if not exists
+        with AI_SESSIONS_LOCK:
+            if env_id not in AI_SESSIONS or not AI_SESSIONS[env_id].get('active'):
+                AI_SESSIONS[env_id] = {
+                    'tool': tool,
+                    'active': True,
+                    'session_id': secrets.token_hex(8)
+                }
+        
+        # Send message to AI tool via tmux
+        if tool == 'aider':
+            # Start aider in tmux if not running
+            session_check = container.exec_run(
+                'tmux has-session -t devfarm-ai 2>/dev/null',
+                user='coder'
+            )
+            
+            if session_check.exit_code != 0:
+                # Start aider in new tmux session
+                container.exec_run(
+                    'tmux new-session -d -s devfarm-ai "cd /workspace && aider --yes-always --message-file /tmp/aider-input.txt"',
+                    user='coder',
+                    workdir='/workspace'
+                )
+                time.sleep(2)  # Give aider time to start
+            
+            # Write message to input file
+            container.exec_run(
+                f'bash -c "echo {repr(message)} > /tmp/aider-input.txt"',
+                user='coder'
+            )
+            
+            # Send message to aider
+            container.exec_run(
+                f'tmux send-keys -t devfarm-ai {repr(message)} Enter',
+                user='coder'
+            )
+            
+        elif tool == 'copilot':
+            # Use gh copilot suggest
+            result = container.exec_run(
+                f'gh copilot suggest {repr(message)}',
+                user='coder',
+                workdir='/workspace'
+            )
+            
+            # Broadcast response immediately
+            broadcast_sse('ai-response', {
+                'env_id': env_id,
+                'tool': tool,
+                'response': result.output.decode('utf-8') if result.output else '',
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'session_id': AI_SESSIONS[env_id]['session_id'],
+            'message': f'Message sent to {tool}'
+        })
+        
+    except docker.errors.NotFound:
+        return jsonify({'error': 'Container not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/environments/<env_id>/ai/output')
+def ai_output(env_id):
+    """Get recent output from AI tool"""
+    registry = load_registry()
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    container_name = f"devfarm-{env_id}"
+    
+    try:
+        container = client.containers.get(container_name)
+        
+        # Get output from AI tmux session
+        result = container.exec_run(
+            'tmux capture-pane -t devfarm-ai -p -S -50',
+            user='coder'
+        )
+        
+        output = result.output.decode('utf-8') if result.output else ''
+        
+        return jsonify({
+            'output': output,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except docker.errors.NotFound:
+        return jsonify({'error': 'Container not found'}), 404
+    except Exception as e:
+        return jsonify({'output': '', 'error': str(e)})
+
+
+@app.route('/api/environments/<env_id>/ai/stop', methods=['POST'])
+def ai_stop(env_id):
+    """Stop the AI session"""
+    container_name = f"devfarm-{env_id}"
+    
+    try:
+        container = client.containers.get(container_name)
+        
+        # Kill AI tmux session
+        container.exec_run(
+            'tmux kill-session -t devfarm-ai 2>/dev/null',
+            user='coder'
+        )
+        
+        with AI_SESSIONS_LOCK:
+            if env_id in AI_SESSIONS:
+                AI_SESSIONS[env_id]['active'] = False
+        
+        return jsonify({'success': True})
+        
+    except docker.errors.NotFound:
+        return jsonify({'error': 'Container not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# Enhanced Monitoring APIs
+# ============================================================================
+
+@app.route('/api/environments/<env_id>/terminal-preview')
+def get_terminal_preview(env_id):
+    """Get last 50 lines of tmux output"""
+    registry = load_registry()
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    container_name = f"devfarm-{env_id}"
+    
+    try:
+        container = client.containers.get(container_name)
+        
+        # Capture tmux output
+        result = container.exec_run(
+            'tmux capture-pane -t devfarm -p -S -50 2>/dev/null || echo "No active session"',
+            user='coder'
+        )
+        
+        return jsonify({
+            'output': result.output.decode('utf-8') if result.output else '',
+            'timestamp': datetime.now().isoformat()
+        })
+    except docker.errors.NotFound:
+        return jsonify({'error': 'Container not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/environments/<env_id>/git-activity')
+def get_git_activity(env_id):
+    """Get recent git commits"""
+    registry = load_registry()
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    container_name = f"devfarm-{env_id}"
+    
+    try:
+        container = client.containers.get(container_name)
+        
+        # Get last 10 commits
+        result = container.exec_run(
+            'git log --oneline -10 --format="%H|%an|%ar|%s" 2>/dev/null || echo ""',
+            workdir='/workspace',
+            user='coder'
+        )
+        
+        commits = []
+        output = result.output.decode('utf-8') if result.output else ''
+        for line in output.strip().split('\n'):
+            if line and '|' in line:
+                try:
+                    sha, author, time_ago, message = line.split('|', 3)
+                    commits.append({
+                        'sha': sha[:7],
+                        'author': author,
+                        'time': time_ago,
+                        'message': message
+                    })
+                except ValueError:
+                    continue
+        
+        return jsonify({'commits': commits})
+    except docker.errors.NotFound:
+        return jsonify({'commits': []})
+    except Exception as e:
+        return jsonify({'commits': [], 'error': str(e)})
+
+
+@app.route('/api/environments/<env_id>/processes')
+def get_processes(env_id):
+    """Get running processes"""
+    registry = load_registry()
+    if env_id not in registry:
+        return jsonify({'error': 'Environment not found'}), 404
+    
+    container_name = f"devfarm-{env_id}"
+    
+    try:
+        container = client.containers.get(container_name)
+        
+        # Get processes (filter common ones)
+        result = container.exec_run(
+            "ps aux | grep -E 'aider|code-insiders|node|python|npm|gh' | grep -v grep",
+            user='coder'
+        )
+        
+        processes = []
+        output = result.output.decode('utf-8') if result.output else ''
+        for line in output.strip().split('\n'):
+            if line:
+                parts = line.split()
+                if len(parts) >= 11:
+                    processes.append({
+                        'pid': parts[1],
+                        'cpu': parts[2],
+                        'mem': parts[3],
+                        'time': parts[9],
+                        'command': ' '.join(parts[10:])[:100]  # Truncate long commands
+                    })
+        
+        return jsonify({'processes': processes})
+    except docker.errors.NotFound:
+        return jsonify({'processes': []})
+    except Exception as e:
+        return jsonify({'processes': [], 'error': str(e)})
+
 
 def background_status_monitor():
     """Monitor container status changes and broadcast SSE updates"""

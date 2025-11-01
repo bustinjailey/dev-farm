@@ -1403,14 +1403,42 @@ if [ -n "${ENV_NAME}" ]; then
     echo "Using base path: /env/${ENV_NAME}" | tee -a "$LOG_FILE"
 fi
 
-# Start official VS Code Insiders Server with serve-web command
-# NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
-# Users access workspace via URL: http://host:port/?folder=/path/to/folder
-# Accept server license terms automatically
-# Disable telemetry to reduce network noise and log clutter
-exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
-  --server-data-dir /home/coder/.vscode-server-insiders \
-  --without-connection-token \
-  --accept-server-license-terms \
-  --disable-telemetry \
-  ${BASE_PATH_ARG}
+# Determine connection mode (web or tunnel)
+CONNECTION_MODE="${CONNECTION_MODE:-web}"
+
+if [ "$CONNECTION_MODE" = "tunnel" ]; then
+    echo "🔄 Starting VS Code in tunnel mode (persistent extensions)" | tee -a "$LOG_FILE"
+    echo "Extension Host will stay alive across browser disconnections" | tee -a "$LOG_FILE"
+    
+    # Authenticate tunnel if token available
+    if [ -n "${GITHUB_TOKEN}" ]; then
+        echo "Authenticating tunnel with GitHub..." | tee -a "$LOG_FILE"
+        echo "${GITHUB_TOKEN}" | /usr/bin/code-insiders tunnel user login \
+          --provider github \
+          --access-token 2>&1 | tee -a "$LOG_FILE" || true
+    fi
+    
+    # Start tunnel with unique name
+    TUNNEL_NAME="devfarm-${DEVFARM_ENV_ID:-unknown}"
+    echo "Starting tunnel with name: ${TUNNEL_NAME}" | tee -a "$LOG_FILE"
+    echo "Access via: https://vscode.dev/tunnel/${TUNNEL_NAME}" | tee -a "$LOG_FILE"
+    
+    exec /usr/bin/code-insiders tunnel \
+      --accept-server-license-terms \
+      --name "${TUNNEL_NAME}" \
+      --disable-telemetry
+else
+    echo "🌐 Starting VS Code in web mode (browser access)" | tee -a "$LOG_FILE"
+    
+    # Start official VS Code Insiders Server with serve-web command
+    # NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
+    # Users access workspace via URL: http://host:port/?folder=/path/to/folder
+    # Accept server license terms automatically
+    # Disable telemetry to reduce network noise and log clutter
+    exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
+      --server-data-dir /home/coder/.vscode-server-insiders \
+      --without-connection-token \
+      --accept-server-license-terms \
+      --disable-telemetry \
+      ${BASE_PATH_ARG}
+fi

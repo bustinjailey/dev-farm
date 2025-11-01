@@ -591,6 +591,185 @@
       color: #333;
     }
 
+    /* AI Chat Panel Styles */
+    .ai-chat-panel {
+      margin-top: 20px;
+      background: #f7fafc;
+      border-radius: 12px;
+      padding: 15px;
+      border: 2px solid #667eea;
+    }
+
+    .ai-tool-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .ai-tool-btn {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .ai-tool-btn.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .ai-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .output-placeholder {
+      color: #888;
+      font-style: italic;
+    }
+
+    .ai-input-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .ai-input {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .ai-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn-send {
+      background: #667eea;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .btn-send:hover {
+      background: #5568d3;
+    }
+
+    /* Monitoring Panel Styles */
+    .monitoring-panel {
+      margin-top: 20px;
+      background: #f7fafc;
+      border-radius: 12px;
+      padding: 15px;
+      border: 2px solid #48bb78;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .panel-header h3 {
+      color: #333;
+      font-size: 1.2em;
+    }
+
+    .btn-close {
+      background: #e2e8f0;
+      color: #666;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .btn-close:hover {
+      background: #cbd5e0;
+    }
+
+    .monitor-section {
+      margin-bottom: 20px;
+    }
+
+    .monitor-section h4 {
+      color: #667eea;
+      font-size: 1em;
+      margin-bottom: 10px;
+    }
+
+    .terminal-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 12px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin-bottom: 8px;
+    }
+
+    .activity-list,
+    .process-list {
+      list-style: none;
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .activity-list li,
+    .process-list li {
+      padding: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 0.9em;
+    }
+
+    .activity-list li:last-child,
+    .process-list li:last-child {
+      border-bottom: none;
+    }
+
+    .commit-time,
+    .process-stats {
+      color: #888;
+      font-size: 0.85em;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.85em;
+    }
+
     @media (max-width: 600px) {
       h1 {
         font-size: 2em;
@@ -598,6 +777,16 @@
 
       .env-actions {
         grid-template-columns: 1fr;
+      }
+
+      .ai-input-container {
+        flex-direction: column;
+      }
+
+      .terminal-output,
+      .ai-output {
+        font-size: 11px;
+        max-height: 200px;
       }
     }
   </style>
@@ -724,6 +913,12 @@
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
           </button>
+          <button class="btn" onclick="toggleMonitoring('{{ env.id }}')" style="background: #48bb78;">
+            👁️ Monitor
+          </button>
+          <button class="btn" onclick="toggleAIChat('{{ env.id }}')" style="background: #667eea;">
+            🤖 AI Chat
+          </button>
           {% elif env.status == 'starting' %}
           <button class="btn btn-open" id="open-{{ env.id }}" disabled style="opacity: 0.6;">
             ⏳ Starting...
@@ -745,6 +940,56 @@
           <button class="btn btn-delete" onclick="deleteEnvironment('{{ env.id }}')">
             🗑️ Delete
           </button>
+        </div>
+
+        <!-- AI Chat Interface (hidden by default) -->
+        <div class="ai-chat-panel" id="ai-chat-{{ env.id }}" style="display: none;">
+          <div class="panel-header">
+            <h3>🤖 AI Assistant</h3>
+            <button class="btn-close" onclick="toggleAIChat('{{ env.id }}')">✕</button>
+          </div>
+          <div class="ai-tool-selector">
+            <button class="ai-tool-btn active" data-tool="aider" onclick="selectAITool('{{ env.id }}', 'aider')">Aider</button>
+            <button class="ai-tool-btn" data-tool="copilot" onclick="selectAITool('{{ env.id }}', 'copilot')">Copilot CLI</button>
+          </div>
+          <div class="ai-output" id="ai-output-{{ env.id }}">
+            <div class="output-placeholder">AI assistant ready. Type your request below.</div>
+          </div>
+          <div class="ai-input-container">
+            <textarea class="ai-input" id="ai-input-{{ env.id }}" placeholder="Ask AI to help with your code..." rows="3"></textarea>
+            <button class="btn btn-send" onclick="sendAIMessage('{{ env.id }}')">Send</button>
+          </div>
+        </div>
+
+        <!-- Monitoring Panel (hidden by default) -->
+        <div class="monitoring-panel" id="monitoring-{{ env.id }}" style="display: none;">
+          <div class="panel-header">
+            <h3>📊 Environment Monitor</h3>
+            <button class="btn-close" onclick="toggleMonitoring('{{ env.id }}')">✕</button>
+          </div>
+          
+          <!-- Terminal Output -->
+          <div class="monitor-section">
+            <h4>🖥️ Terminal Output</h4>
+            <pre class="terminal-output" id="terminal-{{ env.id }}">Loading...</pre>
+            <button class="btn btn-sm" onclick="refreshTerminal('{{ env.id }}')">🔄 Refresh</button>
+          </div>
+          
+          <!-- Git Activity -->
+          <div class="monitor-section">
+            <h4>📝 Git Activity</h4>
+            <ul class="activity-list" id="git-activity-{{ env.id }}">
+              <li>Loading...</li>
+            </ul>
+          </div>
+          
+          <!-- Running Processes -->
+          <div class="monitor-section">
+            <h4>⚙️ Running Processes</h4>
+            <ul class="process-list" id="processes-{{ env.id }}">
+              <li>Loading...</li>
+            </ul>
+          </div>
         </div>
       </div>
       {% endfor %}
@@ -2361,6 +2606,233 @@
           copyBtn.style.background = '#48bb78';
         }, 2000);
       }
+    }
+
+    // ============================================================================
+    // AI Chat Interface Functions
+    // ============================================================================
+    
+    let activeAITool = {};  // Track active tool per environment
+    let aiRefreshIntervals = {};  // Track auto-refresh intervals
+    
+    function toggleAIChat(envId) {
+      const panel = document.getElementById(`ai-chat-${envId}`);
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        if (!activeAITool[envId]) {
+          activeAITool[envId] = 'aider';
+        }
+        // Start auto-refresh for AI output
+        startAIOutputRefresh(envId);
+      } else {
+        panel.style.display = 'none';
+        stopAIOutputRefresh(envId);
+      }
+    }
+    
+    function selectAITool(envId, tool) {
+      activeAITool[envId] = tool;
+      
+      // Update button states
+      const panel = document.getElementById(`ai-chat-${envId}`);
+      const buttons = panel.querySelectorAll('.ai-tool-btn');
+      buttons.forEach(btn => {
+        if (btn.dataset.tool === tool) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      
+      // Clear output
+      const output = document.getElementById(`ai-output-${envId}`);
+      output.innerHTML = '<div class="output-placeholder">Switched to ' + tool + '. Ready for your request.</div>';
+    }
+    
+    async function sendAIMessage(envId) {
+      const input = document.getElementById(`ai-input-${envId}`);
+      const message = input.value.trim();
+      
+      if (!message) return;
+      
+      const tool = activeAITool[envId] || 'aider';
+      const output = document.getElementById(`ai-output-${envId}`);
+      
+      // Show loading
+      output.innerHTML += `\n\n> ${message}\n\nProcessing...`;
+      output.scrollTop = output.scrollHeight;
+      
+      // Clear input
+      input.value = '';
+      
+      try {
+        const response = await fetch(`/api/environments/${envId}/ai/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, tool })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to ' + tool + '. Check output below.');
+          
+          // Start fetching output
+          setTimeout(() => fetchAIOutput(envId), 1000);
+        } else {
+          output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + data.error);
+        }
+        
+      } catch (error) {
+        output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + error.message);
+      }
+      
+      output.scrollTop = output.scrollHeight;
+    }
+    
+    async function fetchAIOutput(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/ai/output`);
+        const data = await response.json();
+        
+        const output = document.getElementById(`ai-output-${envId}`);
+        if (data.output) {
+          output.textContent = data.output;
+          output.scrollTop = output.scrollHeight;
+        }
+      } catch (error) {
+        console.error('Error fetching AI output:', error);
+      }
+    }
+    
+    function startAIOutputRefresh(envId) {
+      // Refresh AI output every 2 seconds
+      if (aiRefreshIntervals[envId]) {
+        clearInterval(aiRefreshIntervals[envId]);
+      }
+      aiRefreshIntervals[envId] = setInterval(() => fetchAIOutput(envId), 2000);
+    }
+    
+    function stopAIOutputRefresh(envId) {
+      if (aiRefreshIntervals[envId]) {
+        clearInterval(aiRefreshIntervals[envId]);
+        delete aiRefreshIntervals[envId];
+      }
+    }
+    
+    // Handle Enter key in AI input (Ctrl+Enter to send)
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.ai-input').forEach(input => {
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            const envId = this.id.replace('ai-input-', '');
+            sendAIMessage(envId);
+          }
+        });
+      });
+    });
+    
+    // ============================================================================
+    // Monitoring Panel Functions
+    // ============================================================================
+    
+    let monitoringIntervals = {};  // Track auto-refresh intervals
+    
+    function toggleMonitoring(envId) {
+      const panel = document.getElementById(`monitoring-${envId}`);
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        loadMonitoringData(envId);
+        // Start auto-refresh
+        startMonitoringRefresh(envId);
+      } else {
+        panel.style.display = 'none';
+        stopMonitoringRefresh(envId);
+      }
+    }
+    
+    async function loadMonitoringData(envId) {
+      await Promise.all([
+        refreshTerminal(envId),
+        refreshGitActivity(envId),
+        refreshProcesses(envId)
+      ]);
+    }
+    
+    async function refreshTerminal(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/terminal-preview`);
+        const data = await response.json();
+        
+        const terminal = document.getElementById(`terminal-${envId}`);
+        terminal.textContent = data.output || 'No terminal output available';
+      } catch (error) {
+        console.error('Error fetching terminal:', error);
+      }
+    }
+    
+    async function refreshGitActivity(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/git-activity`);
+        const data = await response.json();
+        
+        const list = document.getElementById(`git-activity-${envId}`);
+        if (data.commits && data.commits.length > 0) {
+          list.innerHTML = data.commits.map(c => 
+            `<li><span class="commit-time">${c.time}</span> • ${c.message}</li>`
+          ).join('');
+        } else {
+          list.innerHTML = '<li>No git activity</li>';
+        }
+      } catch (error) {
+        console.error('Error fetching git activity:', error);
+      }
+    }
+    
+    async function refreshProcesses(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/processes`);
+        const data = await response.json();
+        
+        const list = document.getElementById(`processes-${envId}`);
+        if (data.processes && data.processes.length > 0) {
+          list.innerHTML = data.processes.map(p => 
+            `<li>${p.command} <span class="process-stats">(CPU: ${p.cpu}%, Time: ${p.time})</span></li>`
+          ).join('');
+        } else {
+          list.innerHTML = '<li>No relevant processes running</li>';
+        }
+      } catch (error) {
+        console.error('Error fetching processes:', error);
+      }
+    }
+    
+    function startMonitoringRefresh(envId) {
+      // Refresh monitoring data every 5 seconds
+      if (monitoringIntervals[envId]) {
+        clearInterval(monitoringIntervals[envId]);
+      }
+      monitoringIntervals[envId] = setInterval(() => loadMonitoringData(envId), 5000);
+    }
+    
+    function stopMonitoringRefresh(envId) {
+      if (monitoringIntervals[envId]) {
+        clearInterval(monitoringIntervals[envId]);
+        delete monitoringIntervals[envId];
+      }
+    }
+    
+    // Listen for AI responses via SSE
+    if (eventSource) {
+      eventSource.addEventListener('ai-response', function(e) {
+        const data = JSON.parse(e.data);
+        const output = document.getElementById(`ai-output-${data.env_id}`);
+        if (output) {
+          output.innerHTML += `\n\n--- Response at ${new Date(data.timestamp).toLocaleTimeString()} ---\n${data.response}`;
+          output.scrollTop = output.scrollHeight;
+        }
+      });
     }
   </script>
 </body>
