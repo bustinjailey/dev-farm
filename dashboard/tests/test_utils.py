@@ -39,7 +39,7 @@ def test_get_workspace_path_modes(app_with_temp_paths):
     module = app_with_temp_paths
     assert module.get_workspace_path("git") == "/repo"
     assert module.get_workspace_path("workspace") == "/workspace"
-    assert module.get_workspace_path("ssh") == "/remote"
+    assert module.get_workspace_path("ssh") == "/workspace"  # SSH mode now uses workspace
     assert module.get_workspace_path("terminal") == "/workspace"
     assert module.get_workspace_path("unknown") == "/workspace"
 
@@ -56,7 +56,7 @@ def test_get_workspace_path_reads_aliases(app_with_temp_paths):
     module.load_path_aliases.cache_clear()
 
     assert module.get_workspace_path("git") == "/alt/repo"
-    assert module.get_workspace_path("ssh") == "/alt/remote"
+    assert module.get_workspace_path("ssh") == "/alt/workspace"  # SSH mode uses workspace alias
     assert module.get_workspace_path("workspace") == "/alt/workspace"
 
 
