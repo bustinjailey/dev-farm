@@ -1156,8 +1156,8 @@ def manage_github_config():
         # Don't expose the actual token, just whether it's set
         return jsonify({
             'has_pat': bool(github_config.get('personal_access_token')),
-            'username': github_config.get('username', 'bustinjailey'),
-            'email': github_config.get('email', 'bustinjailey@users.noreply.github.com')
+            'username': github_config.get('username', ''),
+            'email': github_config.get('email', '')
         })
     
     elif request.method == 'POST':

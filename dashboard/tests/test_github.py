@@ -236,3 +236,133 @@ def test_github_auth_logout_clears_token(monkeypatch, flask_client, app_with_tem
     assert response.status_code == 200
     assert payload["success"] is True
     assert not Path(module.GITHUB_TOKEN_FILE).exists()
+
+
+def test_github_repos_fetches_repositories(monkeypatch, flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    Path(module.GITHUB_TOKEN_FILE).write_text("token123", encoding="utf-8")
+
+    class FakeResponse:
+        def __init__(self, status_code, json_data=None):
+            self.status_code = status_code
+            self._json = json_data or {}
+
+        def json(self):
+            return self._json
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if url.endswith("/user"):
+            return FakeResponse(200, json_data={"login": "testuser"})
+        if url.endswith("/user/repos"):
+            return FakeResponse(200, json_data=[
+                {
+                    'full_name': 'user/repo1',
+                    'ssh_url': 'git@github.com:user/repo1.git',
+                    'clone_url': 'https://github.com/user/repo1.git',
+                    'description': 'Test repo',
+                    'private': False,
+                    'updated_at': '2024-01-01T00:00:00Z'
+                },
+                {
+                    'full_name': 'user/repo2',
+                    'ssh_url': 'git@github.com:user/repo2.git',
+                    'clone_url': 'https://github.com/user/repo2.git',
+                    'description': 'Private repo',
+                    'private': True,
+                    'updated_at': '2024-01-02T00:00:00Z'
+                }
+            ])
+        raise AssertionError(f"Unexpected URL {url}")
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+
+    response = flask_client.get("/api/github/repos")
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert len(payload) == 2
+    assert payload[0]["name"] == "user/repo1"
+    assert payload[0]["private"] is False
+    assert payload[1]["name"] == "user/repo2"
+    assert payload[1]["private"] is True
+
+
+def test_github_repos_returns_401_without_token(flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    response = flask_client.get("/api/github/repos")
+    assert response.status_code == 401
+    assert "token not configured" in response.get_json()["error"]
+
+
+def test_github_repos_handles_expired_token(monkeypatch, flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    Path(module.GITHUB_TOKEN_FILE).write_text("expired_token", encoding="utf-8")
+
+    class FakeResponse:
+        def __init__(self, status_code):
+            self.status_code = status_code
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        return FakeResponse(401)
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+
+    response = flask_client.get("/api/github/repos")
+    payload = response.get_json()
+    assert response.status_code == 401
+    assert payload["needs_reauth"] is True
+    assert "expired" in payload["error"]
+
+
+def test_github_auth_poll_expired(monkeypatch, flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    # Device code started long ago
+    now = module.time.time()
+    Path(module.DEVICE_CODE_FILE).write_text(
+        module.json.dumps(
+            {
+                "device_code": "device",
+                "user_code": "CODE",
+                "verification_uri": "https://verify",
+                "expires_in": 600,
+                "interval": 5,
+                "started_at": now - 700,  # 700 seconds ago, expired
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    response = flask_client.post("/api/github/auth/poll")
+    payload = response.get_json()
+    assert response.status_code == 200  # Returns 200 with expired status
+    assert payload["status"] == "expired"
+    assert not Path(module.DEVICE_CODE_FILE).exists()
+
+
+def test_github_auth_poll_slow_down(monkeypatch, flask_client, app_with_temp_paths):
+    module = app_with_temp_paths
+    now = module.time.time()
+    Path(module.DEVICE_CODE_FILE).write_text(
+        module.json.dumps(
+            {
+                "device_code": "device",
+                "user_code": "CODE",
+                "verification_uri": "",
+                "expires_in": 900,
+                "interval": 5,
+                "started_at": now,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class SlowDownResponse:
+        status_code = 200
+
+        def json(self):
+            return {"error": "slow_down"}
+
+    monkeypatch.setattr(module.requests, "post", lambda *args, **kwargs: SlowDownResponse())
+
+    response = flask_client.post("/api/github/auth/poll")
+    payload = response.get_json()
+    assert payload["status"] == "slow_down"
