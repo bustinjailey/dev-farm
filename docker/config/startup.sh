@@ -595,48 +595,59 @@ EOF
         WORKSPACE_ROOT="/home/coder/workspace"
     fi
 elif [ "${DEV_MODE}" = "ssh" ]; then
-    # SSH mode - mount remote filesystem as subdirectory to preserve local workspace settings
-    echo "Setting up SSHFS mount for remote filesystem (background)..." | tee -a "$LOG_FILE"
+    # SSH mode - configure VS Code Remote-SSH for automatic connection
+    echo "Setting up Remote-SSH connection..." | tee -a "$LOG_FILE"
 
     if [ -z "${SSH_HOST}" ]; then
-        echo "Error: SSH_HOST not set. Cannot mount remote filesystem." | tee -a "$LOG_FILE"
+        echo "Error: SSH_HOST not set. Cannot configure remote connection." | tee -a "$LOG_FILE"
         cat > /home/coder/workspace/SSH_SETUP_ERROR.md <<'EOFERR'
 # SSH Setup Error
 
-SSH_HOST environment variable is not set. Cannot mount remote filesystem.
+SSH_HOST environment variable is not set. Cannot configure remote connection.
 
 To use SSH mode, you need to provide:
 - SSH_HOST: The remote hostname or IP
 - SSH_USER: The SSH username (optional, defaults to root)
-- SSH_PATH: The remote path to mount (optional, defaults to /home)
-- SSH_PRIVATE_KEY: Your SSH private key (optional, for key-based auth)
+- SSH_PATH: The remote path to open (optional, defaults to /home)
+- SSH_PASSWORD: Password for SSH authentication (recommended)
+- SSH_PRIVATE_KEY: Your SSH private key (alternative to password)
 
 You can update these settings in the dashboard.
 EOFERR
     else
-        # Start background mount process - don't block container startup
-        (
-            # Background mount function
-            echo "Background SSH mount starting..." | tee -a "$LOG_FILE"
-            
-            mkdir -p /home/coder/.ssh
-            chmod 700 /home/coder/.ssh
+        # Configure SSH connection for VS Code Remote-SSH extension
+        echo "Configuring SSH connection..." | tee -a "$LOG_FILE"
+        
+        mkdir -p /home/coder/.ssh
+        chmod 700 /home/coder/.ssh
 
-            SSH_USER="${SSH_USER:-root}"
-            SSH_PATH="${SSH_PATH:-/home}"
-            SSH_PORT="${SSH_PORT:-22}"
+        SSH_USER="${SSH_USER:-root}"
+        SSH_PATH="${SSH_PATH:-/home}"
+        SSH_PORT="${SSH_PORT:-22}"
 
-            # Optional: private key provided via env (SSH_PRIVATE_KEY). If present, use it.
-            if [ -n "${SSH_PRIVATE_KEY}" ]; then
-                echo "Using SSH private key from environment" | tee -a "$LOG_FILE"
-                echo "${SSH_PRIVATE_KEY}" > /home/coder/.ssh/id_rsa
-                chmod 600 /home/coder/.ssh/id_rsa
-            fi
+        # Setup SSH key if provided
+        if [ -n "${SSH_PRIVATE_KEY}" ]; then
+            echo "Using SSH private key from environment" | tee -a "$LOG_FILE"
+            echo "${SSH_PRIVATE_KEY}" > /home/coder/.ssh/id_rsa
+            chmod 600 /home/coder/.ssh/id_rsa
+        fi
 
-            # Create SSH config entry
-            if [ -n "${SSH_PASSWORD}" ]; then
-                # For password auth, don't specify IdentityFile
-                cat > /home/coder/.ssh/config <<EOF
+        # Create SSH config entry for Remote-SSH
+        # This makes the connection appear in VS Code's Remote Explorer
+        echo "Creating SSH config for remote-target..." | tee -a "$LOG_FILE"
+        
+        # Security Note: StrictHostKeyChecking=no and UserKnownHostsFile=/dev/null are used
+        # to avoid host key verification errors in ephemeral container environments.
+        # This is a trade-off for usability in development environments.
+        # For production use, consider implementing proper host key management:
+        #   1. Pre-populate known_hosts with target host keys
+        #   2. Use SSH certificate authorities
+        #   3. Or require users to manually verify host keys
+        
+        if [ -n "${SSH_PASSWORD}" ]; then
+            # Password-based authentication
+            # keyboard-interactive is included to support servers that use PAM/challenge-response
+            cat > /home/coder/.ssh/config <<EOF
 Host remote-target
     HostName ${SSH_HOST}
     User ${SSH_USER}
@@ -645,11 +656,11 @@ Host remote-target
     UserKnownHostsFile /dev/null
     ServerAliveInterval 15
     ServerAliveCountMax 3
-    PreferredAuthentications password
+    PreferredAuthentications password,keyboard-interactive
 EOF
-            else
-                # For key-based auth, specify identity file
-                cat > /home/coder/.ssh/config <<EOF
+        else
+            # Key-based authentication
+            cat > /home/coder/.ssh/config <<EOF
 Host remote-target
     HostName ${SSH_HOST}
     User ${SSH_USER}
@@ -661,381 +672,180 @@ Host remote-target
     IdentityFile /home/coder/.ssh/id_rsa
     PreferredAuthentications publickey
 EOF
-            fi
-            chmod 600 /home/coder/.ssh/config
-
-            # Create mount point as workspace root
-            REMOTE_MOUNT_DIR="/home/coder/remote"
-            WORKSPACE_ROOT="/home/coder/remote"
-            mkdir -p "$REMOTE_MOUNT_DIR"
-            
-            # Ensure FUSE device exists and is accessible
-            if [ ! -e /dev/fuse ]; then
-                echo "Error: /dev/fuse is not available in the container. SSHFS cannot mount." | tee -a "$LOG_FILE"
-                cat > /home/coder/workspace/SSH_MOUNT_ERROR.md <<'EOFERR'
-# SSH Mount Error
-
-/dev/fuse device is not available in this container.
-
-SSHFS requires FUSE support which needs the container to be started with privileged mode.
-The dashboard automatically configures this for SSH mode, but the device is not available.
-
-**Possible causes:**
-- Docker doesn't have access to /dev/fuse on the host
-- The host system doesn't have FUSE support enabled
-- Container security policies blocking device access
-
-**To fix:**
-1. On the host, ensure FUSE is installed: `apt-get install fuse3`
-2. Load the FUSE kernel module: `modprobe fuse`
-3. Recreate this environment
-
-If the issue persists, SSH mode may not be supported on this host.
-EOFERR
-                exit 1
-            fi
-            
-            # Test if FUSE is actually usable (not just present)
-            if ! fusermount3 -V >/dev/null 2>&1; then
-                echo "Warning: fusermount3 not working properly" | tee -a "$LOG_FILE"
-            fi
-            # Attempt to mount remote path to subdirectory
-            echo "Mounting ${SSH_USER}@${SSH_HOST}:${SSH_PATH} -> ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
-            
-            # Unmount if previously mounted
-            if mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                fusermount3 -u "$REMOTE_MOUNT_DIR" || true
-            fi
-            
-            # Mount with user mapping and reconnect options
-            UID_VAL=$(id -u coder 2>/dev/null || id -u)
-            GID_VAL=$(id -g coder 2>/dev/null || id -g)
-            
-            # Prepare SSHFS options - simplified for better compatibility
-            SSHFS_OPTS="-p ${SSH_PORT}"
-            # Use allow_other to allow all users to access mount (requires user_allow_other in /etc/fuse.conf)
-            SSHFS_OPTS="${SSHFS_OPTS} -o allow_other"
-            SSHFS_OPTS="${SSHFS_OPTS} -o default_permissions"
-            SSHFS_OPTS="${SSHFS_OPTS} -o StrictHostKeyChecking=no"
-            SSHFS_OPTS="${SSHFS_OPTS} -o UserKnownHostsFile=/dev/null"
-            SSHFS_OPTS="${SSHFS_OPTS} -o reconnect"
-            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveInterval=15"
-            SSHFS_OPTS="${SSHFS_OPTS} -o ServerAliveCountMax=3"
-            SSHFS_OPTS="${SSHFS_OPTS} -o uid=${UID_VAL}"
-            SSHFS_OPTS="${SSHFS_OPTS} -o gid=${GID_VAL}"
-            # Add cache options for better performance
-            SSHFS_OPTS="${SSHFS_OPTS} -o cache=yes"
-            SSHFS_OPTS="${SSHFS_OPTS} -o kernel_cache"
-            
-            # Handle password authentication if provided
-            if [ -n "${SSH_PASSWORD}" ]; then
-                echo "Using password authentication for SSH mount" | tee -a "$LOG_FILE"
-                # Note: sshpass handles password automatically, no need for password_stdin option
-            else
-                echo "Using key-based authentication for SSH mount" | tee -a "$LOG_FILE"
-                SSHFS_OPTS="${SSHFS_OPTS} -o PasswordAuthentication=no"
-                SSHFS_OPTS="${SSHFS_OPTS} -o BatchMode=yes"
-            fi
-            
-            # Run SSHFS with timeout to prevent hanging on authentication failures
-            MOUNT_SUCCESS=false
-            SFTP_SETUP_ATTEMPTED=false
-            
-            # Test SSH connectivity FIRST before attempting any mount
-            echo "Testing SSH connectivity to ${SSH_USER}@${SSH_HOST}..." | tee -a "$LOG_FILE"
-            SSH_TEST_SUCCESS=false
-            if [ -n "${SSH_PASSWORD}" ]; then
-                export SSHPASS="${SSH_PASSWORD}"
-                if timeout 10 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                    "${SSH_USER}@${SSH_HOST}" "echo SSH_OK" 2>&1 | grep -q "SSH_OK"; then
-                    SSH_TEST_SUCCESS=true
-                    echo "✓ SSH connectivity confirmed" | tee -a "$LOG_FILE"
-                else
-                    echo "✗ SSH connectivity test failed" | tee -a "$LOG_FILE"
-                fi
-            else
-                if timeout 10 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                    "${SSH_USER}@${SSH_HOST}" "echo SSH_OK" 2>&1 | grep -q "SSH_OK"; then
-                    SSH_TEST_SUCCESS=true
-                    echo "✓ SSH connectivity confirmed" | tee -a "$LOG_FILE"
-                else
-                    echo "✗ SSH connectivity test failed" | tee -a "$LOG_FILE"
-                fi
-            fi
-            
-            # Only attempt mount if SSH connectivity is confirmed
-            if [ "$SSH_TEST_SUCCESS" = false ]; then
-                echo "Skipping SSHFS mount due to SSH connectivity failure" | tee -a "$LOG_FILE"
-                cat > /home/coder/workspace/SSH_CONNECTION_ERROR.md <<EOFERR
-# SSH Connection Error
-
-Cannot connect to ${SSH_USER}@${SSH_HOST}:${SSH_PORT}
-
-Possible causes:
-- Host is unreachable or offline
-- SSH credentials are incorrect
-- SSH service is not running on remote host
-- Firewall blocking connection
-- Network connectivity issues
-
-Check your SSH settings and try again.
-EOFERR
-            else
-                # Attempt SSHFS mount
-                if [ -n "${SSH_PASSWORD}" ]; then
-                    # Use password authentication via sshpass (reads from SSHPASS env var)
-                    export SSHPASS="${SSH_PASSWORD}"
-                    MOUNT_OUTPUT=$(timeout 10 sshpass -e sshfs \
-                            ${SSHFS_OPTS} \
-                            remote-target:"${SSH_PATH}" \
-                            "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                    MOUNT_EXIT=$?
-                    echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
-                    if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                        MOUNT_SUCCESS=true
-                    fi
-                else
-                    # Use key-based authentication
-                    MOUNT_OUTPUT=$(timeout 10 sshfs \
-                            ${SSHFS_OPTS} \
-                            remote-target:"${SSH_PATH}" \
-                            "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                    MOUNT_EXIT=$?
-                    echo "$MOUNT_OUTPUT" >> "$LOG_FILE" || true
-                    if [ $MOUNT_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                        MOUNT_SUCCESS=true
-                    fi
-                fi
-            fi
-            
-            # If mount failed, try to enable SFTP subsystem (common issue with minimal SSH servers)
-            if [ "$MOUNT_SUCCESS" = false ]; then
-                # Check if error suggests SFTP issue
-                if echo "$MOUNT_OUTPUT" | grep -qi "subsystem\|connection reset" 2>/dev/null; then
-                    echo "Mount failed - attempting to enable SFTP subsystem on remote host..." | tee -a "$LOG_FILE"
-                    SFTP_SETUP_ATTEMPTED=true
-                    
-                    # Build the SFTP enablement command
-                    SFTP_ENABLE_CMD='
-                        if ! grep -q "^Subsystem.*sftp" /etc/ssh/sshd_config 2>/dev/null; then
-                            echo "Subsystem sftp /usr/lib/openssh/sftp-server" | sudo tee -a /etc/ssh/sshd_config > /dev/null && \
-                            sudo systemctl restart sshd 2>/dev/null || sudo service sshd restart 2>/dev/null || sudo /etc/init.d/ssh restart 2>/dev/null
-                            if [ $? -eq 0 ]; then
-                                echo "SFTP enabled successfully"
-                                exit 0
-                            else
-                                echo "Failed to restart SSH service"
-                                exit 1
-                            fi
-                        else
-                            echo "SFTP already configured"
-                            exit 0
-                        fi
-                    '
-                    
-                    # Execute SFTP enablement on remote host
-                    if [ -n "${SSH_PASSWORD}" ]; then
-                        export SSHPASS="${SSH_PASSWORD}"
-                        SFTP_RESULT=$(sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                            "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
-                        SFTP_EXIT=$?
-                    else
-                        SFTP_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                            "${SSH_USER}@${SSH_HOST}" "${SFTP_ENABLE_CMD}" 2>&1)
-                        SFTP_EXIT=$?
-                    fi
-                    
-                    echo "$SFTP_RESULT" | tee -a "$LOG_FILE"
-                    
-                    # If SFTP was enabled, retry the mount
-                    if [ $SFTP_EXIT -eq 0 ]; then
-                        echo "Retrying SSHFS mount after enabling SFTP..." | tee -a "$LOG_FILE"
-                        sleep 5  # Give SSH service more time to restart
-                        
-                        # Test SSH connectivity before retrying mount
-                        echo "Testing SSH connectivity..." | tee -a "$LOG_FILE"
-                        SSH_TEST_SUCCESS=false
-                        for i in {1..3}; do
-                            if [ -n "${SSH_PASSWORD}" ]; then
-                                if sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                                    "${SSH_USER}@${SSH_HOST}" "echo connected" 2>&1 | grep -q "connected"; then
-                                    SSH_TEST_SUCCESS=true
-                                    break
-                                fi
-                            else
-                                if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-                                    "${SSH_USER}@${SSH_HOST}" "echo connected" 2>&1 | grep -q "connected"; then
-                                    SSH_TEST_SUCCESS=true
-                                    break
-                                fi
-                            fi
-                            echo "SSH connection test attempt $i failed, waiting..." | tee -a "$LOG_FILE"
-                            sleep 2
-                        done
-                        
-                        if [ "$SSH_TEST_SUCCESS" = true ]; then
-                            echo "SSH connectivity confirmed, attempting mount..." | tee -a "$LOG_FILE"
-                            if [ -n "${SSH_PASSWORD}" ]; then
-                                export SSHPASS="${SSH_PASSWORD}"
-                                RETRY_OUTPUT=$(timeout 10 sshpass -e sshfs \
-                                        ${SSHFS_OPTS} \
-                                        remote-target:"${SSH_PATH}" \
-                                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                                RETRY_EXIT=$?
-                                echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
-                                if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                                    MOUNT_SUCCESS=true
-                                fi
-                            else
-                                RETRY_OUTPUT=$(timeout 10 sshfs \
-                                        ${SSHFS_OPTS} \
-                                        remote-target:"${SSH_PATH}" \
-                                        "$REMOTE_MOUNT_DIR" 2>&1 || true)
-                                RETRY_EXIT=$?
-                                echo "$RETRY_OUTPUT" >> "$LOG_FILE" || true
-                                if [ $RETRY_EXIT -eq 0 ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                                    MOUNT_SUCCESS=true
-                                fi
-                            fi
-                        else
-                            echo "SSH connectivity test failed after SFTP enablement" | tee -a "$LOG_FILE"
-                        fi
-                    else
-                        echo "Failed to enable SFTP on remote host (exit code: $SFTP_EXIT)" | tee -a "$LOG_FILE"
-                    fi
-                fi
-            fi
-            
-            # Clean up password env var
-            if [ -n "${SSH_PASSWORD}" ]; then
-                unset SSHPASS
-            fi
-            
-            if [ "$MOUNT_SUCCESS" = true ] && mountpoint -q "$REMOTE_MOUNT_DIR"; then
-                echo "SSHFS mount successful at ${REMOTE_MOUNT_DIR}" | tee -a "$LOG_FILE"
-                cat > "${REMOTE_MOUNT_DIR}/DEVFARM_INFO.md" <<EOF
-# 🔗 Remote SSH Mode
-
-Successfully connected to **${SSH_HOST}**!
-
-## Mounted Location
-This directory IS the remote filesystem from **${SSH_USER}@${SSH_HOST}:${SSH_PATH}**
-
-## Connection Details
-- **Host**: ${SSH_HOST}:${SSH_PORT}
-- **User**: ${SSH_USER}
-- **Remote Path**: ${SSH_PATH}
-
-## VS Code Workspace
-This directory is your VS Code workspace root - you're working directly on remote files.
-
-## Tips
-- Files are edited live on the remote host
-- Changes are synchronized automatically via SSHFS
-- If connection is lost, the mount will attempt to reconnect
-- Use the terminal to run commands on the remote host
-
-Happy coding! 🚀
-EOF
-            else
-                echo "SSHFS mount failed. Remote filesystem not available." | tee -a "$LOG_FILE"
-                rmdir "$REMOTE_MOUNT_DIR" 2>/dev/null || true
-                
-                # Create appropriate error message based on whether SFTP setup was attempted
-                if [ "$SFTP_SETUP_ATTEMPTED" = true ]; then
-                    cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
-# 🔌 SSH Mount Failed
-
-We attempted to mount **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** to \`workspace/remote/\` but the connection failed.
-
-## SFTP Auto-Configuration Attempted
-The system detected that SFTP was not enabled on the remote host and attempted to enable it automatically. This requires:
-- **Sudo access** on the remote host for user ${SSH_USER}
-- **Write access** to /etc/ssh/sshd_config
-- **Permission** to restart the SSH service
-
-## What You Can Do
-1. **Manual SFTP Setup**: SSH to the remote host and run:
-   \`\`\`bash
-   echo 'Subsystem sftp /usr/lib/openssh/sftp-server' | sudo tee -a /etc/ssh/sshd_config
-   sudo systemctl restart sshd
-   \`\`\`
-2. **Check Permissions**: Ensure ${SSH_USER} has sudo access or ask your system administrator
-3. **Verify Configuration**: Check if SFTP line exists in /etc/ssh/sshd_config
-4. **Test Connection**: Use the integrated terminal:
-   \`\`\`bash
-   ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "grep sftp /etc/ssh/sshd_config"
-   \`\`\`
-5. **Check Logs**: See .devfarm/startup.log for detailed error messages
-
-## Current Status
-Your workspace is running with **local storage only**. Once SFTP is enabled, recreate this environment to mount the remote filesystem at \`workspace/remote/\`.
-
-For now, you can still use this environment to write code locally! 🚀
-EOF
-                else
-                    cat > /home/coder/workspace/SSHFS_ERROR.md <<EOF
-# 🔌 SSH Mount Failed
-
-We attempted to mount **${SSH_USER}@${SSH_HOST}:${SSH_PATH}** to \`workspace/remote/\` but the connection failed.
-
-## Common Causes
-- **Authentication**: SSH key not provided or password incorrect
-  - Add your SSH private key via the dashboard's environment settings
-  - Or verify the SSH password is correct
-- **Network**: Cannot reach ${SSH_HOST}:${SSH_PORT}
-  - Check firewall rules and network connectivity
-- **Permissions**: Missing FUSE support in container
-  - Requires /dev/fuse device and SYS_ADMIN capability (automatically configured)
-- **SFTP Not Available**: Remote host doesn't support SFTP
-  - The auto-enablement requires "subsystem request failed" error
-  - See manual setup instructions below
-
-## What You Can Do
-1. **Test Connection**: Use the integrated terminal to run:
-   \`\`\`bash
-   ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST}
-   \`\`\`
-2. **Verify Authentication**: Ensure your SSH key or password is correct
-3. **Check Logs**: See .devfarm/startup.log for detailed error messages
-4. **Manual SFTP Setup** (if needed): SSH to remote host and run:
-   \`\`\`bash
-   echo 'Subsystem sftp /usr/lib/openssh/sftp-server' | sudo tee -a /etc/ssh/sshd_config
-   sudo systemctl restart sshd
-   \`\`\`
-
-## Current Status
-Your workspace is running with **local storage only**. Once authentication is configured, recreate this environment to mount the remote filesystem at \`workspace/remote/\`.
-
-For now, you can still use this environment to write code locally! 🚀
-EOF
-                fi
-            fi
-            
-            # Notify completion or failure
-            if [ "$MOUNT_SUCCESS" = true ]; then
-                echo "✅ Background SSH mount completed successfully" | tee -a "$LOG_FILE"
-                # Mount status file is now in the mounted directory as DEVFARM_INFO.md
-            else
-                echo "❌ Background SSH mount failed" | tee -a "$LOG_FILE"
-            fi
-        ) &  # End of background subshell
+        fi
+        chmod 600 /home/coder/.ssh/config
         
-        # Create initial status file while mount is in progress
-        mkdir -p /home/coder/remote
-        cat > /home/coder/remote/MOUNTING.md <<'EOF'
-# ⏳ SSH Mount In Progress
+        # Test SSH connectivity to provide immediate feedback
+        echo "Testing SSH connectivity to ${SSH_USER}@${SSH_HOST}..." | tee -a "$LOG_FILE"
+        SSH_TEST_SUCCESS=false
+        
+        if [ -n "${SSH_PASSWORD}" ]; then
+            # Test with password authentication
+            export SSHPASS="${SSH_PASSWORD}"
+            if timeout 10 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" "echo SSH_OK" 2>&1 | grep -q "SSH_OK"; then
+                SSH_TEST_SUCCESS=true
+                echo "✓ SSH connectivity confirmed (password auth)" | tee -a "$LOG_FILE"
+            else
+                echo "✗ SSH connectivity test failed" | tee -a "$LOG_FILE"
+            fi
+            unset SSHPASS
+        else
+            # Test with key-based authentication
+            if timeout 10 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
+                -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" "echo SSH_OK" 2>&1 | grep -q "SSH_OK"; then
+                SSH_TEST_SUCCESS=true
+                echo "✓ SSH connectivity confirmed (key auth)" | tee -a "$LOG_FILE"
+            else
+                echo "✗ SSH connectivity test failed" | tee -a "$LOG_FILE"
+            fi
+        fi
+        
+        # Create workspace directory and connection guide
+        WORKSPACE_ROOT="/home/coder/workspace"
+        mkdir -p "$WORKSPACE_ROOT"
+        
+        if [ "$SSH_TEST_SUCCESS" = true ]; then
+            # Connection successful - create helper file with instructions
+            cat > "$WORKSPACE_ROOT/CONNECT_TO_REMOTE.md" <<'EOFSUCCESS'
+# 🔗 SSH Remote Connection Ready
 
-The remote filesystem is being mounted in the background...
+## ✅ Connection Test Successful!
 
-This may take a few moments. This file will be replaced with DEVFARM_INFO.md when the mount completes.
+Successfully verified connection to your remote host!
 
-Check /home/coder/workspace/.devfarm/startup.log for details.
+## 🚀 Connect to Remote Host
 
-**VS Code is ready to use!** The mount process won't block your workspace.
-EOF
-        echo "SSH mount started in background. Container will start immediately." | tee -a "$LOG_FILE"
-        WORKSPACE_ROOT="/home/coder/remote"
+### Method 1: Using VS Code Remote-SSH (Recommended)
+
+The Remote-SSH extension is already installed and configured for you!
+
+**Steps to Connect:**
+1. Open the **Command Palette**: Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+2. Type: **Remote-SSH: Connect to Host...**
+3. Select: **remote-target**
+4. VS Code will connect and open a new window with the remote filesystem
+
+Your configured remote folder will be your workspace.
+
+### Method 2: Using Terminal
+
+You can also use the integrated terminal to SSH directly:
+
+```bash
+ssh remote-target
+```
+
+This will connect you to your configured remote host.
+
+## 📁 Connection Details
+
+All connection details are saved in `~/.ssh/config` under the name **remote-target**.
+
+## 💡 Tips
+
+- Remote-SSH will install VS Code Server on the remote host automatically
+- Your extensions will be synced to the remote environment  
+- Files are edited directly on the remote host (no local copies)
+- Changes are saved instantly to the remote filesystem
+
+## 🔧 Troubleshooting
+
+If connection fails:
+1. Check network connectivity from this container to your remote host
+2. Verify SSH credentials are correct
+3. Check remote host firewall settings
+4. View logs in `.devfarm/startup.log`
+
+## 🔒 Security Note
+
+**Host Key Verification Disabled**: This environment is configured with `StrictHostKeyChecking=no` 
+for ease of use in development. This means:
+- First connections won't prompt for host key verification
+- Connections are vulnerable to man-in-the-middle attacks
+- Suitable for trusted networks and development environments
+- For production use, implement proper host key management
+
+## 🎯 What's Different from SSHFS?
+
+This approach uses VS Code's native Remote-SSH extension instead of SSHFS mounting:
+- **More Reliable**: Works with any SSH server (no SFTP subsystem required)
+- **Better Performance**: Direct SSH connection, no FUSE overhead
+- **Full VS Code Features**: Extensions run on the remote, better integration
+- **No Privileges Required**: Container doesn't need privileged mode
+
+Happy remote coding! 🎉
+EOFSUCCESS
+            echo "✅ SSH connection configured successfully" | tee -a "$LOG_FILE"
+            echo "✅ Connection test passed - ready to connect via Remote-SSH" | tee -a "$LOG_FILE"
+        else
+            # Connection test failed - create error message
+            cat > "$WORKSPACE_ROOT/SSH_CONNECTION_ERROR.md" <<'EOFERROR'
+# ⚠️ SSH Connection Test Failed
+
+## ❌ Unable to Connect
+
+The connection test to your remote host failed. This usually means:
+
+### Common Causes
+
+1. **Authentication Issues**
+   - SSH password is incorrect
+   - SSH private key is missing or invalid
+   - Remote host doesn't allow password/key authentication
+
+2. **Network Issues**
+   - Remote host is unreachable or offline
+   - Firewall blocking SSH connection
+   - Incorrect hostname or IP address
+
+3. **SSH Service Issues**
+   - SSH service not running on remote host
+   - SSH port (default 22) is incorrect
+   - Host key verification issues
+
+## 🔧 How to Fix
+
+### Check Your Credentials
+
+Verify your SSH settings in the dashboard:
+- **Hostname/IP**: Make sure it's correct and reachable
+- **Port**: Usually 22, check if different
+- **Username**: Verify the SSH username
+- **Authentication**: Ensure password or private key is correct
+
+### Test Connection Manually
+
+Open the integrated terminal (Ctrl+`) and try:
+
+```bash
+# Test connection
+ssh remote-target
+
+# If that fails, try manually:
+ssh -p PORT USERNAME@HOSTNAME
+```
+
+### View Detailed Logs
+
+Check the startup logs for more details:
+
+```bash
+cat ~/.devfarm/startup.log
+```
+
+## 🎯 Next Steps
+
+Once you fix the connectivity issue:
+1. Update the SSH settings in the dashboard, OR
+2. Recreate this environment with correct credentials
+
+The environment is still usable for local development in the meantime!
+EOFERROR
+            echo "⚠️ SSH connection test failed - see SSH_CONNECTION_ERROR.md" | tee -a "$LOG_FILE"
+        fi
+        
+        WORKSPACE_ROOT="/home/coder/workspace"
     fi
 else
     # Workspace mode (default) - just use the empty workspace
