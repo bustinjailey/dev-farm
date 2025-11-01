@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import json
+import pathlib
+
 import pytest
 
 
@@ -39,6 +42,22 @@ def test_get_workspace_path_modes(app_with_temp_paths):
     assert module.get_workspace_path("ssh") == "/remote"
     assert module.get_workspace_path("terminal") == "/workspace"
     assert module.get_workspace_path("unknown") == "/workspace"
+
+
+def test_get_workspace_path_reads_aliases(app_with_temp_paths):
+    module = app_with_temp_paths
+    alias_config = pathlib.Path(module.PATH_ALIAS_CONFIG)
+    alias_config.parent.mkdir(parents=True, exist_ok=True)
+    alias_config.write_text(json.dumps({
+        "workspace": "/alt/workspace",
+        "remote": "/alt/remote",
+        "repo": "/alt/repo"
+    }))
+    module.load_path_aliases.cache_clear()
+
+    assert module.get_workspace_path("git") == "/alt/repo"
+    assert module.get_workspace_path("ssh") == "/alt/remote"
+    assert module.get_workspace_path("workspace") == "/alt/workspace"
 
 
 def test_get_next_port_skips_used_ports(app_with_temp_paths, monkeypatch):

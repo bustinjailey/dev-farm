@@ -16,6 +16,7 @@ import requests
 import threading
 from threading import RLock
 import queue
+import functools
 
 # Import gevent for spawning greenlets under gunicorn's gevent workers
 try:
@@ -38,6 +39,7 @@ except Exception as e:
     client = None
 
 REGISTRY_FILE = '/data/environments.json'
+PATH_ALIAS_CONFIG = os.environ.get('DEVFARM_ALIAS_CONFIG', '/home/coder/.devfarm/path-aliases.json')
 BASE_PORT = 8100
 GITHUB_TOKEN_FILE = '/data/.github_token'
 DEVICE_CODE_FILE = '/data/.device_code.json'
@@ -143,15 +145,32 @@ def save_registry(registry):
     # Broadcast registry change to all connected clients
     broadcast_sse('registry-update', {'timestamp': time.time()})
 
+@functools.lru_cache(maxsize=1)
+def load_path_aliases():
+    """Load sanitized path aliases produced by startup.sh."""
+    try:
+        with open(PATH_ALIAS_CONFIG, 'r', encoding='utf-8') as alias_file:
+            data = json.load(alias_file)
+            if isinstance(data, dict):
+                return {str(key): str(value) for key, value in data.items() if isinstance(value, str)}
+    except FileNotFoundError:
+        return {}
+    except Exception as exc:
+        print(f"[Paths] Failed to load {PATH_ALIAS_CONFIG}: {exc}")
+    return {}
+
+
 def get_workspace_path(mode):
-    """Get the container workspace path based on environment mode"""
-    workspace_paths = {
-        'git': '/repo',
-        'workspace': '/workspace',
-        'ssh': '/remote',
-        'terminal': '/workspace'
+    """Get the container workspace path based on environment mode."""
+    alias_lookup = {
+        'git': ('repo', '/repo'),
+        'workspace': ('workspace', '/workspace'),
+        'ssh': ('remote', '/remote'),
+        'terminal': ('workspace', '/workspace')
     }
-    return workspace_paths.get(mode, '/workspace')
+    alias_key, default_path = alias_lookup.get(mode, ('workspace', '/workspace'))
+    alias_map = load_path_aliases()
+    return alias_map.get(alias_key, default_path)
 
 def load_farm_config():
     """Load farm configuration from JSON file"""

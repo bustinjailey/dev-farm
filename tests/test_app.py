@@ -22,6 +22,9 @@ def reset_environment(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "FARM_CONFIG_FILE", str(tmp_path / "farm.config"))
     monkeypatch.setattr(app_module, "REPO_PATH", str(tmp_path / "repo"))
     monkeypatch.setattr(app_module, "EXTERNAL_URL", "http://devfarm.test")
+    alias_config = tmp_path / "aliases.json"
+    monkeypatch.setattr(app_module, "PATH_ALIAS_CONFIG", str(alias_config))
+    app_module.load_path_aliases.cache_clear()
 
     # Reset in-memory state
     app_module.SSE_CLIENTS.clear()
@@ -37,6 +40,7 @@ def reset_environment(tmp_path, monkeypatch):
     yield
 
     app_module.SSE_CLIENTS.clear()
+    app_module.load_path_aliases.cache_clear()
 
 
 def test_kebabify_normalizes_names():
@@ -51,6 +55,22 @@ def test_get_workspace_path_modes():
     assert app_module.get_workspace_path("ssh") == "/remote"
     assert app_module.get_workspace_path("terminal") == "/workspace"
     assert app_module.get_workspace_path("unknown") == "/workspace"
+
+
+def test_get_workspace_path_uses_alias_config(tmp_path, monkeypatch):
+    alias_data = {
+        "workspace": "/custom/workspace",
+        "remote": "/custom/remote",
+        "repo": "/custom/repo"
+    }
+    alias_config = tmp_path / "aliases.json"
+    alias_config.write_text(json.dumps(alias_data))
+    monkeypatch.setattr(app_module, "PATH_ALIAS_CONFIG", str(alias_config))
+    app_module.load_path_aliases.cache_clear()
+
+    assert app_module.get_workspace_path("git") == alias_data["repo"]
+    assert app_module.get_workspace_path("ssh") == alias_data["remote"]
+    assert app_module.get_workspace_path("workspace") == alias_data["workspace"]
 
 
 def test_save_and_load_registry(monkeypatch):

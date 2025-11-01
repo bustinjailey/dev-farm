@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 
 # Docker
@@ -34,3 +35,5 @@ dashboard/data/
 *.db
 
 *.code-workspace
+
+*.md

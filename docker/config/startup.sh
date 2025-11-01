@@ -1,28 +1,97 @@
 #!/bin/bash
 set -e
 
+CODER_HOME=${CODER_HOME:-/home/coder}
+
+SUDO_CMD=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if sudo -n true >/dev/null 2>&1; then
+        SUDO_CMD="sudo -n"
+    fi
+fi
+
+run_as_root() {
+    if [ -n "$SUDO_CMD" ]; then
+        $SUDO_CMD "$@"
+    else
+        "$@"
+    fi
+}
+
 # Disable core dumps to prevent large core.* files in workspace
 ulimit -c 0
 
 ### Ensure workspace directory exists and is owned by coder
+WORKSPACE_DIR="${CODER_HOME}/workspace"
+REMOTE_DIR="${CODER_HOME}/remote"
+REPO_DIR="${CODER_HOME}/repo"
+DEVFARM_STATE_DIR="${CODER_HOME}/.devfarm"
+ALIAS_STORAGE_DIR="${DEVFARM_STATE_DIR}/aliases"
+ALIAS_CONFIG_FILE="${DEVFARM_STATE_DIR}/path-aliases.json"
+
 echo "Preparing workspace directory..."
-mkdir -p /home/coder/workspace || true
-sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
+mkdir -p "$WORKSPACE_DIR" || true
+run_as_root chown -R coder:coder "$WORKSPACE_DIR" 2>/dev/null || true
 
 # Provide sanitized aliases for workspace paths so URLs don't expose internal layout
 echo "Creating workspace path aliases..."
 # Ensure backing directories exist for symlink targets
-mkdir -p /home/coder/workspace
-mkdir -p /home/coder/remote
-mkdir -p /home/coder/repo
+mkdir -p "$WORKSPACE_DIR"
+mkdir -p "$REMOTE_DIR"
+mkdir -p "$REPO_DIR"
+mkdir -p "$ALIAS_STORAGE_DIR"
+mkdir -p "$DEVFARM_STATE_DIR"
 
-# Refresh root-level aliases with elevated permissions
-sudo rm -rf /workspace 2>/dev/null || true
-sudo rm -rf /remote 2>/dev/null || true
-sudo rm -rf /repo 2>/dev/null || true
-sudo ln -sfn /home/coder/workspace /workspace
-sudo ln -sfn /home/coder/remote /remote
-sudo ln -sfn /home/coder/repo /repo
+PATH_ALIAS_RECORDS=""
+
+create_path_alias() {
+    local alias_name="$1"
+    local target_path="$2"
+    local alias_path="$3"
+    local fallback_path="${ALIAS_STORAGE_DIR}/${alias_name}"
+    local actual_path="$alias_path"
+
+    if ! run_as_root rm -rf "$alias_path" 2>/dev/null; then
+        :
+    fi
+
+    if ! run_as_root ln -sfn "$target_path" "$alias_path" 2>/dev/null; then
+        rm -rf "$fallback_path" 2>/dev/null || true
+        ln -sfn "$target_path" "$fallback_path"
+        actual_path="$fallback_path"
+        echo "Warning: Unable to create alias $alias_path. Using fallback $actual_path instead."
+    fi
+
+    PATH_ALIAS_RECORDS+="${alias_name}\t${actual_path}\n"
+}
+
+create_path_alias "workspace" "$WORKSPACE_DIR" "/workspace"
+create_path_alias "remote" "$REMOTE_DIR" "/remote"
+create_path_alias "repo" "$REPO_DIR" "/repo"
+
+export DEVFARM_ALIAS_CONFIG="$ALIAS_CONFIG_FILE"
+
+printf '%b' "$PATH_ALIAS_RECORDS" | /usr/bin/python3 - "$ALIAS_CONFIG_FILE" <<'PYEOF'
+import json
+import os
+import sys
+
+alias_file = sys.argv[1]
+aliases = {}
+for raw_line in sys.stdin:
+    line = raw_line.strip()
+    if not line:
+        continue
+    try:
+        name, path = line.split('\t', 1)
+    except ValueError:
+        continue
+    aliases[name] = path
+
+os.makedirs(os.path.dirname(alias_file), exist_ok=True)
+with open(alias_file, 'w', encoding='utf-8') as fp:
+    json.dump(aliases, fp, indent=2)
+PYEOF
 
 # Create .gitignore for workspace to exclude core dumps and other unwanted files
 cat > /home/coder/workspace/.gitignore <<'GITIGNORE'

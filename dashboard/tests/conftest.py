@@ -34,6 +34,9 @@ def app_with_temp_paths(app_module, tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "DEVICE_CODE_FILE", str(data_dir / ".device_code.json"))
     monkeypatch.setattr(app_module, "REPO_PATH", str(repo_dir))
     monkeypatch.setattr(app_module, "FARM_CONFIG_FILE", str(repo_dir / "farm.config"))
+    alias_config = data_dir / "aliases.json"
+    monkeypatch.setattr(app_module, "PATH_ALIAS_CONFIG", str(alias_config))
+    app_module.load_path_aliases.cache_clear()
 
     # Ensure global state starts clean for every test
     os.environ.pop("GITHUB_TOKEN", None)
