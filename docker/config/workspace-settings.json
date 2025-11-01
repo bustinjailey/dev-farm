@@ -13,8 +13,7 @@
   "terminal.integrated.shellIntegration.enabled": true,
   "terminal.integrated.profiles.linux": {
     "persistent-bash": {
-      "path": "/bin/bash",
-      "args": ["-c", "tmux new-session -A -s devfarm"],
+      "path": "/home/coder/.local/bin/tmux-persistent",
       "icon": "terminal-tmux"
     },
     "bash": {

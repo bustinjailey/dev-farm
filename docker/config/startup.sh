@@ -1358,17 +1358,34 @@ EOTMUX
 
 # Create a tmux startup script that ensures a persistent session exists
 # This will be used by VS Code's integrated terminal
+mkdir -p /home/coder/.local/bin
+
 cat > /home/coder/.local/bin/tmux-persistent <<'EOTMUXSCRIPT'
 #!/bin/bash
 # Attach to existing devfarm session or create new one
-if tmux has-session -t devfarm 2>/dev/null; then
-    exec tmux attach-session -t devfarm
+# This script handles edge cases like sessions with no windows
+
+SESSION_NAME="devfarm"
+
+# Check if session exists and has windows
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    # Check if session has any windows
+    WINDOW_COUNT=$(tmux list-windows -t "$SESSION_NAME" 2>/dev/null | wc -l)
+    
+    if [ "$WINDOW_COUNT" -gt 0 ]; then
+        # Session exists and has windows, attach to it
+        exec tmux attach-session -t "$SESSION_NAME"
+    else
+        # Session exists but has no windows, kill it and create new
+        tmux kill-session -t "$SESSION_NAME" 2>/dev/null
+        exec tmux new-session -s "$SESSION_NAME"
+    fi
 else
-    exec tmux new-session -s devfarm
+    # Session doesn't exist, create it
+    exec tmux new-session -s "$SESSION_NAME"
 fi
 EOTMUXSCRIPT
 
-mkdir -p /home/coder/.local/bin
 chmod +x /home/coder/.local/bin/tmux-persistent
 
 echo "✓ Tmux configured for persistent sessions (session name: devfarm)" | tee -a "$LOG_FILE"
