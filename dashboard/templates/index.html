@@ -951,7 +951,7 @@
             <span>{{ env.project }}</span>
           </div>
           <div class="info-row">
-            <span>� Mode:</span>
+            <span>🔧 Mode:</span>
             <span>
               {% if env.mode == 'ssh' %}
               🔌 Remote SSH{% if env.ssh_host %} ({{ env.ssh_host }}){% endif %}
@@ -966,7 +966,7 @@
           </div>
           <div class="info-row">
             <span>🔗 Tunnel:</span>
-            <span>{{ env.port }}</span>
+            <span>devfarm-{{ env.id }}</span>
           </div>
           <div class="info-row">
             <span>📅 Created:</span>
