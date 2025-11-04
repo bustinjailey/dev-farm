@@ -1279,11 +1279,13 @@
         <span>Container Logs</span>
         <div style="display: flex; gap: 10px;">
           <button class="btn" onclick="extractAndShowTunnelAuth()" id="tunnelAuthBtn"
-            style="background: #667eea; color: white; padding: 8px 16px; font-size: 14px;" title="Extract tunnel authentication">
+            style="background: #667eea; color: white; padding: 8px 16px; font-size: 14px;"
+            title="Extract tunnel authentication">
             🔐 Tunnel Auth
           </button>
           <button class="btn" onclick="copyLogsToClipboard()" id="copyLogsBtn"
-            style="background: #48bb78; color: white; padding: 8px 16px; font-size: 14px;" title="Copy logs to clipboard">
+            style="background: #48bb78; color: white; padding: 8px 16px; font-size: 14px;"
+            title="Copy logs to clipboard">
             📋 Copy
           </button>
         </div>
@@ -1312,42 +1314,51 @@
         <span>🔐 Tunnel Authentication</span>
       </div>
       <div style="padding: 20px;">
-        <div style="background: #f7fafc; border-left: 4px solid #667eea; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
-          <p style="margin: 0 0 10px 0; color: #2d3748; font-weight: 600;">Complete this one-time authentication to enable your tunnel:</p>
-          <p style="margin: 0; color: #4a5568; font-size: 14px;">After authenticating, your credentials will be saved and you won't need to do this again for this environment.</p>
+        <div
+          style="background: #f7fafc; border-left: 4px solid #667eea; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0; color: #2d3748; font-weight: 600;">Complete this one-time authentication to
+            enable your tunnel:</p>
+          <p style="margin: 0; color: #4a5568; font-size: 14px;">After authenticating, your credentials will be saved
+            and you won't need to do this again for this environment.</p>
         </div>
-        
+
         <div style="margin-bottom: 20px;">
           <label style="display: block; margin-bottom: 8px; color: #2d3748; font-weight: 600;">Device Code:</label>
           <div style="display: flex; gap: 10px;">
             <input type="text" id="tunnelAuthCode" readonly
               style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; letter-spacing: 2px; text-align: center; background: #f7fafc;" />
-            <button class="btn" onclick="copyTunnelCode()" style="background: #48bb78; color: white; padding: 12px 20px;">
+            <button class="btn" onclick="copyTunnelCode()"
+              style="background: #48bb78; color: white; padding: 12px 20px;">
               📋 Copy
             </button>
           </div>
         </div>
 
         <div style="margin-bottom: 20px;">
-          <label style="display: block; margin-bottom: 8px; color: #2d3748; font-weight: 600;">Authentication URL:</label>
+          <label style="display: block; margin-bottom: 8px; color: #2d3748; font-weight: 600;">Authentication
+            URL:</label>
           <div style="display: flex; gap: 10px;">
             <input type="text" id="tunnelAuthUrl" readonly value="https://github.com/login/device"
               style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; background: #f7fafc;" />
-            <button class="btn" onclick="openTunnelAuthUrl()" style="background: #667eea; color: white; padding: 12px 20px;">
+            <button class="btn" onclick="openTunnelAuthUrl()"
+              style="background: #667eea; color: white; padding: 12px 20px;">
               🚀 Open
             </button>
           </div>
         </div>
 
-        <div style="background: #fff5f5; border-left: 4px solid #fc8181; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+        <div
+          style="background: #fff5f5; border-left: 4px solid #fc8181; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #742a2a; font-size: 14px;">
-            <strong>⚠️ Important:</strong> You must use the same GitHub/Microsoft account that started the tunnel. If the tunnel was started with a different account, you'll need to recreate the environment.
+            <strong>⚠️ Important:</strong> You must use the same GitHub/Microsoft account that started the tunnel. If
+            the tunnel was started with a different account, you'll need to recreate the environment.
           </p>
         </div>
       </div>
       <div style="display: flex; gap: 10px; padding: 0 20px 20px 20px;">
         <button class="btn btn-cancel" onclick="hideTunnelAuthModal()" style="flex: 1;">Close</button>
-        <button class="btn" onclick="refreshLogs(); hideTunnelAuthModal();" style="background: #4299e1; color: white; flex: 1;">
+        <button class="btn" onclick="refreshLogs(); hideTunnelAuthModal();"
+          style="background: #4299e1; color: white; flex: 1;">
           ✓ Done - Refresh Logs
         </button>
       </div>
@@ -2904,10 +2915,10 @@
 
     function extractAndShowTunnelAuth() {
       const logsContent = document.getElementById('logsContent').textContent;
-      
+
       // Extract device code (format: XXXX-XXXX)
       const codeMatch = logsContent.match(/use code ([A-Z0-9]{4}-[A-Z0-9]{4})/);
-      
+
       if (codeMatch) {
         document.getElementById('tunnelAuthCode').value = codeMatch[1];
         document.getElementById('tunnelAuthModal').classList.add('active');
