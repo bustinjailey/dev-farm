@@ -59,6 +59,7 @@
   let systemActionMessage: string | null = null;
   let desktopCopyState: Record<string, 'copied' | 'failed' | ''> = {};
   const desktopCopyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  let systemActionResetTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function loadEnvironments() {
     loading = true;
@@ -183,7 +184,7 @@
         alert(result.message ?? 'Update already running');
         return;
       }
-      showUpdateModal = true;
+      openUpdateModal();
       await refreshUpdateStatus();
     } catch (err) {
       alert((err as Error).message);
@@ -196,6 +197,15 @@
     if (updatePollTimer) {
       clearInterval(updatePollTimer);
       updatePollTimer = null;
+    }
+  }
+
+  function openUpdateModal() {
+    if (!showUpdateModal) {
+      showUpdateModal = true;
+    }
+    if (!updatePollTimer) {
+      updatePollTimer = setInterval(refreshUpdateStatus, 3000);
     }
   }
 
@@ -244,8 +254,12 @@
       systemActionMessage = (err as Error).message;
     }
     await loadSystemStatus();
-    setTimeout(() => {
+    if (systemActionResetTimer) {
+      clearTimeout(systemActionResetTimer);
+    }
+    systemActionResetTimer = setTimeout(() => {
       systemActionMessage = null;
+      systemActionResetTimer = null;
     }, 4000);
   }
 
@@ -352,7 +366,8 @@
     showCreateModal = true;
   }
 
-  onMount(() => {
+  function setupRealtimeStreams() {
+  console.log('[App] setupRealtimeStreams start');
     loadEnvironments();
     loadSystemStatus();
     loadGithubInfo();
@@ -380,11 +395,11 @@
       };
     };
     const updateHandler = () => {
-      showUpdateModal = true;
+      openUpdateModal();
       refreshUpdateStatus();
     };
     const updateStartedHandler = () => {
-      showUpdateModal = true;
+      openUpdateModal();
       refreshUpdateStatus();
     };
 
@@ -402,28 +417,25 @@
       sseClient.off('update-started', updateStartedHandler);
       sseClient.disconnect();
     };
-  });
+  }
+
+  onMount(setupRealtimeStreams);
 
   onDestroy(() => {
-    clearDevicePoll();
     if (updatePollTimer) {
       clearInterval(updatePollTimer);
       updatePollTimer = null;
     }
-    desktopCopyTimers.forEach((timer) => clearTimeout(timer));
-    desktopCopyTimers.clear();
-  });
-
-  $: if (showUpdateModal) {
-    if (!updatePollTimer) {
-      updatePollTimer = setInterval(refreshUpdateStatus, 3000);
+    clearDevicePoll();
+    for (const timer of desktopCopyTimers.values()) {
+      clearTimeout(timer);
     }
-  } else if (updatePollTimer) {
-    clearInterval(updatePollTimer);
-    updatePollTimer = null;
-  }
-
-  /* cleanup happens via closeGithubModal() */
+    desktopCopyTimers.clear();
+    if (systemActionResetTimer) {
+      clearTimeout(systemActionResetTimer);
+      systemActionResetTimer = null;
+    }
+  });
 </script>
 
 <main>

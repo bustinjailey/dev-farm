@@ -25,6 +25,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, 'dist/client'),
     emptyOutDir: true,
     sourcemap: true,
+    minify: false,
   },
   publicDir: path.resolve(__dirname, 'frontend/public'),
 });

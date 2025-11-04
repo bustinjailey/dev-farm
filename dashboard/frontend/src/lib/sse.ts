@@ -7,6 +7,7 @@ interface Handlers {
 export class SSEClient {
   private source: EventSource | null = null;
   private handlers: Handlers = {};
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private url: string) {}
 
@@ -17,8 +18,8 @@ export class SSEClient {
       /* connected */
     };
     this.source.onerror = () => {
-      this.disconnect();
-      setTimeout(() => this.connect(), 2000);
+      this.teardownSource();
+      this.scheduleReconnect();
     };
 
     this.source.onmessage = (event) => {
@@ -54,6 +55,22 @@ export class SSEClient {
   }
 
   disconnect() {
+    this.teardownSource();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, 2000);
+  }
+
+  private teardownSource() {
     if (this.source) {
       this.source.close();
       this.source = null;
