@@ -73,9 +73,9 @@ Dashboard has built-in self-update via `/api/system/update/start` endpoint:
    - `DEV_MODE`: workspace | git | ssh
    - `GITHUB_TOKEN`, `GITHUB_USERNAME`, `GITHUB_EMAIL`
    - Mode-specific: `GIT_URL`, `SSH_HOST`, `SSH_USER`, `SSH_PATH`, `SSH_PASSWORD`
-5. Registry updated in `/data/environments.json`
-6. SSE broadcast: `registry-update` event
-7. Container runs `docker/config/startup.sh` which:
+4. Registry updated in `/data/environments.json`
+5. SSE broadcast: `registry-update` event
+6. Container runs `docker/config/startup.sh` which:
    - Configures GitHub CLI (`gh auth login`)
    - Clones repo (git mode) or mounts SSH (ssh mode)
    - Applies VS Code settings from `docker/config/workspace-settings.json`
@@ -244,6 +244,13 @@ curl -N http://192.168.1.126:5000/api/stream
 
 ## Recent Breaking Changes
 
+- **2025-11-04**: Fixed SSE reconnection during system updates (commit 49f1a9c)
+  - **Issue**: Dashboard restart during system update (after pulling code) caused SSE connection loss
+  - **Symptom**: Modal showed "Update in progress..." with no progress messages after reconnection
+  - **Solution**: Added `reopenUpdateModal()` to reconstruct UI state from `/api/system/update/status`
+  - **Implementation**: When SSE reconnects and update in progress, fetches all stages and rebuilds UI
+  - **Files changed**: `dashboard/templates/index.html` (added 100+ line function to replay stages)
+  - **Testing**: System update flow now works correctly with dashboard restarts mid-update
 - **2025-11-04**: Migrated from web mode to tunnel mode for server-side extensions
   - **Breaking**: Containers no longer expose port 8080 or use nginx proxy routing
   - **New**: All environments accessed via `https://vscode.dev/tunnel/devfarm-<env-id>`
