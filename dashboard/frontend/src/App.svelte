@@ -290,7 +290,7 @@
         alert(result.error);
       }
       await loadGithubInfo();
-      showGithubModal = false;
+      closeGithubModal();
     } catch (err) {
       alert((err as Error).message);
     }
@@ -319,7 +319,7 @@
           clearDevicePoll();
           await loadGithubInfo();
           deviceFlow = null;
-          showGithubModal = false;
+          closeGithubModal();
         } else if (result.status === 'expired' || result.status === 'denied') {
           clearDevicePoll();
           deviceFlow = null;
@@ -339,6 +339,12 @@
       clearInterval(devicePollTimer);
       devicePollTimer = null;
     }
+  }
+
+  function closeGithubModal() {
+    showGithubModal = false;
+    deviceFlow = null;
+    clearDevicePoll();
   }
 
   function openCreateModalDialog() {
@@ -417,10 +423,7 @@
     updatePollTimer = null;
   }
 
-  $: if (!showGithubModal) {
-    deviceFlow = null;
-    clearDevicePoll();
-  }
+  /* cleanup happens via closeGithubModal() */
 </script>
 
 <main>
@@ -643,8 +646,8 @@
       class="backdrop modal-layer"
       role="button"
       tabindex="0"
-      on:click={() => (showGithubModal = false)}
-      on:keydown={(e) => e.key === 'Escape' && (showGithubModal = false)}
+      on:click={closeGithubModal}
+      on:keydown={(e) => e.key === 'Escape' && closeGithubModal()}
     >
       <div
         class="github-modal"
@@ -652,7 +655,7 @@
         aria-modal="true"
         tabindex="0"
         on:click|stopPropagation
-        on:keydown={(e) => e.key === 'Escape' && (showGithubModal = false)}
+        on:keydown={(e) => e.key === 'Escape' && closeGithubModal()}
       >
         <header>
           <h2>GitHub Connection</h2>
@@ -672,7 +675,7 @@
             <div class="device-code">{deviceFlow.user_code}</div>
           </div>
         {/if}
-        <button class="close" on:click={() => (showGithubModal = false)}>Close</button>
+        <button class="close" on:click={closeGithubModal}>Close</button>
       </div>
     </div>
   {/if}
