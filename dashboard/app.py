@@ -456,9 +456,9 @@ def api_environments():
                 mode = env_data.get('mode', 'workspace')
                 workspace_path = get_workspace_path(mode)
                 
-                # Generate vscode.dev tunnel URL (tunnel names must be 20 chars or less)
+                # Generate insiders.vscode.dev tunnel URL (tunnel names must be 20 chars or less)
                 tunnel_name = env_id
-                env_url = f"https://vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
+                env_url = f"https://insiders.vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),
@@ -709,9 +709,9 @@ def create_environment():
         
         workspace_path = get_workspace_path(mode)
         
-        # Generate vscode.dev tunnel URL (tunnel names must be 20 chars or less)
+        # Generate insiders.vscode.dev tunnel URL (tunnel names must be 20 chars or less)
         tunnel_name = env_id
-        env_url = f"https://vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
+        env_url = f"https://insiders.vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
         
         return jsonify({
             'success': True,

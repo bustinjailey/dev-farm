@@ -1327,7 +1327,7 @@
           <div style="display: flex; gap: 10px;">
             <input type="text" id="tunnelAuthCode" readonly
               style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; letter-spacing: 2px; text-align: center; background: #f7fafc;" />
-            <button class="btn" onclick="copyTunnelCode()"
+            <button class="btn" onclick="copyTunnelCode(event)"
               style="background: #48bb78; color: white; padding: 12px 20px;">
               📋 Copy
             </button>
@@ -2513,7 +2513,7 @@
               // URL comes from server (vscode.dev tunnel URL)
               openBtn.onclick = () => window.open(data.url, '_blank');
               openBtn.textContent = '🔗 Open Tunnel';
-              
+
               // Show Monitor and AI Chat buttons when running
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2524,7 +2524,7 @@
               openBtn.style.opacity = '0.6';
               openBtn.onclick = null;
               openBtn.textContent = '⏳ Starting...';
-              
+
               // Hide Monitor and AI Chat buttons when starting
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2535,7 +2535,7 @@
               openBtn.style.opacity = '';
               openBtn.onclick = () => startEnvironment(env_id);
               openBtn.textContent = '▶️ Start';
-              
+
               // Hide Monitor and AI Chat buttons when stopped
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2799,7 +2799,7 @@
               // URL comes from server (vscode.dev tunnel URL)
               openBtn.onclick = () => window.open(data.url, '_blank');
               openBtn.textContent = '🔗 Open Tunnel';
-              
+
               // Show Monitor and AI Chat buttons when running
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2810,7 +2810,7 @@
               openBtn.style.opacity = '0.6';
               openBtn.onclick = null;
               openBtn.textContent = '⏳ Starting...';
-              
+
               // Hide Monitor and AI Chat buttons when starting
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2821,7 +2821,7 @@
               openBtn.style.opacity = '';
               openBtn.onclick = () => startEnvironment(env_id);
               openBtn.textContent = '▶️ Start';
-              
+
               // Hide Monitor and AI Chat buttons when stopped
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -3390,802 +3390,803 @@
 
 </html>
 ```
-                console.log('🔄 Update still in progress:', data.stage);
-                // The backend will send updates via SSE, but we recovered connection
-              }
-            })
-            .catch(err => console.error('❌ Failed to check update status:', err));
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('❌ SSE connection error:', error);
-        eventSource.close();
-
-        // Exponential backoff for reconnection
-        reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-        console.log(`🔄 Will reconnect in ${delay / 1000}s (attempt ${reconnectAttempts})`);
-
-        setTimeout(() => {
-          console.log('🔄 Attempting to reconnect SSE...');
-          setupSSE();
-        }, delay);
-      };
-
-      eventSource.addEventListener('registry-update', (e) => {
-        // Registry changed - debounced refresh to prevent storm
-        // Skip refresh if any modal is currently open to avoid disrupting user input
-        if (refreshTimeout) clearTimeout(refreshTimeout);
-        refreshTimeout = setTimeout(() => {
-          if (!isAnyModalOpen()) {
-            refreshEnvironments();
-          } else {
-            console.log('Skipping registry refresh - modal is open');
-          }
-        }, 500);
-      });
-
-      eventSource.addEventListener('update-started', (e) => {
-        // Update was started (possibly via API) - open the update modal
-        console.log('Update started event received - opening modal');
-
-        // Show the progress indicator
-        const updateProgressRow = document.getElementById('updateProgressRow');
-        if (updateProgressRow) {
-          updateProgressRow.style.display = 'flex';
-        }
-
-        const modal = document.getElementById('updateModal');
-        if (modal && !modal.classList.contains('active')) {
-          modal.classList.add('active');
-          updateInProgress = true;
-          startUpdateWatchdog(); // Start monitoring for stuck updates
-        }
-      });
-
-      eventSource.addEventListener('env-status', (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          const env_id = data.env_id;
-          const status = data.status;
-          const port = data.port;
-
-          // Update status badge immediately
-          const statusEl = document.getElementById(`status-${env_id}`);
-          if (statusEl) {
-            statusEl.textContent = status;
-            statusEl.className = `status-badge status-${status}`;
-          }
-
-          // Update open button immediately based on status
-          const openBtn = document.getElementById(`open-${env_id}`);
-          if (openBtn) {
-            if (status === 'running') {
-              openBtn.disabled = false;
-              openBtn.style.opacity = '';
-              // URL comes from server (vscode.dev tunnel URL)
-              openBtn.onclick = () => window.open(data.url, '_blank');
-              openBtn.textContent = '🔗 Open Tunnel';
-
-              // Show Monitor and AI Chat buttons when running
-              const monitorBtn = document.getElementById(`monitor-${env_id}`);
-              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
-              if (monitorBtn) monitorBtn.style.display = '';
-              if (aiChatBtn) aiChatBtn.style.display = '';
-            } else if (status === 'starting') {
-              openBtn.disabled = true;
-              openBtn.style.opacity = '0.6';
-              openBtn.onclick = null;
-              openBtn.textContent = '⏳ Starting...';
-
-              // Hide Monitor and AI Chat buttons when starting
-              const monitorBtn = document.getElementById(`monitor-${env_id}`);
-              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
-              if (monitorBtn) monitorBtn.style.display = 'none';
-              if (aiChatBtn) aiChatBtn.style.display = 'none';
-            } else {
-              openBtn.disabled = false;
-              openBtn.style.opacity = '';
-              openBtn.onclick = () => startEnvironment(env_id);
-              openBtn.textContent = '▶️ Start';
-
-              // Hide Monitor and AI Chat buttons when stopped
-              const monitorBtn = document.getElementById(`monitor-${env_id}`);
-              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
-              if (monitorBtn) monitorBtn.style.display = 'none';
-              if (aiChatBtn) aiChatBtn.style.display = 'none';
-            }
-          }
-
-          // Still do a debounced full refresh to ensure consistency
-          if (refreshTimeout) clearTimeout(refreshTimeout);
-          refreshTimeout = setTimeout(refreshEnvironments, 2000);
-        } catch (err) {
-          console.error('Error handling env-status event:', err);
-        }
-      });
-
-      eventSource.addEventListener('update-progress', (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (!data.stage) return;
-
-          // Reset watchdog timer - we got an update
-          lastUpdateProgressTime = Date.now();
-
-          console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
-
-          // Update the progress indicator
-          const updateProgressRow = document.getElementById('updateProgressRow');
-          if (updateProgressRow) {
-            updateProgressRow.style.display = 'flex';
-            updateProgressIndicatorBadge(data.stage, data.status);
-          }
-
-          // Get modal elements
-          const modal = document.getElementById('updateModal');
-          if (!modal || !modal.classList.contains('active')) return;
-
-          const stage1 = document.getElementById('updateStage1');
-          const stage2 = document.getElementById('updateStage2');
-          const stage3 = document.getElementById('updateStage3');
-          const icon1 = document.getElementById('updateIcon1');
-          const icon2 = document.getElementById('updateIcon2');
-          const icon3 = document.getElementById('updateIcon3');
-          const msg1 = document.getElementById('updateMsg1');
-          const msg2 = document.getElementById('updateMsg2');
-          const msg3 = document.getElementById('updateMsg3');
-          const spinner = document.getElementById('updateSpinner');
-          const closeBtn = document.getElementById('updateCloseBtn');
-
-          // Map stages to UI sections
-          const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'];
-          const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
-          const restartStages = ['restart_dashboard'];
-
-          // Stage 1: Git operations
-          if (gitStages.includes(data.stage)) {
-            // For progress status (git output lines), append with indentation
-            // For other statuses, replace the last line to avoid duplication
-            if (data.status === 'progress') {
-              const currentMsg = msg1.textContent;
-              // Add extra indentation for git output (lines with 2-space prefix from backend)
-              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
-              msg1.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
-            } else if (data.status === 'starting') {
-              // Replace last line if it's a status update for same stage
-              const lines = msg1.textContent.split('\n').filter(l => l.trim());
-              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
-              const lastLine = lines[lines.length - 1] || '';
-              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
-
-              if (isStatusLine) {
-                lines[lines.length - 1] = data.message;
-                msg1.textContent = lines.join('\n');
-              } else {
-                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
-              }
-            } else {
-              // For success/error/warning, replace last line with final status
-              const lines = msg1.textContent.split('\n').filter(l => l.trim());
-              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
-              const lastLine = lines[lines.length - 1] || '';
-              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
-
-              if (isStatusLine) {
-                lines[lines.length - 1] = data.message;
-                msg1.textContent = lines.join('\n');
-              } else {
-                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
-              }
-            }
-
-            if (data.status === 'success') {
-              icon1.textContent = '✅';
-            } else if (data.status === 'error') {
-              icon1.textContent = '❌';
-            } else if (data.status === 'warning') {
-              icon1.textContent = '⚠️';
-            } else {
-              icon1.textContent = '⏳';
-            }
-          }
-
-          // Stage 2: Rebuild operations
-          if (rebuildStages.includes(data.stage)) {
-            stage2.style.display = 'block';
-
-            // For progress/info status, append; for starting/success/error, replace last line
-            if (data.status === 'progress' || data.status === 'info') {
-              const currentMsg = msg2.textContent;
-              // Add extra indentation for command output (lines with 2-space prefix from backend)
-              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
-              msg2.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
-            } else if (data.status === 'starting') {
-              const lines = msg2.textContent.split('\n').filter(l => l.trim());
-              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
-              const lastLine = lines[lines.length - 1] || '';
-              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
-
-              if (isStatusLine) {
-                lines[lines.length - 1] = data.message;
-                msg2.textContent = lines.join('\n');
-              } else {
-                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
-              }
-            } else {
-              // For success/error/skipped, replace last line
-              const lines = msg2.textContent.split('\n').filter(l => l.trim());
-              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
-              const lastLine = lines[lines.length - 1] || '';
-              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
-
-              if (isStatusLine) {
-                lines[lines.length - 1] = data.message;
-                msg2.textContent = lines.join('\n');
-              } else {
-                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
-              }
-            }
-
-            if (data.status === 'success') {
-              icon2.textContent = '✅';
-            } else if (data.status === 'error') {
-              icon2.textContent = '❌';
-            } else if (data.status === 'skipped') {
-              icon2.textContent = '⏭️';
-            } else {
-              icon2.textContent = '⏳';
-            }
-          }
-
-          // Stage 3: Restart
-          if (restartStages.includes(data.stage)) {
-            stage3.style.display = 'block';
-
-            // Replace instead of append for restart stage
-            if (data.status === 'starting') {
-              msg3.textContent = data.message || 'Restarting dashboard...';
-            } else {
-              // Update last line for progress/success/error
-              msg3.textContent = data.message || 'Restarting dashboard...';
-            }
-
-            if (data.status === 'success') {
-              icon3.textContent = '✅';
-            } else if (data.status === 'error') {
-              icon3.textContent = '❌';
-            } else {
-              icon3.textContent = '⏳';
-            }
-          }
-
-          // Completion
-          if (data.stage === 'complete') {
-            if (data.status === 'success') {
-              showUpdateComplete();
-            } else {
-              spinner.style.display = 'none';
-              closeBtn.style.display = 'inline-block';
-              msg3.textContent = data.message || '❌ Update failed';
-              icon3.textContent = '❌';
-              updateInProgress = false;
-            }
-          }
-
-          // Error handling
-          if (data.status === 'error') {
-            spinner.style.display = 'none';
-            closeBtn.style.display = 'inline-block';
-          }
-        } catch (err) {
-          console.error('Error handling update-progress event:', err);
-        }
-      });
-
-      eventSource.onerror = (err) => {
-        console.error('SSE error:', err);
-        eventSource.close();
-
-        // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
-        reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
-        console.log(`SSE will reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
-
-        if (reconnectTimeout) clearTimeout(reconnectTimeout);
-        reconnectTimeout = setTimeout(setupSSE, delay);
-      };
-    }
-
-    setupSSE();
-
-    // Clean up SSE connection when page is unloading
-    window.addEventListener('beforeunload', () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (refreshTimeout) {
-        clearTimeout(refreshTimeout);
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-    });
-
-    // Watchdog timer for stuck update modal
-    let lastUpdateProgressTime = null;
-    let updateWatchdogInterval = null;
-
-    function startUpdateWatchdog() {
-      lastUpdateProgressTime = Date.now();
-      if (updateWatchdogInterval) clearInterval(updateWatchdogInterval);
-
-      updateWatchdogInterval = setInterval(() => {
-        if (!updateInProgress) {
-          clearInterval(updateWatchdogInterval);
-          updateWatchdogInterval = null;
-          return;
-        }
-
-        const modal = document.getElementById('updateModal');
-        if (!modal || !modal.classList.contains('active')) {
-          clearInterval(updateWatchdogInterval);
-          updateWatchdogInterval = null;
-          return;
-        }
-
-        // If no progress update for 90 seconds, check backend status
-        const timeSinceLastUpdate = Date.now() - lastUpdateProgressTime;
-        if (timeSinceLastUpdate > 90000) {
-          console.warn('⚠️ No update progress for 90s - checking backend status');
-          fetch('/api/system/update/status')
-            .then(r => r.json())
-            .then(data => {
-              console.log('Update status check:', data);
-              if (data.stage === 'complete') {
-                console.log('✅ Update actually completed - showing completion UI');
-                if (data.status === 'success') {
-                  showUpdateComplete();
-                } else {
-                  closeUpdateModal();
-                }
-              } else if (data.stage === 'idle') {
-                console.log('⚠️ Update no longer running - closing stuck modal');
-                closeUpdateModal();
-              } else {
-                // Update is still running, reset timer
-                console.log('🔄 Update still in progress, resetting watchdog');
-                lastUpdateProgressTime = Date.now();
-              }
-            })
-            .catch(err => {
-              console.error('❌ Failed to check update status:', err);
-              // Add a retry button to the modal
-              const msg3 = document.getElementById('updateMsg3');
-              if (msg3 && !msg3.textContent.includes('Connection lost')) {
-                msg3.textContent = (msg3.textContent || '') + '\\n\\n⚠️ Connection lost. Refresh page if stuck.';
-              }
-            });
-        }
-      }, 30000); // Check every 30 seconds
-    }
-
-    function stopUpdateWatchdog() {
-      if (updateWatchdogInterval) {
-        clearInterval(updateWatchdogInterval);
-        updateWatchdogInterval = null;
-      }
-      lastUpdateProgressTime = null;
-    }
-
-    // Update the event listener to track progress time
-    const originalUpdateProgressHandler = eventSource?.addEventListener;
-
-    // Fallback: Still check system status periodically for updates not covered by SSE
-    setInterval(() => {
-      // Don't check system status if any modal is open
-      if (!isAnyModalOpen()) {
-        checkSystemStatus();
-      }
-    }, 30000); // Reduced to 30 seconds since SSE handles environment updates
-
-    // Lightweight environment list refresh to reflect starting->running
-    async function refreshEnvironments() {
-      if (isRefreshing) {
-        console.log('Refresh already in progress, skipping');
-        return;
-      }
-      isRefreshing = true;
-      try {
-        const resp = await fetch('/api/environments');
-        if (!resp.ok) {
-          console.warn(`Failed to fetch environments: ${resp.status}`);
-          return;
-        }
-        const text = await resp.text();
-        if (!text) {
-          console.warn('Empty response from /api/environments');
-          return;
-        }
-        const data = JSON.parse(text);
-        for (const env of data) {
-          const statusEl = document.getElementById(`status-${env.id}`);
-          if (statusEl) {
-            statusEl.textContent = env.status;
-            statusEl.className = `status-badge status-${env.status}`;
-          }
-          const openBtn = document.getElementById(`open-${env.id}`);
-          if (openBtn) {
-            if (env.status === 'running') {
-              openBtn.disabled = false;
-              openBtn.style.opacity = '';
-              openBtn.onclick = () => window.open(env.url, '_blank');
-              openBtn.textContent = '🔗 Open Tunnel';
-            } else if (env.status === 'starting') {
-              openBtn.disabled = true;
-              openBtn.style.opacity = '0.6';
-              openBtn.onclick = null;
-              openBtn.textContent = '⏳ Starting...';
-            } else {
-              openBtn.disabled = false;
-              openBtn.style.opacity = '';
-              openBtn.onclick = () => startEnvironment(env.id);
-              openBtn.textContent = '▶️ Start';
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to refresh environments', e);
-      } finally {
-        isRefreshing = false;
-      }
-    }
-
-    // Logs modal functions
-    async function showLogs(envName) {
-      currentLogsEnv = envName;
-      document.getElementById('logsEnvName').textContent = envName;
-      document.getElementById('logsModal').classList.add('active');
-      await refreshLogs();
-    }
-
-    function hideLogsModal() {
-      document.getElementById('logsModal').classList.remove('active');
-      currentLogsEnv = null;
-    }
-
-    function extractAndShowTunnelAuth() {
-      const logsContent = document.getElementById('logsContent').textContent;
-
-      // Extract device code (format: XXXX-XXXX)
-      const codeMatch = logsContent.match(/use code ([A-Z0-9]{4}-[A-Z0-9]{4})/);
-
-      if (codeMatch) {
-        document.getElementById('tunnelAuthCode').value = codeMatch[1];
-        document.getElementById('tunnelAuthModal').classList.add('active');
-      } else {
-        alert('No device code found in logs. The tunnel may already be authenticated or not started yet.');
-      }
-    }
-
-    function hideTunnelAuthModal() {
-      document.getElementById('tunnelAuthModal').classList.remove('active');
-    }
-
-    async function copyTunnelCode() {
-      const code = document.getElementById('tunnelAuthCode').value;
-      try {
-        await navigator.clipboard.writeText(code);
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '✓ Copied!';
-        btn.style.background = '#48bb78';
-        setTimeout(() => {
-          btn.innerHTML = originalText;
-        }, 2000);
-      } catch (error) {
-        alert('Failed to copy code: ' + error.message);
-      }
-    }
-
-    function openTunnelAuthUrl() {
-      window.open('https://github.com/login/device', '_blank');
-    }
-
-    async function refreshLogs() {
-      if (!currentLogsEnv) return;
-
-      const logsContent = document.getElementById('logsContent');
-      const logsStatus = document.getElementById('logsStatus');
-
-      try {
-        logsContent.textContent = 'Loading logs...';
-        logsStatus.textContent = '';
-
-        const response = await fetch(`/api/environments/${currentLogsEnv}/logs`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        const text = await response.text();
-        if (!text) {
-          throw new Error('Empty response from server (possibly restarting)');
-        }
-        const data = JSON.parse(text);
-
-        if (data.success) {
-          logsContent.textContent = data.logs || 'No logs available';
-          logsStatus.textContent = data.status;
-          logsStatus.className = `status-badge status-${data.status}`;
-          logsStatus.style.display = 'inline-block';
-        } else {
-          logsContent.textContent = `Error: ${data.error}`;
-          logsStatus.textContent = 'error';
-          logsStatus.className = 'status-badge status-exited';
-        }
-
-        // Auto-scroll to bottom
-        logsContent.scrollTop = logsContent.scrollHeight;
-      } catch (error) {
-        logsContent.textContent = `Failed to fetch logs: ${error.message}`;
-        logsStatus.textContent = 'error';
-        logsStatus.className = 'status-badge status-exited';
-      }
-    }
-
-    async function copyLogsToClipboard() {
-      const logsContent = document.getElementById('logsContent');
-      const copyBtn = document.getElementById('copyLogsBtn');
-      const originalText = copyBtn.innerHTML;
-
-      try {
-        await navigator.clipboard.writeText(logsContent.textContent);
-        copyBtn.innerHTML = '✅ Copied!';
-        copyBtn.style.background = '#48bb78';
-
-        setTimeout(() => {
-          copyBtn.innerHTML = originalText;
-          copyBtn.style.background = '#48bb78';
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to copy logs:', error);
-        copyBtn.innerHTML = '❌ Failed';
-        copyBtn.style.background = '#f56565';
-
-        setTimeout(() => {
-          copyBtn.innerHTML = originalText;
-          copyBtn.style.background = '#48bb78';
-        }, 2000);
-      }
-    }
-
-    // ============================================================================
-    // AI Chat Interface Functions
-    // ============================================================================
-
-    let activeAITool = {};  // Track active tool per environment
-    let aiRefreshIntervals = {};  // Track auto-refresh intervals
-
-    function toggleAIChat(envId) {
-      const panel = document.getElementById(`ai-chat-${envId}`);
-      if (panel.style.display === 'none') {
-        panel.style.display = 'block';
-        if (!activeAITool[envId]) {
-          activeAITool[envId] = 'copilot';
-        }
-        // Start auto-refresh for AI output
-        startAIOutputRefresh(envId);
-      } else {
-        panel.style.display = 'none';
-        stopAIOutputRefresh(envId);
-      }
-    }
-
-    function selectAITool(envId, tool) {
-      activeAITool[envId] = tool;
-
-      // Update button states
-      const panel = document.getElementById(`ai-chat-${envId}`);
-      const buttons = panel.querySelectorAll('.ai-tool-btn');
-      buttons.forEach(btn => {
-        if (btn.dataset.tool === tool) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
-      });
-
-      // Clear output
-      const output = document.getElementById(`ai-output-${envId}`);
-      output.innerHTML = '<div class="output-placeholder">Switched to ' + tool + '. Ready for your request.</div>';
-    }
-
-    async function sendAIMessage(envId) {
-      const input = document.getElementById(`ai-input-${envId}`);
-      const message = input.value.trim();
-
-      if (!message) return;
-
-      const tool = 'copilot';  // Only use Copilot CLI
-      const output = document.getElementById(`ai-output-${envId}`);
-
-      // Show loading
-      output.innerHTML += `\n\n> ${message}\n\nProcessing...`;
-      output.scrollTop = output.scrollHeight;
-
-      // Clear input
-      input.value = '';
-
-      try {
-        const response = await fetch(`/api/environments/${envId}/ai/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, tool })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to Copilot CLI. Check output below.');
-
-          // Start fetching output
-          setTimeout(() => fetchAIOutput(envId), 1000);
-        } else {
-          output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + data.error);
-        }
-
-      } catch (error) {
-        output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + error.message);
-      }
-
-      output.scrollTop = output.scrollHeight;
-    }
-
-    async function fetchAIOutput(envId) {
-      try {
-        const response = await fetch(`/api/environments/${envId}/ai/output`);
-        const data = await response.json();
-
-        const output = document.getElementById(`ai-output-${envId}`);
-        if (data.output) {
-          output.textContent = data.output;
-          output.scrollTop = output.scrollHeight;
-        }
-      } catch (error) {
-        console.error('Error fetching AI output:', error);
-      }
-    }
-
-    function startAIOutputRefresh(envId) {
-      // Refresh AI output every 2 seconds
-      if (aiRefreshIntervals[envId]) {
-        clearInterval(aiRefreshIntervals[envId]);
-      }
-      aiRefreshIntervals[envId] = setInterval(() => fetchAIOutput(envId), 2000);
-    }
-
-    function stopAIOutputRefresh(envId) {
-      if (aiRefreshIntervals[envId]) {
-        clearInterval(aiRefreshIntervals[envId]);
-        delete aiRefreshIntervals[envId];
-      }
-    }
-
-    // Handle Enter key in AI input (Ctrl+Enter to send)
-    document.addEventListener('DOMContentLoaded', function () {
-      document.querySelectorAll('.ai-input').forEach(input => {
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' && e.ctrlKey) {
-            e.preventDefault();
-            const envId = this.id.replace('ai-input-', '');
-            sendAIMessage(envId);
-          }
-        });
-      });
-    });
-
-    // ============================================================================
-    // Monitoring Panel Functions
-    // ============================================================================
-
-    let monitoringIntervals = {};  // Track auto-refresh intervals
-
-    function toggleMonitoring(envId) {
-      const panel = document.getElementById(`monitoring-${envId}`);
-      if (panel.style.display === 'none') {
-        panel.style.display = 'block';
-        loadMonitoringData(envId);
-        // Start auto-refresh
-        startMonitoringRefresh(envId);
-      } else {
-        panel.style.display = 'none';
-        stopMonitoringRefresh(envId);
-      }
-    }
-
-    async function loadMonitoringData(envId) {
-      await Promise.all([
-        refreshTerminal(envId),
-        refreshGitActivity(envId),
-        refreshProcesses(envId)
-      ]);
-    }
-
-    async function refreshTerminal(envId) {
-      try {
-        const response = await fetch(`/api/environments/${envId}/terminal-preview`);
-        const data = await response.json();
-
-        const terminal = document.getElementById(`terminal-${envId}`);
-        terminal.textContent = data.output || 'No terminal output available';
-      } catch (error) {
-        console.error('Error fetching terminal:', error);
-      }
-    }
-
-    async function refreshGitActivity(envId) {
-      try {
-        const response = await fetch(`/api/environments/${envId}/git-activity`);
-        const data = await response.json();
-
-        const list = document.getElementById(`git-activity-${envId}`);
-        if (data.commits && data.commits.length > 0) {
-          list.innerHTML = data.commits.map(c =>
-            `<li><span class="commit-time">${c.time}</span> • ${c.message}</li>`
-          ).join('');
-        } else {
-          list.innerHTML = '<li>No git activity</li>';
-        }
-      } catch (error) {
-        console.error('Error fetching git activity:', error);
-      }
-    }
-
-    async function refreshProcesses(envId) {
-      try {
-        const response = await fetch(`/api/environments/${envId}/processes`);
-        const data = await response.json();
-
-        const list = document.getElementById(`processes-${envId}`);
-        if (data.processes && data.processes.length > 0) {
-          list.innerHTML = data.processes.map(p =>
-            `<li>${p.command} <span class="process-stats">(CPU: ${p.cpu}%, Time: ${p.time})</span></li>`
-          ).join('');
-        } else {
-          list.innerHTML = '<li>No relevant processes running</li>';
-        }
-      } catch (error) {
-        console.error('Error fetching processes:', error);
-      }
-    }
-
-    function startMonitoringRefresh(envId) {
-      // Refresh monitoring data every 5 seconds
-      if (monitoringIntervals[envId]) {
-        clearInterval(monitoringIntervals[envId]);
-      }
-      monitoringIntervals[envId] = setInterval(() => loadMonitoringData(envId), 5000);
-    }
-
-    function stopMonitoringRefresh(envId) {
-      if (monitoringIntervals[envId]) {
-        clearInterval(monitoringIntervals[envId]);
-        delete monitoringIntervals[envId];
-      }
-    }
-
-    // Listen for AI responses via SSE
-    if (eventSource) {
-      eventSource.addEventListener('ai-response', function (e) {
-        const data = JSON.parse(e.data);
-        const output = document.getElementById(`ai-output-${data.env_id}`);
-        if (output) {
-          output.innerHTML += `\n\n--- Response at ${new Date(data.timestamp).toLocaleTimeString()} ---\n${data.response}`;
-          output.scrollTop = output.scrollHeight;
-        }
-      });
-    }
-  </script>
+console.log('🔄 Update still in progress:', data.stage);
+// The backend will send updates via SSE, but we recovered connection
+}
+})
+.catch(err => console.error('❌ Failed to check update status:', err));
+}
+};
+
+eventSource.onerror = (error) => {
+console.error('❌ SSE connection error:', error);
+eventSource.close();
+
+// Exponential backoff for reconnection
+reconnectAttempts++;
+const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+console.log(`🔄 Will reconnect in ${delay / 1000}s (attempt ${reconnectAttempts})`);
+
+setTimeout(() => {
+console.log('🔄 Attempting to reconnect SSE...');
+setupSSE();
+}, delay);
+};
+
+eventSource.addEventListener('registry-update', (e) => {
+// Registry changed - debounced refresh to prevent storm
+// Skip refresh if any modal is currently open to avoid disrupting user input
+if (refreshTimeout) clearTimeout(refreshTimeout);
+refreshTimeout = setTimeout(() => {
+if (!isAnyModalOpen()) {
+refreshEnvironments();
+} else {
+console.log('Skipping registry refresh - modal is open');
+}
+}, 500);
+});
+
+eventSource.addEventListener('update-started', (e) => {
+// Update was started (possibly via API) - open the update modal
+console.log('Update started event received - opening modal');
+
+// Show the progress indicator
+const updateProgressRow = document.getElementById('updateProgressRow');
+if (updateProgressRow) {
+updateProgressRow.style.display = 'flex';
+}
+
+const modal = document.getElementById('updateModal');
+if (modal && !modal.classList.contains('active')) {
+modal.classList.add('active');
+updateInProgress = true;
+startUpdateWatchdog(); // Start monitoring for stuck updates
+}
+});
+
+eventSource.addEventListener('env-status', (e) => {
+try {
+const data = JSON.parse(e.data);
+const env_id = data.env_id;
+const status = data.status;
+const port = data.port;
+
+// Update status badge immediately
+const statusEl = document.getElementById(`status-${env_id}`);
+if (statusEl) {
+statusEl.textContent = status;
+statusEl.className = `status-badge status-${status}`;
+}
+
+// Update open button immediately based on status
+const openBtn = document.getElementById(`open-${env_id}`);
+if (openBtn) {
+if (status === 'running') {
+openBtn.disabled = false;
+openBtn.style.opacity = '';
+// URL comes from server (vscode.dev tunnel URL)
+openBtn.onclick = () => window.open(data.url, '_blank');
+openBtn.textContent = '🔗 Open Tunnel';
+
+// Show Monitor and AI Chat buttons when running
+const monitorBtn = document.getElementById(`monitor-${env_id}`);
+const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+if (monitorBtn) monitorBtn.style.display = '';
+if (aiChatBtn) aiChatBtn.style.display = '';
+} else if (status === 'starting') {
+openBtn.disabled = true;
+openBtn.style.opacity = '0.6';
+openBtn.onclick = null;
+openBtn.textContent = '⏳ Starting...';
+
+// Hide Monitor and AI Chat buttons when starting
+const monitorBtn = document.getElementById(`monitor-${env_id}`);
+const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+if (monitorBtn) monitorBtn.style.display = 'none';
+if (aiChatBtn) aiChatBtn.style.display = 'none';
+} else {
+openBtn.disabled = false;
+openBtn.style.opacity = '';
+openBtn.onclick = () => startEnvironment(env_id);
+openBtn.textContent = '▶️ Start';
+
+// Hide Monitor and AI Chat buttons when stopped
+const monitorBtn = document.getElementById(`monitor-${env_id}`);
+const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+if (monitorBtn) monitorBtn.style.display = 'none';
+if (aiChatBtn) aiChatBtn.style.display = 'none';
+}
+}
+
+// Still do a debounced full refresh to ensure consistency
+if (refreshTimeout) clearTimeout(refreshTimeout);
+refreshTimeout = setTimeout(refreshEnvironments, 2000);
+} catch (err) {
+console.error('Error handling env-status event:', err);
+}
+});
+
+eventSource.addEventListener('update-progress', (e) => {
+try {
+const data = JSON.parse(e.data);
+if (!data.stage) return;
+
+// Reset watchdog timer - we got an update
+lastUpdateProgressTime = Date.now();
+
+console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
+
+// Update the progress indicator
+const updateProgressRow = document.getElementById('updateProgressRow');
+if (updateProgressRow) {
+updateProgressRow.style.display = 'flex';
+updateProgressIndicatorBadge(data.stage, data.status);
+}
+
+// Get modal elements
+const modal = document.getElementById('updateModal');
+if (!modal || !modal.classList.contains('active')) return;
+
+const stage1 = document.getElementById('updateStage1');
+const stage2 = document.getElementById('updateStage2');
+const stage3 = document.getElementById('updateStage3');
+const icon1 = document.getElementById('updateIcon1');
+const icon2 = document.getElementById('updateIcon2');
+const icon3 = document.getElementById('updateIcon3');
+const msg1 = document.getElementById('updateMsg1');
+const msg2 = document.getElementById('updateMsg2');
+const msg3 = document.getElementById('updateMsg3');
+const spinner = document.getElementById('updateSpinner');
+const closeBtn = document.getElementById('updateCloseBtn');
+
+// Map stages to UI sections
+const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout',
+'git_pull', 'verify_update'];
+const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
+const restartStages = ['restart_dashboard'];
+
+// Stage 1: Git operations
+if (gitStages.includes(data.stage)) {
+// For progress status (git output lines), append with indentation
+// For other statuses, replace the last line to avoid duplication
+if (data.status === 'progress') {
+const currentMsg = msg1.textContent;
+// Add extra indentation for git output (lines with 2-space prefix from backend)
+const indentedLine = data.message.startsWith(' ') ? ' ' + data.message.substring(2) : data.message;
+msg1.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+} else if (data.status === 'starting') {
+// Replace last line if it's a status update for same stage
+const lines = msg1.textContent.split('\n').filter(l => l.trim());
+const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+const lastLine = lines[lines.length - 1] || '';
+const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+if (isStatusLine) {
+lines[lines.length - 1] = data.message;
+msg1.textContent = lines.join('\n');
+} else {
+msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+}
+} else {
+// For success/error/warning, replace last line with final status
+const lines = msg1.textContent.split('\n').filter(l => l.trim());
+const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+const lastLine = lines[lines.length - 1] || '';
+const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+if (isStatusLine) {
+lines[lines.length - 1] = data.message;
+msg1.textContent = lines.join('\n');
+} else {
+msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+}
+}
+
+if (data.status === 'success') {
+icon1.textContent = '✅';
+} else if (data.status === 'error') {
+icon1.textContent = '❌';
+} else if (data.status === 'warning') {
+icon1.textContent = '⚠️';
+} else {
+icon1.textContent = '⏳';
+}
+}
+
+// Stage 2: Rebuild operations
+if (rebuildStages.includes(data.stage)) {
+stage2.style.display = 'block';
+
+// For progress/info status, append; for starting/success/error, replace last line
+if (data.status === 'progress' || data.status === 'info') {
+const currentMsg = msg2.textContent;
+// Add extra indentation for command output (lines with 2-space prefix from backend)
+const indentedLine = data.message.startsWith(' ') ? ' ' + data.message.substring(2) : data.message;
+msg2.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+} else if (data.status === 'starting') {
+const lines = msg2.textContent.split('\n').filter(l => l.trim());
+const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+const lastLine = lines[lines.length - 1] || '';
+const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+if (isStatusLine) {
+lines[lines.length - 1] = data.message;
+msg2.textContent = lines.join('\n');
+} else {
+msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+}
+} else {
+// For success/error/skipped, replace last line
+const lines = msg2.textContent.split('\n').filter(l => l.trim());
+const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+const lastLine = lines[lines.length - 1] || '';
+const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+if (isStatusLine) {
+lines[lines.length - 1] = data.message;
+msg2.textContent = lines.join('\n');
+} else {
+msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+}
+}
+
+if (data.status === 'success') {
+icon2.textContent = '✅';
+} else if (data.status === 'error') {
+icon2.textContent = '❌';
+} else if (data.status === 'skipped') {
+icon2.textContent = '⏭️';
+} else {
+icon2.textContent = '⏳';
+}
+}
+
+// Stage 3: Restart
+if (restartStages.includes(data.stage)) {
+stage3.style.display = 'block';
+
+// Replace instead of append for restart stage
+if (data.status === 'starting') {
+msg3.textContent = data.message || 'Restarting dashboard...';
+} else {
+// Update last line for progress/success/error
+msg3.textContent = data.message || 'Restarting dashboard...';
+}
+
+if (data.status === 'success') {
+icon3.textContent = '✅';
+} else if (data.status === 'error') {
+icon3.textContent = '❌';
+} else {
+icon3.textContent = '⏳';
+}
+}
+
+// Completion
+if (data.stage === 'complete') {
+if (data.status === 'success') {
+showUpdateComplete();
+} else {
+spinner.style.display = 'none';
+closeBtn.style.display = 'inline-block';
+msg3.textContent = data.message || '❌ Update failed';
+icon3.textContent = '❌';
+updateInProgress = false;
+}
+}
+
+// Error handling
+if (data.status === 'error') {
+spinner.style.display = 'none';
+closeBtn.style.display = 'inline-block';
+}
+} catch (err) {
+console.error('Error handling update-progress event:', err);
+}
+});
+
+eventSource.onerror = (err) => {
+console.error('SSE error:', err);
+eventSource.close();
+
+// Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+reconnectAttempts++;
+const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+console.log(`SSE will reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
+
+if (reconnectTimeout) clearTimeout(reconnectTimeout);
+reconnectTimeout = setTimeout(setupSSE, delay);
+};
+}
+
+setupSSE();
+
+// Clean up SSE connection when page is unloading
+window.addEventListener('beforeunload', () => {
+if (eventSource) {
+eventSource.close();
+}
+if (refreshTimeout) {
+clearTimeout(refreshTimeout);
+}
+if (reconnectTimeout) {
+clearTimeout(reconnectTimeout);
+}
+});
+
+// Watchdog timer for stuck update modal
+let lastUpdateProgressTime = null;
+let updateWatchdogInterval = null;
+
+function startUpdateWatchdog() {
+lastUpdateProgressTime = Date.now();
+if (updateWatchdogInterval) clearInterval(updateWatchdogInterval);
+
+updateWatchdogInterval = setInterval(() => {
+if (!updateInProgress) {
+clearInterval(updateWatchdogInterval);
+updateWatchdogInterval = null;
+return;
+}
+
+const modal = document.getElementById('updateModal');
+if (!modal || !modal.classList.contains('active')) {
+clearInterval(updateWatchdogInterval);
+updateWatchdogInterval = null;
+return;
+}
+
+// If no progress update for 90 seconds, check backend status
+const timeSinceLastUpdate = Date.now() - lastUpdateProgressTime;
+if (timeSinceLastUpdate > 90000) {
+console.warn('⚠️ No update progress for 90s - checking backend status');
+fetch('/api/system/update/status')
+.then(r => r.json())
+.then(data => {
+console.log('Update status check:', data);
+if (data.stage === 'complete') {
+console.log('✅ Update actually completed - showing completion UI');
+if (data.status === 'success') {
+showUpdateComplete();
+} else {
+closeUpdateModal();
+}
+} else if (data.stage === 'idle') {
+console.log('⚠️ Update no longer running - closing stuck modal');
+closeUpdateModal();
+} else {
+// Update is still running, reset timer
+console.log('🔄 Update still in progress, resetting watchdog');
+lastUpdateProgressTime = Date.now();
+}
+})
+.catch(err => {
+console.error('❌ Failed to check update status:', err);
+// Add a retry button to the modal
+const msg3 = document.getElementById('updateMsg3');
+if (msg3 && !msg3.textContent.includes('Connection lost')) {
+msg3.textContent = (msg3.textContent || '') + '\\n\\n⚠️ Connection lost. Refresh page if stuck.';
+}
+});
+}
+}, 30000); // Check every 30 seconds
+}
+
+function stopUpdateWatchdog() {
+if (updateWatchdogInterval) {
+clearInterval(updateWatchdogInterval);
+updateWatchdogInterval = null;
+}
+lastUpdateProgressTime = null;
+}
+
+// Update the event listener to track progress time
+const originalUpdateProgressHandler = eventSource?.addEventListener;
+
+// Fallback: Still check system status periodically for updates not covered by SSE
+setInterval(() => {
+// Don't check system status if any modal is open
+if (!isAnyModalOpen()) {
+checkSystemStatus();
+}
+}, 30000); // Reduced to 30 seconds since SSE handles environment updates
+
+// Lightweight environment list refresh to reflect starting->running
+async function refreshEnvironments() {
+if (isRefreshing) {
+console.log('Refresh already in progress, skipping');
+return;
+}
+isRefreshing = true;
+try {
+const resp = await fetch('/api/environments');
+if (!resp.ok) {
+console.warn(`Failed to fetch environments: ${resp.status}`);
+return;
+}
+const text = await resp.text();
+if (!text) {
+console.warn('Empty response from /api/environments');
+return;
+}
+const data = JSON.parse(text);
+for (const env of data) {
+const statusEl = document.getElementById(`status-${env.id}`);
+if (statusEl) {
+statusEl.textContent = env.status;
+statusEl.className = `status-badge status-${env.status}`;
+}
+const openBtn = document.getElementById(`open-${env.id}`);
+if (openBtn) {
+if (env.status === 'running') {
+openBtn.disabled = false;
+openBtn.style.opacity = '';
+openBtn.onclick = () => window.open(env.url, '_blank');
+openBtn.textContent = '🔗 Open Tunnel';
+} else if (env.status === 'starting') {
+openBtn.disabled = true;
+openBtn.style.opacity = '0.6';
+openBtn.onclick = null;
+openBtn.textContent = '⏳ Starting...';
+} else {
+openBtn.disabled = false;
+openBtn.style.opacity = '';
+openBtn.onclick = () => startEnvironment(env.id);
+openBtn.textContent = '▶️ Start';
+}
+}
+}
+} catch (e) {
+console.warn('Failed to refresh environments', e);
+} finally {
+isRefreshing = false;
+}
+}
+
+// Logs modal functions
+async function showLogs(envName) {
+currentLogsEnv = envName;
+document.getElementById('logsEnvName').textContent = envName;
+document.getElementById('logsModal').classList.add('active');
+await refreshLogs();
+}
+
+function hideLogsModal() {
+document.getElementById('logsModal').classList.remove('active');
+currentLogsEnv = null;
+}
+
+function extractAndShowTunnelAuth() {
+const logsContent = document.getElementById('logsContent').textContent;
+
+// Extract device code (format: XXXX-XXXX)
+const codeMatch = logsContent.match(/use code ([A-Z0-9]{4}-[A-Z0-9]{4})/);
+
+if (codeMatch) {
+document.getElementById('tunnelAuthCode').value = codeMatch[1];
+document.getElementById('tunnelAuthModal').classList.add('active');
+} else {
+alert('No device code found in logs. The tunnel may already be authenticated or not started yet.');
+}
+}
+
+function hideTunnelAuthModal() {
+document.getElementById('tunnelAuthModal').classList.remove('active');
+}
+
+async function copyTunnelCode(event) {
+const code = document.getElementById('tunnelAuthCode').value;
+try {
+await navigator.clipboard.writeText(code);
+const btn = event.target;
+const originalText = btn.innerHTML;
+btn.innerHTML = '✓ Copied!';
+btn.style.background = '#48bb78';
+setTimeout(() => {
+btn.innerHTML = originalText;
+}, 2000);
+} catch (error) {
+alert('Failed to copy code: ' + error.message);
+}
+}
+
+function openTunnelAuthUrl() {
+window.open('https://github.com/login/device', '_blank');
+}
+
+async function refreshLogs() {
+if (!currentLogsEnv) return;
+
+const logsContent = document.getElementById('logsContent');
+const logsStatus = document.getElementById('logsStatus');
+
+try {
+logsContent.textContent = 'Loading logs...';
+logsStatus.textContent = '';
+
+const response = await fetch(`/api/environments/${currentLogsEnv}/logs`);
+if (!response.ok) {
+throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+}
+const text = await response.text();
+if (!text) {
+throw new Error('Empty response from server (possibly restarting)');
+}
+const data = JSON.parse(text);
+
+if (data.success) {
+logsContent.textContent = data.logs || 'No logs available';
+logsStatus.textContent = data.status;
+logsStatus.className = `status-badge status-${data.status}`;
+logsStatus.style.display = 'inline-block';
+} else {
+logsContent.textContent = `Error: ${data.error}`;
+logsStatus.textContent = 'error';
+logsStatus.className = 'status-badge status-exited';
+}
+
+// Auto-scroll to bottom
+logsContent.scrollTop = logsContent.scrollHeight;
+} catch (error) {
+logsContent.textContent = `Failed to fetch logs: ${error.message}`;
+logsStatus.textContent = 'error';
+logsStatus.className = 'status-badge status-exited';
+}
+}
+
+async function copyLogsToClipboard() {
+const logsContent = document.getElementById('logsContent');
+const copyBtn = document.getElementById('copyLogsBtn');
+const originalText = copyBtn.innerHTML;
+
+try {
+await navigator.clipboard.writeText(logsContent.textContent);
+copyBtn.innerHTML = '✅ Copied!';
+copyBtn.style.background = '#48bb78';
+
+setTimeout(() => {
+copyBtn.innerHTML = originalText;
+copyBtn.style.background = '#48bb78';
+}, 2000);
+} catch (error) {
+console.error('Failed to copy logs:', error);
+copyBtn.innerHTML = '❌ Failed';
+copyBtn.style.background = '#f56565';
+
+setTimeout(() => {
+copyBtn.innerHTML = originalText;
+copyBtn.style.background = '#48bb78';
+}, 2000);
+}
+}
+
+// ============================================================================
+// AI Chat Interface Functions
+// ============================================================================
+
+let activeAITool = {}; // Track active tool per environment
+let aiRefreshIntervals = {}; // Track auto-refresh intervals
+
+function toggleAIChat(envId) {
+const panel = document.getElementById(`ai-chat-${envId}`);
+if (panel.style.display === 'none') {
+panel.style.display = 'block';
+if (!activeAITool[envId]) {
+activeAITool[envId] = 'copilot';
+}
+// Start auto-refresh for AI output
+startAIOutputRefresh(envId);
+} else {
+panel.style.display = 'none';
+stopAIOutputRefresh(envId);
+}
+}
+
+function selectAITool(envId, tool) {
+activeAITool[envId] = tool;
+
+// Update button states
+const panel = document.getElementById(`ai-chat-${envId}`);
+const buttons = panel.querySelectorAll('.ai-tool-btn');
+buttons.forEach(btn => {
+if (btn.dataset.tool === tool) {
+btn.classList.add('active');
+} else {
+btn.classList.remove('active');
+}
+});
+
+// Clear output
+const output = document.getElementById(`ai-output-${envId}`);
+output.innerHTML = '<div class="output-placeholder">Switched to ' + tool + '. Ready for your request.</div>';
+}
+
+async function sendAIMessage(envId) {
+const input = document.getElementById(`ai-input-${envId}`);
+const message = input.value.trim();
+
+if (!message) return;
+
+const tool = 'copilot'; // Only use Copilot CLI
+const output = document.getElementById(`ai-output-${envId}`);
+
+// Show loading
+output.innerHTML += `\n\n> ${message}\n\nProcessing...`;
+output.scrollTop = output.scrollHeight;
+
+// Clear input
+input.value = '';
+
+try {
+const response = await fetch(`/api/environments/${envId}/ai/chat`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ message, tool })
+});
+
+const data = await response.json();
+
+if (data.success) {
+output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to Copilot CLI. Check output below.');
+
+// Start fetching output
+setTimeout(() => fetchAIOutput(envId), 1000);
+} else {
+output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + data.error);
+}
+
+} catch (error) {
+output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + error.message);
+}
+
+output.scrollTop = output.scrollHeight;
+}
+
+async function fetchAIOutput(envId) {
+try {
+const response = await fetch(`/api/environments/${envId}/ai/output`);
+const data = await response.json();
+
+const output = document.getElementById(`ai-output-${envId}`);
+if (data.output) {
+output.textContent = data.output;
+output.scrollTop = output.scrollHeight;
+}
+} catch (error) {
+console.error('Error fetching AI output:', error);
+}
+}
+
+function startAIOutputRefresh(envId) {
+// Refresh AI output every 2 seconds
+if (aiRefreshIntervals[envId]) {
+clearInterval(aiRefreshIntervals[envId]);
+}
+aiRefreshIntervals[envId] = setInterval(() => fetchAIOutput(envId), 2000);
+}
+
+function stopAIOutputRefresh(envId) {
+if (aiRefreshIntervals[envId]) {
+clearInterval(aiRefreshIntervals[envId]);
+delete aiRefreshIntervals[envId];
+}
+}
+
+// Handle Enter key in AI input (Ctrl+Enter to send)
+document.addEventListener('DOMContentLoaded', function () {
+document.querySelectorAll('.ai-input').forEach(input => {
+input.addEventListener('keydown', function (e) {
+if (e.key === 'Enter' && e.ctrlKey) {
+e.preventDefault();
+const envId = this.id.replace('ai-input-', '');
+sendAIMessage(envId);
+}
+});
+});
+});
+
+// ============================================================================
+// Monitoring Panel Functions
+// ============================================================================
+
+let monitoringIntervals = {}; // Track auto-refresh intervals
+
+function toggleMonitoring(envId) {
+const panel = document.getElementById(`monitoring-${envId}`);
+if (panel.style.display === 'none') {
+panel.style.display = 'block';
+loadMonitoringData(envId);
+// Start auto-refresh
+startMonitoringRefresh(envId);
+} else {
+panel.style.display = 'none';
+stopMonitoringRefresh(envId);
+}
+}
+
+async function loadMonitoringData(envId) {
+await Promise.all([
+refreshTerminal(envId),
+refreshGitActivity(envId),
+refreshProcesses(envId)
+]);
+}
+
+async function refreshTerminal(envId) {
+try {
+const response = await fetch(`/api/environments/${envId}/terminal-preview`);
+const data = await response.json();
+
+const terminal = document.getElementById(`terminal-${envId}`);
+terminal.textContent = data.output || 'No terminal output available';
+} catch (error) {
+console.error('Error fetching terminal:', error);
+}
+}
+
+async function refreshGitActivity(envId) {
+try {
+const response = await fetch(`/api/environments/${envId}/git-activity`);
+const data = await response.json();
+
+const list = document.getElementById(`git-activity-${envId}`);
+if (data.commits && data.commits.length > 0) {
+list.innerHTML = data.commits.map(c =>
+`<li><span class="commit-time">${c.time}</span> • ${c.message}</li>`
+).join('');
+} else {
+list.innerHTML = '<li>No git activity</li>';
+}
+} catch (error) {
+console.error('Error fetching git activity:', error);
+}
+}
+
+async function refreshProcesses(envId) {
+try {
+const response = await fetch(`/api/environments/${envId}/processes`);
+const data = await response.json();
+
+const list = document.getElementById(`processes-${envId}`);
+if (data.processes && data.processes.length > 0) {
+list.innerHTML = data.processes.map(p =>
+`<li>${p.command} <span class="process-stats">(CPU: ${p.cpu}%, Time: ${p.time})</span></li>`
+).join('');
+} else {
+list.innerHTML = '<li>No relevant processes running</li>';
+}
+} catch (error) {
+console.error('Error fetching processes:', error);
+}
+}
+
+function startMonitoringRefresh(envId) {
+// Refresh monitoring data every 5 seconds
+if (monitoringIntervals[envId]) {
+clearInterval(monitoringIntervals[envId]);
+}
+monitoringIntervals[envId] = setInterval(() => loadMonitoringData(envId), 5000);
+}
+
+function stopMonitoringRefresh(envId) {
+if (monitoringIntervals[envId]) {
+clearInterval(monitoringIntervals[envId]);
+delete monitoringIntervals[envId];
+}
+}
+
+// Listen for AI responses via SSE
+if (eventSource) {
+eventSource.addEventListener('ai-response', function (e) {
+const data = JSON.parse(e.data);
+const output = document.getElementById(`ai-output-${data.env_id}`);
+if (output) {
+output.innerHTML += `\n\n--- Response at ${new Date(data.timestamp).toLocaleTimeString()} ---\n${data.response}`;
+output.scrollTop = output.scrollHeight;
+}
+});
+}
+</script>
 </body>
 
 </html>
