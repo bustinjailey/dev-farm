@@ -313,13 +313,12 @@ def get_container_stats(container):
         return {'cpu': 0, 'memory': 0, 'memory_mb': 0}
 
 def is_env_ready(container_name, port=None):
-    """Probe the environment container to determine readiness.
-    Returns True when HTTP responds successfully.
-    First tries container healthcheck status, then falls back to HTTP probe.
-    VS Code Insiders Server runs on port 8080.
+    """Check if environment container is ready via Docker health check.
+    In tunnel mode, VS Code doesn't expose local HTTP ports.
+    Health check verifies the tunnel process is running.
     """
     try:
-        # First check Docker healthcheck status if available
+        # Check Docker healthcheck status (verifies tunnel process is running)
         if client:
             try:
                 container = client.containers.get(container_name)
@@ -332,16 +331,8 @@ def is_env_ready(container_name, port=None):
                     # If unhealthy or starting, definitely not ready
                     elif health_status in ['unhealthy', 'starting']:
                         return False
-                    # If no healthcheck or unknown status, fall through to HTTP probe
             except Exception:
                 pass
-        
-        # Fallback: Try HTTP probe via container network
-        try:
-            resp = requests.get(f'http://{container_name}:8080', timeout=1.5)
-            return 200 <= resp.status_code < 400
-        except Exception:
-            pass
         
         # Last resort: Try via mapped port if provided
         if port:
@@ -570,7 +561,8 @@ def create_environment():
             print("Warning: GITHUB_TOKEN not set. Environments will not have GitHub authentication.")
         
         # Create container with environment variables
-        print(f"Creating container {env_id} ('{display_name}') with port mapping: 8080/tcp -> {port}")
+        # Note: Tunnel mode doesn't use port mapping, but we track port numbers for registry consistency
+        print(f"Creating container {env_id} ('{display_name}') - tunnel mode (no port mapping)")
         
         # Build environment variables
         env_vars = {
@@ -630,7 +622,7 @@ def create_environment():
             'image': image_name,
             'name': f"devfarm-{env_id}",
             'detach': True,
-            'ports': {'8080/tcp': port},  # Map container's internal 8080 to host's external port
+            # Tunnel mode doesn't require port mapping - VS Code makes outbound connections
             'environment': env_vars,
             'network': 'devfarm',  # Connect to devfarm network for inter-container communication
             'dns': ['8.8.8.8', '8.8.4.4'],  # Use Google DNS to avoid DNS resolution issues

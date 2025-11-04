@@ -291,12 +291,12 @@ This environment uses **tmux** for persistent terminal sessions:
 
 ✅ **Terminal processes** - Commands running in terminals continue when you disconnect
 ✅ **Workspace files** - All your code and changes are saved
+✅ **Extension processes** - Extensions run on the server and persist across disconnections
+✅ **Active AI generations** - Copilot Chat and other AI tools continue working even when you close the browser
 ✅ **Chat history** - Previous Copilot conversations are preserved
 
-❌ **Active Copilot Chat generation** - Stops when browser closes (Extension Host shuts down)
-❌ **Extension processes** - Extension Host terminates after idle timeout
-
-💡 **For continuous AI work**: Use terminal-based agents like `aider` or `gh copilot` in tmux!
+💡 **Dev Farm uses VS Code Remote Tunnels** - All extensions run on the server, not in your browser!
+💡 **For terminal-based AI work**: Use agents like `aider` or `gh copilot` in tmux for command-line workflows!
 
 ### Tmux Quick Reference
 - Terminals automatically attach to the persistent session
@@ -1399,49 +1399,26 @@ echo "Starting VS Code Server (workspace will be set via URL parameter)" | tee -
 # Ensure workspace directory exists
 mkdir -p "${WORKSPACE_ROOT}"
 
-# Build base path for URL routing if ENV_NAME is set
-BASE_PATH_ARG=""
-if [ -n "${ENV_NAME}" ]; then
-    BASE_PATH_ARG="--server-base-path /env/${ENV_NAME}"
-    echo "Using base path: /env/${ENV_NAME}" | tee -a "$LOG_FILE"
+# Start VS Code Remote Tunnel
+# Dev Farm always uses tunnel mode to ensure extensions run on the server (not in browser)
+# This provides persistent extension host across browser disconnections
+echo "🔄 Starting VS Code Remote Tunnel (server-side extensions)" | tee -a "$LOG_FILE"
+echo "All extensions run on the server and persist across browser disconnections" | tee -a "$LOG_FILE"
+
+# Authenticate tunnel if token available
+if [ -n "${GITHUB_TOKEN}" ]; then
+    echo "Authenticating tunnel with GitHub..." | tee -a "$LOG_FILE"
+    echo "${GITHUB_TOKEN}" | /usr/bin/code-insiders tunnel user login \
+      --provider github \
+      --access-token 2>&1 | tee -a "$LOG_FILE" || true
 fi
 
-# Determine connection mode (web or tunnel)
-CONNECTION_MODE="${CONNECTION_MODE:-web}"
+# Start tunnel with unique name based on environment ID
+TUNNEL_NAME="devfarm-${DEVFARM_ENV_ID:-unknown}"
+echo "Starting tunnel with name: ${TUNNEL_NAME}" | tee -a "$LOG_FILE"
+echo "Access via: https://vscode.dev/tunnel/${TUNNEL_NAME}" | tee -a "$LOG_FILE"
 
-if [ "$CONNECTION_MODE" = "tunnel" ]; then
-    echo "🔄 Starting VS Code in tunnel mode (persistent extensions)" | tee -a "$LOG_FILE"
-    echo "Extension Host will stay alive across browser disconnections" | tee -a "$LOG_FILE"
-    
-    # Authenticate tunnel if token available
-    if [ -n "${GITHUB_TOKEN}" ]; then
-        echo "Authenticating tunnel with GitHub..." | tee -a "$LOG_FILE"
-        echo "${GITHUB_TOKEN}" | /usr/bin/code-insiders tunnel user login \
-          --provider github \
-          --access-token 2>&1 | tee -a "$LOG_FILE" || true
-    fi
-    
-    # Start tunnel with unique name
-    TUNNEL_NAME="devfarm-${DEVFARM_ENV_ID:-unknown}"
-    echo "Starting tunnel with name: ${TUNNEL_NAME}" | tee -a "$LOG_FILE"
-    echo "Access via: https://vscode.dev/tunnel/${TUNNEL_NAME}" | tee -a "$LOG_FILE"
-    
-    exec /usr/bin/code-insiders tunnel \
-      --accept-server-license-terms \
-      --name "${TUNNEL_NAME}" \
-      --disable-telemetry
-else
-    echo "🌐 Starting VS Code in web mode (browser access)" | tee -a "$LOG_FILE"
-    
-    # Start official VS Code Insiders Server with serve-web command
-    # NOTE: serve-web doesn't accept workspace as CLI argument (removed in vscode#137658)
-    # Users access workspace via URL: http://host:port/?folder=/path/to/folder
-    # Accept server license terms automatically
-    # Disable telemetry to reduce network noise and log clutter
-    exec /usr/bin/code-insiders serve-web --host 0.0.0.0 --port 8080 \
-      --server-data-dir /home/coder/.vscode-server-insiders \
-      --without-connection-token \
-      --accept-server-license-terms \
-      --disable-telemetry \
-      ${BASE_PATH_ARG}
-fi
+exec /usr/bin/code-insiders tunnel \
+  --accept-server-license-terms \
+  --name "${TUNNEL_NAME}" \
+  --disable-telemetry

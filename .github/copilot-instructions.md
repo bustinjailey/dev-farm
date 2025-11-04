@@ -69,8 +69,7 @@ Dashboard has built-in self-update via `/api/system/update/start` endpoint:
 
 1. User submits form → `POST /create` → `dashboard/app.py:356`
 2. Name converted to kebab-case via `kebabify()` function
-3. Port assigned from `get_next_port()` (starts at 8100)
-4. Container created with mode-specific env vars:
+3. Container created with mode-specific env vars (Note: VS Code tunnel doesn't use exposed ports):
    - `DEV_MODE`: workspace | git | ssh
    - `GITHUB_TOKEN`, `GITHUB_USERNAME`, `GITHUB_EMAIL`
    - Mode-specific: `GIT_URL`, `SSH_HOST`, `SSH_USER`, `SSH_PATH`, `SSH_PASSWORD`
@@ -80,7 +79,8 @@ Dashboard has built-in self-update via `/api/system/update/start` endpoint:
    - Configures GitHub CLI (`gh auth login`)
    - Clones repo (git mode) or mounts SSH (ssh mode)
    - Applies VS Code settings from `docker/config/workspace-settings.json`
-   - Starts official VS Code Insiders Server: `code-insiders serve-web --host 0.0.0.0 --port 8080 --server-data-dir /home/coder/.vscode-server-insiders --without-connection-token`
+   - Starts VS Code Remote Tunnel: `code-insiders tunnel --accept-server-license-terms --name devfarm-<env-id> --disable-telemetry`
+   - Extensions run on the server (not in browser) for persistent execution across disconnections
 
 ## Project-Specific Conventions
 
@@ -95,7 +95,7 @@ Dashboard has built-in self-update via `/api/system/update/start` endpoint:
 
 Container states (from Docker API):
 
-- `created` → `starting` (while health check pending) → `running` (HTTP 200 on port 8080)
+- `created` → `starting` (while health check pending) → `running` (tunnel process verified)
 - `exited` (startup failure or stopped)
 - `paused`, `restarting`, `removing`, `dead` (rare)
 
@@ -208,7 +208,7 @@ farm.bustinjailey.org {
 
 ```bash
 # Check environment health
-ssh root@eagle "pct exec 200 -- docker exec devfarm-<name> curl -f http://localhost:8080"
+ssh root@eagle "pct exec 200 -- docker exec devfarm-<name> pgrep -f 'code-insiders tunnel'"
 
 # View startup logs
 ssh root@eagle "pct exec 200 -- docker logs devfarm-<name> | grep -A 10 'Starting'"
@@ -244,6 +244,13 @@ curl -N http://192.168.1.126:5000/api/stream
 
 ## Recent Breaking Changes
 
+- **2025-11-04**: Migrated from web mode to tunnel mode for server-side extensions
+  - **Breaking**: Containers no longer expose port 8080 or use nginx proxy routing
+  - **New**: All environments accessed via `https://vscode.dev/tunnel/devfarm-<env-id>`
+  - **Why**: Extensions now run on server (not browser) for persistent execution across disconnections
+  - **Health check**: Changed from HTTP probe to `pgrep -f "code-insiders tunnel"`
+  - **Impact**: Port numbers still tracked in registry for consistency but not mapped to containers
+  - **Access**: Users must authenticate to GitHub/Microsoft to access their tunnels
 - **2025-10-30**: Fixed github.copilot-chat extension compatibility with VS Code Insiders
   - Issue: Extension uses proposed APIs (`chatParticipantPrivate`, `languageModelDataPart`, `chatSessionsProvider`) incompatible with latest Insiders
   - Solution: Install pre-release version using `--pre-release` flag instead of stable

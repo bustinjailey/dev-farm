@@ -75,6 +75,8 @@ http {
         }
 
         # Development environments (path-based routing)
+        # NOTE: With tunnel mode, environments are accessed via https://vscode.dev/tunnel/<name>
+        # This proxy configuration is kept for backward compatibility but won't route to tunnel-mode containers
         # Matches: /env/my-project, /env/test-env, etc.
         location ~ ^/env/([a-zA-Z0-9_-]+)(/.*)?$ {
             set $env_name $1;
@@ -82,6 +84,7 @@ http {
 
             # Resolve environment container dynamically
             # Container naming: devfarm-{env_name}
+            # NOTE: Tunnel mode doesn't expose port 8080 - this fallback won't work
             resolver 127.0.0.11 valid=10s;
             set $backend "devfarm-$env_name:8080";
             

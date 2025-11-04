@@ -83,13 +83,11 @@ COPY --chown=coder:coder config/auto-approval-settings.json /home/coder/.devfarm
 COPY --chown=coder:coder config/startup.sh /home/coder/startup.sh
 RUN chmod +x /home/coder/startup.sh
 
-EXPOSE 8080
-
-# Add health check to properly detect when VS Code Server web UI is ready
-# This ensures containers show as "running" only when truly ready (fixes "STARTING" status issue)
-# start-period allows time for extension installation before health checks matter
-HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/ || exit 1
+# Note: VS Code tunnel doesn't expose local ports - it makes outbound connections to Azure
+# Health check verifies the tunnel process is running
+# start-period allows time for extension installation and tunnel establishment
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=3 \
+  CMD pgrep -f "code-insiders tunnel" > /dev/null || exit 1
 
 # Override the entrypoint to use our startup script
 ENTRYPOINT []

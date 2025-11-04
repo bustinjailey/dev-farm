@@ -31,15 +31,18 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 │         Mobile/Desktop Browser          │
 │                                         │
 │  ┌─────────────┐    ┌──────────────┐  │
-│  │  Dashboard  │    │  VS Code #1  │  │
-│  │   :5000     │    │    :8100     │  │
-│  └─────────────┘    └──────────────┘  │
-│                                         │
+│  │  Dashboard  │    │  vscode.dev  │  │
+│  │   :5000     │    │   /tunnel/   │  │
+│  └─────────────┘    │  devfarm-1   │  │
+│                     └──────────────┘  │
 │         ┌──────────────┐               │
-│         │  VS Code #2  │               │
-│         │    :8101     │               │
+│         │  vscode.dev  │               │
+│         │   /tunnel/   │               │
+│         │  devfarm-2   │               │
 │         └──────────────┘               │
 └─────────────────────────────────────────┘
+                 ▼
+         Azure Tunnel Service
                  ▼
 ┌─────────────────────────────────────────┐
 │           Proxmox LXC/Host             │
@@ -51,22 +54,30 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 │  └──────────────────────────────────┘  │
 │                                         │
 │  ┌──────────────────────────────────┐  │
-│  │   Code-Server Container #1       │  │
-│  │   - Full VS Code in browser      │  │
+│  │   Tunnel Container #1            │  │
+│  │   - VS Code Remote Tunnel        │  │
+│  │   - Server-side extensions       │  │
 │  │   - GitHub CLI configured        │  │
 │  │   - Copilot MCP servers          │  │
 │  │   - Isolated workspace volume    │  │
 │  └──────────────────────────────────┘  │
 │                                         │
 │  ┌──────────────────────────────────┐  │
-│  │   Code-Server Container #2       │  │
-│  │   - Full VS Code in browser      │  │
+│  │   Tunnel Container #2            │  │
+│  │   - VS Code Remote Tunnel        │  │
+│  │   - Server-side extensions       │  │
 │  │   - GitHub CLI configured        │  │
 │  │   - Copilot MCP servers          │  │
 │  │   - Isolated workspace volume    │  │
 │  └──────────────────────────────────┘  │
 └─────────────────────────────────────────┘
 ```
+
+**Key Architecture Details:**
+- **Tunnel Mode**: VS Code uses Remote Tunnels (not serve-web) for server-side extension execution
+- **No Local Ports**: Containers make outbound connections to Azure, no port mapping required
+- **Persistent Extensions**: Extension Host remains alive across browser disconnections
+- **Access via vscode.dev**: Environments accessed at `https://vscode.dev/tunnel/devfarm-<name>`
 
 ## 🔒 Secret Management
 
