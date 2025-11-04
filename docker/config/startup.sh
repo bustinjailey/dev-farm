@@ -1408,9 +1408,9 @@ echo "All extensions run on the server and persist across browser disconnections
 # Authenticate tunnel if token available
 if [ -n "${GITHUB_TOKEN}" ]; then
     echo "Authenticating tunnel with GitHub..." | tee -a "$LOG_FILE"
-    echo "${GITHUB_TOKEN}" | /usr/bin/code-insiders tunnel user login \
+    /usr/bin/code-insiders tunnel user login \
       --provider github \
-      --access-token 2>&1 | tee -a "$LOG_FILE" || true
+      --access-token "${GITHUB_TOKEN}" 2>&1 | tee -a "$LOG_FILE" || true
 fi
 
 # Start tunnel with unique name based on environment ID

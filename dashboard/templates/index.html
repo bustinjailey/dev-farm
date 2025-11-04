@@ -1483,11 +1483,17 @@
           // Refresh after short delay to show the real card
           setTimeout(() => window.location.reload(), 2000);
         } else {
-          const data = await response.json();
-          alert('Error: ' + data.error);
+          let errorMessage = 'Unknown error occurred';
+          try {
+            const data = await response.json();
+            errorMessage = data.error || errorMessage;
+          } catch (parseError) {
+            errorMessage = `Server returned ${response.status}: ${response.statusText}`;
+          }
+          alert('Error: ' + errorMessage);
         }
       } catch (error) {
-        alert('Error creating environment: ' + error);
+        alert('Error creating environment: ' + error.message);
       }
     });
 
