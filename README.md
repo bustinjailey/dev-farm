@@ -74,6 +74,7 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 ```
 
 **Key Architecture Details:**
+
 - **Tunnel Mode**: VS Code uses Remote Tunnels (not serve-web) for server-side extension execution
 - **No Local Ports**: Containers make outbound connections to Azure, no port mapping required
 - **Persistent Extensions**: Extension Host remains alive across browser disconnections

@@ -456,9 +456,9 @@ def api_environments():
                 mode = env_data.get('mode', 'workspace')
                 workspace_path = get_workspace_path(mode)
                 
-                # Generate path-based URL using EXTERNAL_URL
-                base_url = EXTERNAL_URL.rstrip('/')
-                env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+                # Generate vscode.dev tunnel URL
+                tunnel_name = f"devfarm-{env_id}"
+                env_url = f"https://vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),
@@ -703,9 +703,9 @@ def create_environment():
         
         workspace_path = get_workspace_path(mode)
         
-        # Generate path-based URL using EXTERNAL_URL
-        base_url = EXTERNAL_URL.rstrip('/')
-        env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+        # Generate vscode.dev tunnel URL (tunnel mode doesn't use nginx proxy)
+        tunnel_name = f"devfarm-{env_id}"
+        env_url = f"https://vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
         
         return jsonify({
             'success': True,
@@ -713,6 +713,7 @@ def create_environment():
             'display_name': display_name,
             'port': port,
             'url': env_url,
+            'tunnel_name': tunnel_name,
             'mode': mode,
             'project': project
         })

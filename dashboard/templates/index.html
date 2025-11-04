@@ -922,6 +922,16 @@
       </button>
     </div>
 
+    <div style="background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 24px;">ℹ️</span>
+      <div style="flex: 1;">
+        <strong style="color: #2c5282;">Tunnel Mode Active</strong>
+        <p style="margin: 4px 0 0 0; color: #2d3748; font-size: 14px;">
+          Environments use <strong>VS Code Remote Tunnels</strong> (via vscode.dev). You'll need to authenticate with GitHub/Microsoft on first access. Extensions run persistently on the server.
+        </p>
+      </div>
+    </div>
+
     <div class="environments" id="environments">
       {% if environments %}
       {% for env in environments %}
@@ -953,7 +963,7 @@
             </span>
           </div>
           <div class="info-row">
-            <span>�🔌 Port:</span>
+            <span>🔗 Tunnel:</span>
             <span>{{ env.port }}</span>
           </div>
           <div class="info-row">
@@ -978,7 +988,7 @@
         <div class="env-actions">
           {% if env.status == 'running' %}
           <button class="btn btn-open" id="open-{{ env.id }}" onclick="window.open('{{ env.url }}', '_blank')">
-            {% if env.mode == 'terminal' %}🚀 Open Terminal{% else %}🚀 Open VS Code{% endif %}
+            {% if env.mode == 'terminal' %}🚀 Open Terminal{% else %}🔗 Open Tunnel{% endif %}
           </button>
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
@@ -1019,14 +1029,17 @@
             <button class="btn-close" onclick="toggleAIChat('{{ env.id }}')">✕</button>
           </div>
           <div class="ai-tool-selector">
-            <button class="ai-tool-btn active" data-tool="aider" onclick="selectAITool('{{ env.id }}', 'aider')">Aider</button>
-            <button class="ai-tool-btn" data-tool="copilot" onclick="selectAITool('{{ env.id }}', 'copilot')">Copilot CLI</button>
+            <button class="ai-tool-btn active" data-tool="aider"
+              onclick="selectAITool('{{ env.id }}', 'aider')">Aider</button>
+            <button class="ai-tool-btn" data-tool="copilot" onclick="selectAITool('{{ env.id }}', 'copilot')">Copilot
+              CLI</button>
           </div>
           <div class="ai-output" id="ai-output-{{ env.id }}">
             <div class="output-placeholder">AI assistant ready. Type your request below.</div>
           </div>
           <div class="ai-input-container">
-            <textarea class="ai-input" id="ai-input-{{ env.id }}" placeholder="Ask AI to help with your code..." rows="3"></textarea>
+            <textarea class="ai-input" id="ai-input-{{ env.id }}" placeholder="Ask AI to help with your code..."
+              rows="3"></textarea>
             <button class="btn btn-send" onclick="sendAIMessage('{{ env.id }}')">Send</button>
           </div>
         </div>
@@ -1037,14 +1050,14 @@
             <h3>📊 Environment Monitor</h3>
             <button class="btn-close" onclick="toggleMonitoring('{{ env.id }}')">✕</button>
           </div>
-          
+
           <!-- Terminal Output -->
           <div class="monitor-section">
             <h4>🖥️ Terminal Output</h4>
             <pre class="terminal-output" id="terminal-{{ env.id }}">Loading...</pre>
             <button class="btn btn-sm" onclick="refreshTerminal('{{ env.id }}')">🔄 Refresh</button>
           </div>
-          
+
           <!-- Git Activity -->
           <div class="monitor-section">
             <h4>📝 Git Activity</h4>
@@ -1052,7 +1065,7 @@
               <li>Loading...</li>
             </ul>
           </div>
-          
+
           <!-- Running Processes -->
           <div class="monitor-section">
             <h4>⚙️ Running Processes</h4>
@@ -1654,14 +1667,14 @@
         const statusData = await safeFetch('/api/system/update/status');
         const updateProgressRow = document.getElementById('updateProgressRow');
         const updateProgressStatus = document.getElementById('updateProgressStatus');
-        
+
         if (statusData.running && statusData.stage !== 'idle') {
           // Update is in progress
           updateProgressRow.style.display = 'flex';
-          
+
           // Update status badge using helper function
           updateProgressIndicatorBadge(statusData.stage, statusData.status);
-          
+
           // Mark update as in progress for SSE handling
           if (!updateInProgress) {
             updateInProgress = true;
@@ -2096,18 +2109,18 @@
 
     async function reopenUpdateModal() {
       const modal = document.getElementById('updateModal');
-      
+
       // Show modal immediately
       modal.classList.add('active');
-      
+
       // Mark update as in progress and start watchdog
       updateInProgress = true;
       startUpdateWatchdog();
-      
+
       // Fetch current status and populate modal
       try {
         const statusData = await safeFetch('/api/system/update/status');
-        
+
         // Get modal elements
         const stage1 = document.getElementById('updateStage1');
         const stage2 = document.getElementById('updateStage2');
@@ -2120,7 +2133,7 @@
         const msg3 = document.getElementById('updateMsg3');
         const closeBtn = document.getElementById('updateCloseBtn');
         const spinner = document.getElementById('updateSpinner');
-        
+
         // Reset all stages first
         stage1.style.display = 'block';
         stage2.style.display = 'none';
@@ -2133,7 +2146,7 @@
         msg3.textContent = '';
         closeBtn.style.display = 'none';
         spinner.style.display = 'block';
-        
+
         // Populate with current progress
         if (statusData.stages && statusData.stages.length > 0) {
           // Process all stages and show them
@@ -2141,7 +2154,7 @@
             const stage = stageInfo.stage;
             const status = stageInfo.status;
             const message = stageInfo.message || '';
-            
+
             // Map stages to UI stages (simplified mapping)
             let stageNum = 1;
             if (stage.includes('git') || stage === 'validate' || stage === 'version') {
@@ -2151,14 +2164,14 @@
             } else if (stage.includes('restart') || stage === 'complete') {
               stageNum = 3;
             }
-            
+
             const stageEl = document.getElementById(`updateStage${stageNum}`);
             const iconEl = document.getElementById(`updateIcon${stageNum}`);
             const msgEl = document.getElementById(`updateMsg${stageNum}`);
-            
+
             if (stageEl) {
               stageEl.style.display = 'block';
-              
+
               // Update icon based on status
               if (status === 'success') {
                 iconEl.textContent = '✅';
@@ -2169,7 +2182,7 @@
               } else {
                 iconEl.textContent = '⏳';
               }
-              
+
               // Append message (don't overwrite, accumulate)
               if (message && !msgEl.textContent.includes(message)) {
                 msgEl.textContent = msgEl.textContent ? msgEl.textContent + '\n' + message : message;
@@ -2177,7 +2190,7 @@
             }
           });
         }
-        
+
         // Check if update completed
         if (statusData.stage === 'complete') {
           if (statusData.status === 'success') {
@@ -2199,7 +2212,7 @@
           updateInProgress = false;
           stopUpdateWatchdog();
         }
-        
+
         console.log('✅ Update modal reopened with current progress');
       } catch (error) {
         console.error('Failed to fetch update status:', error);
@@ -2280,10 +2293,10 @@
     function updateProgressIndicatorBadge(stage, status) {
       const updateProgressStatus = document.getElementById('updateProgressStatus');
       if (!updateProgressStatus) return;
-      
+
       let statusText = UPDATE_STAGE_NAMES[stage] || stage;
       let badgeClass = 'badge-warning';
-      
+
       if (stage === 'complete') {
         if (status === 'success') {
           statusText = 'Complete';
@@ -2293,7 +2306,7 @@
           badgeClass = 'badge-error';
         }
       }
-      
+
       updateProgressStatus.innerHTML = `<span class="status-badge ${badgeClass}">${statusText}</span>`;
     }
 
@@ -2404,13 +2417,13 @@
       eventSource.addEventListener('update-started', (e) => {
         // Update was started (possibly via API) - open the update modal
         console.log('Update started event received - opening modal');
-        
+
         // Show the progress indicator
         const updateProgressRow = document.getElementById('updateProgressRow');
         if (updateProgressRow) {
           updateProgressRow.style.display = 'flex';
         }
-        
+
         const modal = document.getElementById('updateModal');
         if (modal && !modal.classList.contains('active')) {
           modal.classList.add('active');
@@ -2439,9 +2452,9 @@
             if (status === 'running') {
               openBtn.disabled = false;
               openBtn.style.opacity = '';
-              const envUrl = `${window.location.origin}/env/${env_id}`;
-              openBtn.onclick = () => window.open(envUrl, '_blank');
-              openBtn.textContent = '🚀 Open VS Code';
+              // URL comes from server (vscode.dev tunnel URL)
+              openBtn.onclick = () => window.open(data.url, '_blank');
+              openBtn.textContent = '🔗 Open Tunnel';
             } else if (status === 'starting') {
               openBtn.disabled = true;
               openBtn.style.opacity = '0.6';
@@ -2778,7 +2791,7 @@
               openBtn.disabled = false;
               openBtn.style.opacity = '';
               openBtn.onclick = () => window.open(env.url, '_blank');
-              openBtn.textContent = '🚀 Open VS Code';
+              openBtn.textContent = '🔗 Open Tunnel';
             } else if (env.status === 'starting') {
               openBtn.disabled = true;
               openBtn.style.opacity = '0.6';
@@ -2881,10 +2894,10 @@
     // ============================================================================
     // AI Chat Interface Functions
     // ============================================================================
-    
+
     let activeAITool = {};  // Track active tool per environment
     let aiRefreshIntervals = {};  // Track auto-refresh intervals
-    
+
     function toggleAIChat(envId) {
       const panel = document.getElementById(`ai-chat-${envId}`);
       if (panel.style.display === 'none') {
@@ -2899,10 +2912,10 @@
         stopAIOutputRefresh(envId);
       }
     }
-    
+
     function selectAITool(envId, tool) {
       activeAITool[envId] = tool;
-      
+
       // Update button states
       const panel = document.getElementById(`ai-chat-${envId}`);
       const buttons = panel.querySelectorAll('.ai-tool-btn');
@@ -2913,58 +2926,58 @@
           btn.classList.remove('active');
         }
       });
-      
+
       // Clear output
       const output = document.getElementById(`ai-output-${envId}`);
       output.innerHTML = '<div class="output-placeholder">Switched to ' + tool + '. Ready for your request.</div>';
     }
-    
+
     async function sendAIMessage(envId) {
       const input = document.getElementById(`ai-input-${envId}`);
       const message = input.value.trim();
-      
+
       if (!message) return;
-      
+
       const tool = activeAITool[envId] || 'aider';
       const output = document.getElementById(`ai-output-${envId}`);
-      
+
       // Show loading
       output.innerHTML += `\n\n> ${message}\n\nProcessing...`;
       output.scrollTop = output.scrollHeight;
-      
+
       // Clear input
       input.value = '';
-      
+
       try {
         const response = await fetch(`/api/environments/${envId}/ai/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, tool })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
           output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to ' + tool + '. Check output below.');
-          
+
           // Start fetching output
           setTimeout(() => fetchAIOutput(envId), 1000);
         } else {
           output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + data.error);
         }
-        
+
       } catch (error) {
         output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + error.message);
       }
-      
+
       output.scrollTop = output.scrollHeight;
     }
-    
+
     async function fetchAIOutput(envId) {
       try {
         const response = await fetch(`/api/environments/${envId}/ai/output`);
         const data = await response.json();
-        
+
         const output = document.getElementById(`ai-output-${envId}`);
         if (data.output) {
           output.textContent = data.output;
@@ -2974,7 +2987,7 @@
         console.error('Error fetching AI output:', error);
       }
     }
-    
+
     function startAIOutputRefresh(envId) {
       // Refresh AI output every 2 seconds
       if (aiRefreshIntervals[envId]) {
@@ -2982,18 +2995,18 @@
       }
       aiRefreshIntervals[envId] = setInterval(() => fetchAIOutput(envId), 2000);
     }
-    
+
     function stopAIOutputRefresh(envId) {
       if (aiRefreshIntervals[envId]) {
         clearInterval(aiRefreshIntervals[envId]);
         delete aiRefreshIntervals[envId];
       }
     }
-    
+
     // Handle Enter key in AI input (Ctrl+Enter to send)
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       document.querySelectorAll('.ai-input').forEach(input => {
-        input.addEventListener('keydown', function(e) {
+        input.addEventListener('keydown', function (e) {
           if (e.key === 'Enter' && e.ctrlKey) {
             e.preventDefault();
             const envId = this.id.replace('ai-input-', '');
@@ -3002,13 +3015,13 @@
         });
       });
     });
-    
+
     // ============================================================================
     // Monitoring Panel Functions
     // ============================================================================
-    
+
     let monitoringIntervals = {};  // Track auto-refresh intervals
-    
+
     function toggleMonitoring(envId) {
       const panel = document.getElementById(`monitoring-${envId}`);
       if (panel.style.display === 'none') {
@@ -3021,7 +3034,7 @@
         stopMonitoringRefresh(envId);
       }
     }
-    
+
     async function loadMonitoringData(envId) {
       await Promise.all([
         refreshTerminal(envId),
@@ -3029,27 +3042,27 @@
         refreshProcesses(envId)
       ]);
     }
-    
+
     async function refreshTerminal(envId) {
       try {
         const response = await fetch(`/api/environments/${envId}/terminal-preview`);
         const data = await response.json();
-        
+
         const terminal = document.getElementById(`terminal-${envId}`);
         terminal.textContent = data.output || 'No terminal output available';
       } catch (error) {
         console.error('Error fetching terminal:', error);
       }
     }
-    
+
     async function refreshGitActivity(envId) {
       try {
         const response = await fetch(`/api/environments/${envId}/git-activity`);
         const data = await response.json();
-        
+
         const list = document.getElementById(`git-activity-${envId}`);
         if (data.commits && data.commits.length > 0) {
-          list.innerHTML = data.commits.map(c => 
+          list.innerHTML = data.commits.map(c =>
             `<li><span class="commit-time">${c.time}</span> • ${c.message}</li>`
           ).join('');
         } else {
@@ -3059,15 +3072,15 @@
         console.error('Error fetching git activity:', error);
       }
     }
-    
+
     async function refreshProcesses(envId) {
       try {
         const response = await fetch(`/api/environments/${envId}/processes`);
         const data = await response.json();
-        
+
         const list = document.getElementById(`processes-${envId}`);
         if (data.processes && data.processes.length > 0) {
-          list.innerHTML = data.processes.map(p => 
+          list.innerHTML = data.processes.map(p =>
             `<li>${p.command} <span class="process-stats">(CPU: ${p.cpu}%, Time: ${p.time})</span></li>`
           ).join('');
         } else {
@@ -3077,7 +3090,7 @@
         console.error('Error fetching processes:', error);
       }
     }
-    
+
     function startMonitoringRefresh(envId) {
       // Refresh monitoring data every 5 seconds
       if (monitoringIntervals[envId]) {
@@ -3085,17 +3098,17 @@
       }
       monitoringIntervals[envId] = setInterval(() => loadMonitoringData(envId), 5000);
     }
-    
+
     function stopMonitoringRefresh(envId) {
       if (monitoringIntervals[envId]) {
         clearInterval(monitoringIntervals[envId]);
         delete monitoringIntervals[envId];
       }
     }
-    
+
     // Listen for AI responses via SSE
     if (eventSource) {
-      eventSource.addEventListener('ai-response', function(e) {
+      eventSource.addEventListener('ai-response', function (e) {
         const data = JSON.parse(e.data);
         const output = document.getElementById(`ai-output-${data.env_id}`);
         if (output) {
