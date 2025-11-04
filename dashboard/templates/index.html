@@ -995,10 +995,12 @@
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
           </button>
-          <button class="btn" id="monitor-{{ env.id }}" onclick="toggleMonitoring('{{ env.id }}')" style="background: #48bb78;">
+          <button class="btn" id="monitor-{{ env.id }}" onclick="toggleMonitoring('{{ env.id }}')"
+            style="background: #48bb78;">
             👁️ Monitor
           </button>
-          <button class="btn" id="aichat-{{ env.id }}" onclick="toggleAIChat('{{ env.id }}')" style="background: #667eea; color: white;">
+          <button class="btn" id="aichat-{{ env.id }}" onclick="toggleAIChat('{{ env.id }}')"
+            style="background: #667eea; color: white;">
             🤖 Copilot Chat
           </button>
           {% elif env.status == 'starting' %}
@@ -1030,16 +1032,13 @@
             <h3>🤖 AI Assistant</h3>
             <button class="btn-close" onclick="toggleAIChat('{{ env.id }}')">✕</button>
           </div>
-          <div class="ai-info-banner" style="background: #f7fafc; border-left: 4px solid #667eea; padding: 12px; margin-bottom: 16px; border-radius: 4px;">
-            <div style="font-size: 14px; color: #4a5568;">
-              <strong>💡 GitHub Copilot Chat</strong> - Use the integrated Copilot Chat extension in VS Code for the best AI coding experience.
-            </div>
+          <div class="ai-output" id="ai-output-{{ env.id }}">
+            <div class="output-placeholder">Copilot CLI ready. Type your request below.</div>
           </div>
-          <div style="padding: 20px; text-align: center; color: #718096;">
-            <p style="margin-bottom: 16px;">Open your tunnel in VS Code to access GitHub Copilot Chat with full context awareness and integrated features.</p>
-            <button class="btn" onclick="window.open('{{ env.url }}', '_blank')" style="background: #667eea; color: white;">
-              🔗 Open in VS Code
-            </button>
+          <div class="ai-input-container">
+            <textarea class="ai-input" id="ai-input-{{ env.id }}" placeholder="Ask Copilot to help with your code..."
+              rows="3"></textarea>
+            <button class="btn btn-send" onclick="sendAIMessage('{{ env.id }}')">Send</button>
           </div>
         </div>
 
@@ -1278,10 +1277,16 @@
     <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
         <span>Container Logs</span>
-        <button class="btn" onclick="copyLogsToClipboard()" id="copyLogsBtn"
-          style="background: #48bb78; color: white; padding: 8px 16px; font-size: 14px;" title="Copy logs to clipboard">
-          📋 Copy
-        </button>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn" onclick="extractAndShowTunnelAuth()" id="tunnelAuthBtn"
+            style="background: #667eea; color: white; padding: 8px 16px; font-size: 14px;" title="Extract tunnel authentication">
+            🔐 Tunnel Auth
+          </button>
+          <button class="btn" onclick="copyLogsToClipboard()" id="copyLogsBtn"
+            style="background: #48bb78; color: white; padding: 8px 16px; font-size: 14px;" title="Copy logs to clipboard">
+            📋 Copy
+          </button>
+        </div>
       </div>
       <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
         <strong id="logsEnvName"></strong>
@@ -1296,6 +1301,55 @@
         <button class="btn btn-cancel" onclick="hideLogsModal()" style="flex: 1;">Close</button>
         <button class="btn" onclick="refreshLogs()" style="background: #4299e1; color: white; flex: 1;">🔄
           Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tunnel Authentication Helper Modal -->
+  <div class="modal" id="tunnelAuthModal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <span>🔐 Tunnel Authentication</span>
+      </div>
+      <div style="padding: 20px;">
+        <div style="background: #f7fafc; border-left: 4px solid #667eea; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0; color: #2d3748; font-weight: 600;">Complete this one-time authentication to enable your tunnel:</p>
+          <p style="margin: 0; color: #4a5568; font-size: 14px;">After authenticating, your credentials will be saved and you won't need to do this again for this environment.</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; color: #2d3748; font-weight: 600;">Device Code:</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="tunnelAuthCode" readonly
+              style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; letter-spacing: 2px; text-align: center; background: #f7fafc;" />
+            <button class="btn" onclick="copyTunnelCode()" style="background: #48bb78; color: white; padding: 12px 20px;">
+              📋 Copy
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; color: #2d3748; font-weight: 600;">Authentication URL:</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="tunnelAuthUrl" readonly value="https://github.com/login/device"
+              style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; background: #f7fafc;" />
+            <button class="btn" onclick="openTunnelAuthUrl()" style="background: #667eea; color: white; padding: 12px 20px;">
+              🚀 Open
+            </button>
+          </div>
+        </div>
+
+        <div style="background: #fff5f5; border-left: 4px solid #fc8181; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #742a2a; font-size: 14px;">
+            <strong>⚠️ Important:</strong> You must use the same GitHub/Microsoft account that started the tunnel. If the tunnel was started with a different account, you'll need to recreate the environment.
+          </p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; padding: 0 20px 20px 20px;">
+        <button class="btn btn-cancel" onclick="hideTunnelAuthModal()" style="flex: 1;">Close</button>
+        <button class="btn" onclick="refreshLogs(); hideTunnelAuthModal();" style="background: #4299e1; color: white; flex: 1;">
+          ✓ Done - Refresh Logs
+        </button>
       </div>
     </div>
   </div>
@@ -2460,7 +2514,7 @@
               // URL comes from server (vscode.dev tunnel URL)
               openBtn.onclick = () => window.open(data.url, '_blank');
               openBtn.textContent = '🔗 Open Tunnel';
-              
+
               // Show Monitor and AI Chat buttons when running
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2471,7 +2525,7 @@
               openBtn.style.opacity = '0.6';
               openBtn.onclick = null;
               openBtn.textContent = '⏳ Starting...';
-              
+
               // Hide Monitor and AI Chat buttons when starting
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2482,7 +2536,7 @@
               openBtn.style.opacity = '';
               openBtn.onclick = () => startEnvironment(env_id);
               openBtn.textContent = '▶️ Start';
-              
+
               // Hide Monitor and AI Chat buttons when stopped
               const monitorBtn = document.getElementById(`monitor-${env_id}`);
               const aiChatBtn = document.getElementById(`aichat-${env_id}`);
@@ -2848,6 +2902,44 @@
       currentLogsEnv = null;
     }
 
+    function extractAndShowTunnelAuth() {
+      const logsContent = document.getElementById('logsContent').textContent;
+      
+      // Extract device code (format: XXXX-XXXX)
+      const codeMatch = logsContent.match(/use code ([A-Z0-9]{4}-[A-Z0-9]{4})/);
+      
+      if (codeMatch) {
+        document.getElementById('tunnelAuthCode').value = codeMatch[1];
+        document.getElementById('tunnelAuthModal').classList.add('active');
+      } else {
+        alert('No device code found in logs. The tunnel may already be authenticated or not started yet.');
+      }
+    }
+
+    function hideTunnelAuthModal() {
+      document.getElementById('tunnelAuthModal').classList.remove('active');
+    }
+
+    async function copyTunnelCode() {
+      const code = document.getElementById('tunnelAuthCode').value;
+      try {
+        await navigator.clipboard.writeText(code);
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✓ Copied!';
+        btn.style.background = '#48bb78';
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+        }, 2000);
+      } catch (error) {
+        alert('Failed to copy code: ' + error.message);
+      }
+    }
+
+    function openTunnelAuthUrl() {
+      window.open('https://github.com/login/device', '_blank');
+    }
+
     async function refreshLogs() {
       if (!currentLogsEnv) return;
 
@@ -2926,7 +3018,7 @@
       if (panel.style.display === 'none') {
         panel.style.display = 'block';
         if (!activeAITool[envId]) {
-          activeAITool[envId] = 'aider';
+          activeAITool[envId] = 'copilot';
         }
         // Start auto-refresh for AI output
         startAIOutputRefresh(envId);
@@ -2961,7 +3053,7 @@
 
       if (!message) return;
 
-      const tool = activeAITool[envId] || 'aider';
+      const tool = 'copilot';  // Only use Copilot CLI
       const output = document.getElementById(`ai-output-${envId}`);
 
       // Show loading
@@ -2981,7 +3073,7 @@
         const data = await response.json();
 
         if (data.success) {
-          output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to ' + tool + '. Check output below.');
+          output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to Copilot CLI. Check output below.');
 
           // Start fetching output
           setTimeout(() => fetchAIOutput(envId), 1000);
