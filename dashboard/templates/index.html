@@ -2442,12 +2442,954 @@
               if (data.stage === 'complete' && data.status === 'success') {
                 console.log('✅ Update completed while disconnected - showing completion UI');
                 showUpdateComplete();
-              } else if (data.stage === 'idle') {
+              } else if (data.stage === 'idle' || !data.running) {
                 // Update failed or was cancelled
                 console.log('⚠️ Update no longer active - closing modal');
                 closeUpdateModal();
               } else {
-                // Update still in progress, force a status check to update UI
+                // Update still in progress - reopen modal to show current state
+                console.log('🔄 Update in progress - reopening modal with current state');
+                reopenUpdateModal();
+              }
+            })
+            .catch(err => {
+              console.error('Failed to check update status:', err);
+            });
+        }
+      };
+
+      // Continue SSE event handlers...
+      eventSource.addEventListener('update-started', (e) => {
+        // Update was started (possibly via API) - open the update modal
+        console.log('Update started event received - opening modal');
+
+        // Show the progress indicator
+        const updateProgressRow = document.getElementById('updateProgressRow');
+        if (updateProgressRow) {
+          updateProgressRow.style.display = 'flex';
+        }
+
+        const modal = document.getElementById('updateModal');
+        if (modal && !modal.classList.contains('active')) {
+          modal.classList.add('active');
+          updateInProgress = true;
+          startUpdateWatchdog(); // Start monitoring for stuck updates
+        }
+      });
+
+      eventSource.addEventListener('registry-update', (e) => {
+        // Registry changed - debounced refresh to prevent storm
+        // Skip refresh if any modal is currently open to avoid disrupting user input
+        if (refreshTimeout) clearTimeout(refreshTimeout);
+        refreshTimeout = setTimeout(() => {
+          if (!isAnyModalOpen()) {
+            refreshEnvironments();
+          } else {
+            console.log('Skipping registry refresh - modal is open');
+          }
+        }, 500);
+      });
+
+      eventSource.addEventListener('env-status', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const env_id = data.env_id;
+          const status = data.status;
+          const port = data.port;
+
+          // Update status badge immediately
+          const statusEl = document.getElementById(`status-${env_id}`);
+          if (statusEl) {
+            statusEl.textContent = status;
+            statusEl.className = `status-badge status-${status}`;
+          }
+
+          // Update open button immediately based on status
+          const openBtn = document.getElementById(`open-${env_id}`);
+          if (openBtn) {
+            if (status === 'running') {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              // URL comes from server (vscode.dev tunnel URL)
+              openBtn.onclick = () => window.open(data.url, '_blank');
+              openBtn.textContent = '🔗 Open Tunnel';
+              
+              // Show Monitor and AI Chat buttons when running
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = '';
+              if (aiChatBtn) aiChatBtn.style.display = '';
+            } else if (status === 'starting') {
+              openBtn.disabled = true;
+              openBtn.style.opacity = '0.6';
+              openBtn.onclick = null;
+              openBtn.textContent = '⏳ Starting...';
+              
+              // Hide Monitor and AI Chat buttons when starting
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = 'none';
+              if (aiChatBtn) aiChatBtn.style.display = 'none';
+            } else {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              openBtn.onclick = () => startEnvironment(env_id);
+              openBtn.textContent = '▶️ Start';
+              
+              // Hide Monitor and AI Chat buttons when stopped
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = 'none';
+              if (aiChatBtn) aiChatBtn.style.display = 'none';
+            }
+          }
+
+          // Still do a debounced full refresh to ensure consistency
+          if (refreshTimeout) clearTimeout(refreshTimeout);
+          refreshTimeout = setTimeout(refreshEnvironments, 2000);
+        } catch (err) {
+          console.error('Error handling env-status event:', err);
+        }
+      });
+
+      eventSource.addEventListener('update-progress', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (!data.stage) return;
+
+          // Reset watchdog timer - we got an update
+          lastUpdateProgressTime = Date.now();
+
+          console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
+
+          // Update the progress indicator
+          const updateProgressRow = document.getElementById('updateProgressRow');
+          if (updateProgressRow) {
+            updateProgressRow.style.display = 'flex';
+            updateProgressIndicatorBadge(data.stage, data.status);
+          }
+
+          // Get modal elements
+          const modal = document.getElementById('updateModal');
+          if (!modal || !modal.classList.contains('active')) return;
+
+          const stage1 = document.getElementById('updateStage1');
+          const stage2 = document.getElementById('updateStage2');
+          const stage3 = document.getElementById('updateStage3');
+          const icon1 = document.getElementById('updateIcon1');
+          const icon2 = document.getElementById('updateIcon2');
+          const icon3 = document.getElementById('updateIcon3');
+          const msg1 = document.getElementById('updateMsg1');
+          const msg2 = document.getElementById('updateMsg2');
+          const msg3 = document.getElementById('updateMsg3');
+          const spinner = document.getElementById('updateSpinner');
+          const closeBtn = document.getElementById('updateCloseBtn');
+
+          // Map stages to UI sections
+          const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'];
+          const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
+          const restartStages = ['restart_dashboard'];
+
+          // Stage 1: Git operations
+          if (gitStages.includes(data.stage)) {
+            // For progress status (git output lines), append with indentation
+            // For other statuses, replace the last line to avoid duplication
+            if (data.status === 'progress') {
+              const currentMsg = msg1.textContent;
+              // Add extra indentation for git output (lines with 2-space prefix from backend)
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
+              msg1.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+            } else if (data.status === 'starting') {
+              // Replace last line if it's a status update for same stage
+              const lines = msg1.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg1.textContent = lines.join('\n');
+              } else {
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+              }
+            } else {
+              // For success/error/warning, replace last line with final status
+              const lines = msg1.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg1.textContent = lines.join('\n');
+              } else {
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+              }
+            }
+
+            if (data.status === 'success') {
+              icon1.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon1.textContent = '❌';
+            } else if (data.status === 'warning') {
+              icon1.textContent = '⚠️';
+            } else {
+              icon1.textContent = '⏳';
+            }
+          }
+
+          // Stage 2: Rebuild operations
+          if (rebuildStages.includes(data.stage)) {
+            stage2.style.display = 'block';
+
+            // For progress/info status, append; for starting/success/error, replace last line
+            if (data.status === 'progress' || data.status === 'info') {
+              const currentMsg = msg2.textContent;
+              // Add extra indentation for command output (lines with 2-space prefix from backend)
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
+              msg2.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+            } else if (data.status === 'starting') {
+              const lines = msg2.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg2.textContent = lines.join('\n');
+              } else {
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+              }
+            } else {
+              // For success/error/skipped, replace last line
+              const lines = msg2.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg2.textContent = lines.join('\n');
+              } else {
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+              }
+            }
+
+            if (data.status === 'success') {
+              icon2.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon2.textContent = '❌';
+            } else if (data.status === 'skipped') {
+              icon2.textContent = '⏭️';
+            } else {
+              icon2.textContent = '⏳';
+            }
+          }
+
+          // Stage 3: Restart
+          if (restartStages.includes(data.stage)) {
+            stage3.style.display = 'block';
+
+            // Replace instead of append for restart stage
+            if (data.status === 'starting') {
+              msg3.textContent = data.message || 'Restarting dashboard...';
+            } else {
+              // Update last line for progress/success/error
+              msg3.textContent = data.message || 'Restarting dashboard...';
+            }
+
+            if (data.status === 'success') {
+              icon3.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon3.textContent = '❌';
+            } else {
+              icon3.textContent = '⏳';
+            }
+          }
+
+          // Completion
+          if (data.stage === 'complete') {
+            if (data.status === 'success') {
+              showUpdateComplete();
+            } else {
+              spinner.style.display = 'none';
+              closeBtn.style.display = 'inline-block';
+              msg3.textContent = data.message || '❌ Update failed';
+              icon3.textContent = '❌';
+              updateInProgress = false;
+            }
+          }
+
+          // Error handling
+          if (data.status === 'error') {
+            spinner.style.display = 'none';
+            closeBtn.style.display = 'inline-block';
+          }
+        } catch (err) {
+          console.error('Error handling update-progress event:', err);
+        }
+      });
+
+      eventSource.onerror = (err) => {
+        console.error('SSE error:', err);
+        eventSource.close();
+
+        // Exponential backoff with max delay
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30s
+
+        console.log(`Reconnecting SSE in ${delay / 1000}s (attempt ${reconnectAttempts})...`);
+        setTimeout(() => {
+          console.log('🔄 Attempting to reconnect SSE...');
+          setupSSE();
+        }, delay);
+      };
+
+      eventSource.addEventListener('registry-update', (e) => {
+        // Registry changed - debounced refresh to prevent storm
+        // Skip refresh if any modal is currently open to avoid disrupting user input
+        if (refreshTimeout) clearTimeout(refreshTimeout);
+        refreshTimeout = setTimeout(() => {
+          if (!isAnyModalOpen()) {
+            refreshEnvironments();
+          } else {
+            console.log('Skipping registry refresh - modal is open');
+          }
+        }, 500);
+      });
+
+      eventSource.addEventListener('update-started', (e) => {
+        // Update was started (possibly via API) - open the update modal
+        console.log('Update started event received - opening modal');
+
+        // Show the progress indicator
+        const updateProgressRow = document.getElementById('updateProgressRow');
+        if (updateProgressRow) {
+          updateProgressRow.style.display = 'flex';
+        }
+
+        const modal = document.getElementById('updateModal');
+        if (modal && !modal.classList.contains('active')) {
+          modal.classList.add('active');
+          updateInProgress = true;
+          startUpdateWatchdog(); // Start monitoring for stuck updates
+        }
+      });
+
+      eventSource.addEventListener('env-status', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const env_id = data.env_id;
+          const status = data.status;
+          const port = data.port;
+
+          // Update status badge immediately
+          const statusEl = document.getElementById(`status-${env_id}`);
+          if (statusEl) {
+            statusEl.textContent = status;
+            statusEl.className = `status-badge status-${status}`;
+          }
+
+          // Update open button immediately based on status
+          const openBtn = document.getElementById(`open-${env_id}`);
+          if (openBtn) {
+            if (status === 'running') {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              // URL comes from server (vscode.dev tunnel URL)
+              openBtn.onclick = () => window.open(data.url, '_blank');
+              openBtn.textContent = '🔗 Open Tunnel';
+              
+              // Show Monitor and AI Chat buttons when running
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = '';
+              if (aiChatBtn) aiChatBtn.style.display = '';
+            } else if (status === 'starting') {
+              openBtn.disabled = true;
+              openBtn.style.opacity = '0.6';
+              openBtn.onclick = null;
+              openBtn.textContent = '⏳ Starting...';
+              
+              // Hide Monitor and AI Chat buttons when starting
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = 'none';
+              if (aiChatBtn) aiChatBtn.style.display = 'none';
+            } else {
+              openBtn.disabled = false;
+              openBtn.style.opacity = '';
+              openBtn.onclick = () => startEnvironment(env_id);
+              openBtn.textContent = '▶️ Start';
+              
+              // Hide Monitor and AI Chat buttons when stopped
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = 'none';
+              if (aiChatBtn) aiChatBtn.style.display = 'none';
+            }
+          }
+
+          // Still do a debounced full refresh to ensure consistency
+          if (refreshTimeout) clearTimeout(refreshTimeout);
+          refreshTimeout = setTimeout(refreshEnvironments, 2000);
+        } catch (err) {
+          console.error('Error handling env-status event:', err);
+        }
+      });
+
+      eventSource.addEventListener('update-progress', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (!data.stage) return;
+
+          // Reset watchdog timer - we got an update
+          lastUpdateProgressTime = Date.now();
+
+          console.log(`Update progress [SSE]: ${data.stage} - ${data.status} - ${data.message || ''}`);
+
+          // Update the progress indicator
+          const updateProgressRow = document.getElementById('updateProgressRow');
+          if (updateProgressRow) {
+            updateProgressRow.style.display = 'flex';
+            updateProgressIndicatorBadge(data.stage, data.status);
+          }
+
+          // Get modal elements
+          const modal = document.getElementById('updateModal');
+          if (!modal || !modal.classList.contains('active')) return;
+
+          const stage1 = document.getElementById('updateStage1');
+          const stage2 = document.getElementById('updateStage2');
+          const stage3 = document.getElementById('updateStage3');
+          const icon1 = document.getElementById('updateIcon1');
+          const icon2 = document.getElementById('updateIcon2');
+          const icon3 = document.getElementById('updateIcon3');
+          const msg1 = document.getElementById('updateMsg1');
+          const msg2 = document.getElementById('updateMsg2');
+          const msg3 = document.getElementById('updateMsg3');
+          const spinner = document.getElementById('updateSpinner');
+          const closeBtn = document.getElementById('updateCloseBtn');
+
+          // Map stages to UI sections
+          const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'];
+          const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
+          const restartStages = ['restart_dashboard'];
+
+          // Stage 1: Git operations
+          if (gitStages.includes(data.stage)) {
+            // For progress status (git output lines), append with indentation
+            // For other statuses, replace the last line to avoid duplication
+            if (data.status === 'progress') {
+              const currentMsg = msg1.textContent;
+              // Add extra indentation for git output (lines with 2-space prefix from backend)
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
+              msg1.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+            } else if (data.status === 'starting') {
+              // Replace last line if it's a status update for same stage
+              const lines = msg1.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg1.textContent = lines.join('\n');
+              } else {
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+              }
+            } else {
+              // For success/error/warning, replace last line with final status
+              const lines = msg1.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg1.textContent = lines.join('\n');
+              } else {
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + data.message : data.message;
+              }
+            }
+
+            if (data.status === 'success') {
+              icon1.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon1.textContent = '❌';
+            } else if (data.status === 'warning') {
+              icon1.textContent = '⚠️';
+            } else {
+              icon1.textContent = '⏳';
+            }
+          }
+
+          // Stage 2: Rebuild operations
+          if (rebuildStages.includes(data.stage)) {
+            stage2.style.display = 'block';
+
+            // For progress/info status, append; for starting/success/error, replace last line
+            if (data.status === 'progress' || data.status === 'info') {
+              const currentMsg = msg2.textContent;
+              // Add extra indentation for command output (lines with 2-space prefix from backend)
+              const indentedLine = data.message.startsWith('  ') ? '    ' + data.message.substring(2) : data.message;
+              msg2.textContent = currentMsg ? currentMsg + '\n' + indentedLine : indentedLine;
+            } else if (data.status === 'starting') {
+              const lines = msg2.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg2.textContent = lines.join('\n');
+              } else {
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+              }
+            } else {
+              // For success/error/skipped, replace last line
+              const lines = msg2.textContent.split('\n').filter(l => l.trim());
+              const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+              const lastLine = lines[lines.length - 1] || '';
+              const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+              if (isStatusLine) {
+                lines[lines.length - 1] = data.message;
+                msg2.textContent = lines.join('\n');
+              } else {
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + data.message : data.message;
+              }
+            }
+
+            if (data.status === 'success') {
+              icon2.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon2.textContent = '❌';
+            } else if (data.status === 'skipped') {
+              icon2.textContent = '⏭️';
+            } else {
+              icon2.textContent = '⏳';
+            }
+          }
+
+          // Stage 3: Restart
+          if (restartStages.includes(data.stage)) {
+            stage3.style.display = 'block';
+
+            // Replace instead of append for restart stage
+            if (data.status === 'starting') {
+              msg3.textContent = data.message || 'Restarting dashboard...';
+            } else {
+              // Update last line for progress/success/error
+              msg3.textContent = data.message || 'Restarting dashboard...';
+            }
+
+            if (data.status === 'success') {
+              icon3.textContent = '✅';
+            } else if (data.status === 'error') {
+              icon3.textContent = '❌';
+            } else {
+              icon3.textContent = '⏳';
+            }
+          }
+
+          // Completion
+          if (data.stage === 'complete') {
+            if (data.status === 'success') {
+              showUpdateComplete();
+            } else {
+              spinner.style.display = 'none';
+              closeBtn.style.display = 'inline-block';
+              msg3.textContent = data.message || '❌ Update failed';
+              icon3.textContent = '❌';
+              updateInProgress = false;
+            }
+          }
+
+          // Error handling
+          if (data.status === 'error') {
+            spinner.style.display = 'none';
+            closeBtn.style.display = 'inline-block';
+          }
+        } catch (err) {
+          console.error('Error handling update-progress event:', err);
+        }
+      });
+
+      eventSource.onerror = (err) => {
+        console.error('SSE error:', err);
+        eventSource.close();
+
+        // Exponential backoff with max delay
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30s
+
+        console.log(`Reconnecting SSE in ${delay / 1000}s (attempt ${reconnectAttempts})...`);
+        setTimeout(() => {
+          console.log('🔄 Attempting to reconnect SSE...');
+          setupSSE();
+        }, delay);
+      };
+    }
+
+    // Function to reopen update modal with current state
+    async function reopenUpdateModal() {
+      try {
+        const response = await fetch('/api/system/update/status');
+        const data = await response.json();
+
+        // Open modal
+        const modal = document.getElementById('updateModal');
+        if (!modal.classList.contains('active')) {
+          modal.classList.add('active');
+          updateInProgress = true;
+        }
+
+        // Show progress indicator
+        const updateProgressRow = document.getElementById('updateProgressRow');
+        if (updateProgressRow) {
+          updateProgressRow.style.display = 'flex';
+        }
+
+        // Get modal elements
+        const stage1 = document.getElementById('updateStage1');
+        const stage2 = document.getElementById('updateStage2');
+        const stage3 = document.getElementById('updateStage3');
+        const icon1 = document.getElementById('updateIcon1');
+        const icon2 = document.getElementById('updateIcon2');
+        const icon3 = document.getElementById('updateIcon3');
+        const msg1 = document.getElementById('updateMsg1');
+        const msg2 = document.getElementById('updateMsg2');
+        const msg3 = document.getElementById('updateMsg3');
+
+        // Clear and rebuild UI from stages
+        msg1.textContent = '';
+        msg2.textContent = '';
+        msg3.textContent = '';
+        stage2.style.display = 'none';
+        stage3.style.display = 'none';
+        icon1.textContent = '⏳';
+        icon2.textContent = '⏳';
+        icon3.textContent = '⏳';
+
+        const gitStages = ['init', 'validate', 'version_check', 'git_clean', 'git_fetch', 'version_compare', 'git_checkout', 'git_pull', 'verify_update'];
+        const rebuildStages = ['check_changes', 'rebuild_codeserver', 'rebuild_dashboard'];
+        const restartStages = ['restart_dashboard'];
+
+        if (data.stages && data.stages.length > 0) {
+          data.stages.forEach(stageData => {
+            const stage = stageData.stage;
+            const status = stageData.status;
+            const message = stageData.message;
+
+            // Stage 1: Git operations
+            if (gitStages.includes(stage)) {
+              if (status === 'progress') {
+                const indentedLine = message.startsWith('  ') ? '    ' + message.substring(2) : message;
+                msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + indentedLine : indentedLine;
+              } else {
+                const lines = msg1.textContent.split('\n').filter(l => l.trim());
+                const stageEmojis = ['🚀', '🔍', '📊', '🧹', '📥', '🔄', '🔀', '⬇️', '✔️'];
+                const lastLine = lines[lines.length - 1] || '';
+                const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+                if (isStatusLine) {
+                  lines[lines.length - 1] = message;
+                  msg1.textContent = lines.join('\n');
+                } else {
+                  msg1.textContent = msg1.textContent ? msg1.textContent + '\n' + message : message;
+                }
+              }
+
+              if (status === 'success') {
+                icon1.textContent = '✅';
+              } else if (status === 'error') {
+                icon1.textContent = '❌';
+              } else if (status === 'warning') {
+                icon1.textContent = '⚠️';
+              }
+            }
+
+            // Stage 2: Rebuild operations
+            if (rebuildStages.includes(stage)) {
+              stage2.style.display = 'block';
+
+              if (status === 'progress' || status === 'info') {
+                const indentedLine = message.startsWith('  ') ? '    ' + message.substring(2) : message;
+                msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + indentedLine : indentedLine;
+              } else {
+                const lines = msg2.textContent.split('\n').filter(l => l.trim());
+                const stageEmojis = ['🔨', '🛠️', '🔍', '📦'];
+                const lastLine = lines[lines.length - 1] || '';
+                const isStatusLine = stageEmojis.some(e => lastLine.startsWith(e));
+
+                if (isStatusLine) {
+                  lines[lines.length - 1] = message;
+                  msg2.textContent = lines.join('\n');
+                } else {
+                  msg2.textContent = msg2.textContent ? msg2.textContent + '\n' + message : message;
+                }
+              }
+
+              if (status === 'success') {
+                icon2.textContent = '✅';
+              } else if (status === 'error') {
+                icon2.textContent = '❌';
+              } else if (status === 'skipped') {
+                icon2.textContent = '⏭️';
+              }
+            }
+
+            // Stage 3: Restart
+            if (restartStages.includes(stage)) {
+              stage3.style.display = 'block';
+              msg3.textContent = message || 'Restarting dashboard...';
+
+              if (status === 'success') {
+                icon3.textContent = '✅';
+              } else if (status === 'error') {
+                icon3.textContent = '❌';
+              }
+            }
+          });
+        }
+
+        console.log('✅ Update modal reopened with current state');
+      } catch (err) {
+        console.error('Failed to reopen update modal:', err);
+      }
+    }
+
+    // ============================================================================
+    // AI Chat Interface Functions
+    // ============================================================================
+
+    let activeAITool = {};  // Track active tool per environment
+    let aiRefreshIntervals = {};  // Track auto-refresh intervals
+
+    function toggleAIChat(envId) {
+      const panel = document.getElementById(`ai-chat-${envId}`);
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        if (!activeAITool[envId]) {
+          activeAITool[envId] = 'copilot';
+        }
+        // Start auto-refresh for AI output
+        startAIOutputRefresh(envId);
+      } else {
+        panel.style.display = 'none';
+        stopAIOutputRefresh(envId);
+      }
+    }
+
+    function selectAITool(envId, tool) {
+      activeAITool[envId] = tool;
+
+      // Update button states
+      const panel = document.getElementById(`ai-chat-${envId}`);
+      const buttons = panel.querySelectorAll('.ai-tool-btn');
+      buttons.forEach(btn => {
+        if (btn.dataset.tool === tool) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Clear output
+      const output = document.getElementById(`ai-output-${envId}`);
+      output.textContent = `Switched to ${tool}. Ready for commands.`;
+    }
+
+    async function sendAIMessage(envId) {
+      const input = document.getElementById(`ai-input-${envId}`);
+      const message = input.value.trim();
+
+      if (!message) return;
+
+      const tool = 'copilot';  // Only use Copilot CLI
+      const output = document.getElementById(`ai-output-${envId}`);
+
+      // Show loading
+      output.innerHTML += `\n\n> ${message}\n\nProcessing...`;
+      output.scrollTop = output.scrollHeight;
+
+      // Clear input
+      input.value = '';
+
+      try {
+        const response = await fetch(`/api/environments/${envId}/ai/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, tool })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          output.innerHTML = output.innerHTML.replace('Processing...', 'Sent to Copilot CLI. Check output below.');
+
+          // Start fetching output
+          setTimeout(() => fetchAIOutput(envId), 1000);
+        } else {
+          output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + data.error);
+        }
+
+      } catch (error) {
+        output.innerHTML = output.innerHTML.replace('Processing...', 'Error: ' + error.message);
+      }
+
+      output.scrollTop = output.scrollHeight;
+    }
+
+    async function fetchAIOutput(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/ai/output`);
+        const data = await response.json();
+
+        const output = document.getElementById(`ai-output-${envId}`);
+        if (data.output) {
+          output.textContent = data.output;
+          output.scrollTop = output.scrollHeight;
+        }
+      } catch (error) {
+        console.error('Error fetching AI output:', error);
+      }
+    }
+
+    function startAIOutputRefresh(envId) {
+      // Refresh AI output every 2 seconds
+      if (aiRefreshIntervals[envId]) {
+        clearInterval(aiRefreshIntervals[envId]);
+      }
+      aiRefreshIntervals[envId] = setInterval(() => fetchAIOutput(envId), 2000);
+    }
+
+    function stopAIOutputRefresh(envId) {
+      if (aiRefreshIntervals[envId]) {
+        clearInterval(aiRefreshIntervals[envId]);
+        delete aiRefreshIntervals[envId];
+      }
+    }
+
+    // Handle Enter key in AI input (Ctrl+Enter to send)
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.ai-input').forEach(input => {
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            const envId = this.id.replace('ai-input-', '');
+            sendAIMessage(envId);
+          }
+        });
+      });
+    });
+
+    // ============================================================================
+    // Monitoring Panel Functions
+    // ============================================================================
+
+    let monitoringIntervals = {};  // Track auto-refresh intervals
+
+    function toggleMonitoring(envId) {
+      const panel = document.getElementById(`monitoring-${envId}`);
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        loadMonitoringData(envId);
+        // Start auto-refresh
+        startMonitoringRefresh(envId);
+      } else {
+        panel.style.display = 'none';
+        stopMonitoringRefresh(envId);
+      }
+    }
+
+    async function loadMonitoringData(envId) {
+      await refreshTerminal(envId);
+      await refreshGitActivity(envId);
+      await refreshProcesses(envId);
+    }
+
+    async function refreshTerminal(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/terminal`);
+        const data = await response.json();
+        const terminalEl = document.getElementById(`terminal-${envId}`);
+        if (data.output) {
+          terminalEl.textContent = data.output;
+          terminalEl.scrollTop = terminalEl.scrollHeight;
+        }
+      } catch (error) {
+        console.error('Error fetching terminal output:', error);
+      }
+    }
+
+    async function refreshGitActivity(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/git`);
+        const data = await response.json();
+        const gitEl = document.getElementById(`git-activity-${envId}`);
+        if (data.activity && data.activity.length > 0) {
+          gitEl.innerHTML = data.activity.map(a => `<li>${a}</li>`).join('');
+        } else {
+          gitEl.innerHTML = '<li>No recent git activity</li>';
+        }
+      } catch (error) {
+        console.error('Error fetching git activity:', error);
+      }
+    }
+
+    async function refreshProcesses(envId) {
+      try {
+        const response = await fetch(`/api/environments/${envId}/processes`);
+        const data = await response.json();
+        const procEl = document.getElementById(`processes-${envId}`);
+        if (data.processes && data.processes.length > 0) {
+          procEl.innerHTML = data.processes.map(p => `<li>${p}</li>`).join('');
+        } else {
+          procEl.innerHTML = '<li>No active processes</li>';
+        }
+      } catch (error) {
+        console.error('Error fetching processes:', error);
+      }
+    }
+
+    function startMonitoringRefresh(envId) {
+      // Refresh every 5 seconds
+      if (monitoringIntervals[envId]) {
+        clearInterval(monitoringIntervals[envId]);
+      }
+      monitoringIntervals[envId] = setInterval(() => loadMonitoringData(envId), 5000);
+    }
+
+    function stopMonitoringRefresh(envId) {
+      if (monitoringIntervals[envId]) {
+        clearInterval(monitoringIntervals[envId]);
+        delete monitoringIntervals[envId];
+      }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      setupSSE();
+      refreshEnvironments();
+      checkSystemStatus();
+      checkUpdateProgress(); // Check if an update is in progress on page load
+
+      // Refresh every 30 seconds
+      setInterval(refreshEnvironments, 30000);
+      setInterval(checkSystemStatus, 30000);
+
+      // Pre-fill random name on form load
+      if (document.getElementById('envName')) {
+        document.getElementById('envName').placeholder = generateRandomName();
+      }
+    });
+  </script>
+</body>
+
+</html>
+```
                 console.log('🔄 Update still in progress:', data.stage);
                 // The backend will send updates via SSE, but we recovered connection
               }
