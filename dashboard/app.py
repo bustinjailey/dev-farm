@@ -640,7 +640,13 @@ def create_environment():
         # For terminal mode, create a volume for persistent workspace
         if mode in ['workspace', 'git', 'terminal']:
             run_kwargs['volumes'] = {
-                f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'}
+                f'devfarm-{env_id}': {'bind': '/home/coder/workspace', 'mode': 'rw'},
+                f'devfarm-{env_id}-vscode': {'bind': '/home/coder/.vscode-server-insiders', 'mode': 'rw'}
+            }
+        elif mode == 'ssh':
+            # SSH mode still needs VS Code server data persistence
+            run_kwargs['volumes'] = {
+                f'devfarm-{env_id}-vscode': {'bind': '/home/coder/.vscode-server-insiders', 'mode': 'rw'}
             }
 
         # SSH mode no longer requires privileged mode

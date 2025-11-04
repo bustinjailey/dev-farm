@@ -1405,18 +1405,21 @@ mkdir -p "${WORKSPACE_ROOT}"
 echo "🔄 Starting VS Code Remote Tunnel (server-side extensions)" | tee -a "$LOG_FILE"
 echo "All extensions run on the server and persist across browser disconnections" | tee -a "$LOG_FILE"
 
-# Authenticate tunnel if token available
-if [ -n "${GITHUB_TOKEN}" ]; then
-    echo "Authenticating tunnel with GitHub..." | tee -a "$LOG_FILE"
-    /usr/bin/code-insiders tunnel user login \
-      --provider github \
-      --access-token "${GITHUB_TOKEN}" 2>&1 | tee -a "$LOG_FILE" || true
-fi
+# VS Code tunnel requires Microsoft/GitHub account authentication via device flow
+# The tunnel will display a device code on first run that must be entered at:
+# https://github.com/login/device
+# 
+# After initial authentication, the credentials are cached and subsequent starts
+# won't require re-authentication unless the cache expires.
 
 # Start tunnel with unique name based on environment ID
 TUNNEL_NAME="devfarm-${DEVFARM_ENV_ID:-unknown}"
 echo "Starting tunnel with name: ${TUNNEL_NAME}" | tee -a "$LOG_FILE"
 echo "Access via: https://vscode.dev/tunnel/${TUNNEL_NAME}" | tee -a "$LOG_FILE"
+echo "" | tee -a "$LOG_FILE"
+echo "🔐 Note: First-time authentication requires completing device flow" | tee -a "$LOG_FILE"
+echo "    Visit the URL shown below and enter the code to authenticate" | tee -a "$LOG_FILE"
+echo "" | tee -a "$LOG_FILE"
 
 exec /usr/bin/code-insiders tunnel \
   --accept-server-license-terms \
