@@ -1767,6 +1767,7 @@ def _run_system_update_thread():
         
         if rc == 0:
             _append_stage('git_pull', 'success', '✅ Code updated successfully')
+            time.sleep(0.5)  # Brief pause to ensure UI updates
         else:
             error_msg = '\n'.join(pull_output[-5:]) if pull_output else 'unknown error'
             _append_stage('git_pull', 'error', f'❌ Pull failed: {error_msg}')
@@ -1775,6 +1776,7 @@ def _run_system_update_thread():
         
         # Verify the update succeeded
         _append_stage('verify_update', 'starting', '✔️ Verifying update...')
+        time.sleep(0.3)  # Brief pause for UI update
         try:
             new_sha_result = subprocess.run(
                 ['git', 'rev-parse', '--short', 'HEAD'],
@@ -1788,11 +1790,14 @@ def _run_system_update_thread():
                 _append_stage('verify_update', 'success', f'✅ Updated: {current_sha} → {new_sha}')
             else:
                 _append_stage('verify_update', 'success', f'✅ Version confirmed: {new_sha}')
+            time.sleep(0.5)  # Brief pause to ensure UI updates
         except subprocess.CalledProcessError:
             _append_stage('verify_update', 'warning', '⚠️ Could not verify update')
+            time.sleep(0.3)
 
         # Stage 2: Analyze what changed
         _append_stage('check_changes', 'starting', '🔍 Analyzing changes...')
+        time.sleep(0.3)  # Brief pause for UI update
         diff_result = subprocess.run(
             ['git', 'diff', 'HEAD@{1}', 'HEAD', '--name-only'],
             capture_output=True,
@@ -1803,6 +1808,7 @@ def _run_system_update_thread():
         
         if files_changed and files_changed[0]:
             _append_stage('check_changes', 'progress', f'📝 {len([f for f in files_changed if f])} files changed')
+            time.sleep(0.3)
         
         # Check if code-server image needs rebuild
         codeserver_changed = any(
@@ -1823,7 +1829,9 @@ def _run_system_update_thread():
         )
         
         _append_stage('check_changes', 'success', f'✅ Code-server changes: {"YES" if codeserver_changed else "NO"}, Dashboard changes: {"YES" if dashboard_changed else "NO"}')
+        time.sleep(0.5)
         _append_stage('check_changes', 'info', '📦 Rebuilding both images to ensure everything is up to date...')
+        time.sleep(0.5)  # Pause before starting builds
 
         # Stage 3: Always rebuild code-server to ensure latest updates
         if True:  # Always rebuild
