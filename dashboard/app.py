@@ -454,11 +454,11 @@ def api_environments():
                 ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 mode = env_data.get('mode', 'workspace')
-                workspace_path = get_workspace_path(mode)
                 
                 # Generate insiders.vscode.dev tunnel URL (tunnel names must be 20 chars or less)
+                # Note: Don't append workspace path - tunnels point to the server and users navigate from there
                 tunnel_name = env_id
-                env_url = f"https://insiders.vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
+                env_url = f"https://insiders.vscode.dev/tunnel/{tunnel_name}"
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),

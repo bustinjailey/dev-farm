@@ -1132,7 +1132,7 @@
             <div id="userCode"
               style="font-size: 2em; font-weight: bold; color: #667eea; font-family: 'Courier New', monospace; letter-spacing: 0.2em; margin: 10px 0;">
             </div>
-            <button onclick="copyUserCode()" class="btn"
+            <button onclick="copyUserCode(event)" class="btn"
               style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">📋 Copy Code</button>
           </div>
 
@@ -1930,7 +1930,7 @@
       }
     }
 
-    function copyUserCode() {
+    function copyUserCode(event) {
       const code = document.getElementById('userCode').textContent;
       navigator.clipboard.writeText(code).then(() => {
         const btn = event.target;
