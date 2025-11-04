@@ -1,0 +1,165 @@
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  import { listGithubRepos } from '../api';
+
+  const dispatch = createEventDispatcher();
+
+  export let open = false;
+
+  let repos: { name: string; https_url: string; private: boolean; description: string | null }[] = [];
+  let loading = false;
+  let error: string | null = null;
+
+  async function loadRepos() {
+    loading = true;
+    error = null;
+    try {
+      const result: any = await listGithubRepos();
+      if (Array.isArray(result)) {
+        repos = result;
+      } else {
+        repos = [];
+        error = result?.error ?? 'Failed to load repositories';
+      }
+    } catch (err) {
+      error = (err as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  $: if (open) {
+    loadRepos();
+  }
+</script>
+
+{#if open}
+  <div
+    class="backdrop"
+    role="button"
+    tabindex="0"
+    on:click={() => dispatch('close')}
+    on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      tabindex="0"
+      on:click|stopPropagation
+      on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
+    >
+      <header>
+        <h2>Select Repository</h2>
+      </header>
+      {#if loading}
+        <p>Loading repositories…</p>
+      {:else if error}
+        <p class="error">{error}</p>
+      {:else}
+        <ul>
+          {#each repos as repo}
+            <li>
+              <button
+                type="button"
+                on:click={() => {
+                  dispatch('select', { url: repo.https_url });
+                  dispatch('close');
+                }}
+              >
+                <strong>{repo.name}</strong>
+                {#if repo.private}
+                  <span class="badge">Private</span>
+                {/if}
+                {#if repo.description}
+                  <small>{repo.description}</small>
+                {/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      <button class="close" on:click={() => dispatch('close')}>Close</button>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 120;
+  }
+
+  .modal {
+    background: white;
+    color: #1a202c;
+    width: min(480px, 90vw);
+    max-height: 80vh;
+    overflow: auto;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  }
+
+  header {
+    margin-bottom: 1rem;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  li button {
+    width: 100%;
+    text-align: left;
+    border: 1px solid #cbd5f5;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  li button:hover {
+    background: #e0e7ff;
+  }
+
+  .badge {
+    display: inline-block;
+    background: #ed8936;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+  }
+
+  small {
+    color: #64748b;
+  }
+
+  .error {
+    color: #e53e3e;
+  }
+
+  .close {
+    margin-top: 1rem;
+    background: #e2e8f0;
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+</style>

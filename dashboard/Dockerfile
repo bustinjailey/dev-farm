@@ -1,31 +1,39 @@
-FROM python:3.11-slim
+FROM node:20-slim AS base
+
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install git and docker CLI for version checking and self-update
-RUN apt-get update && \
-  apt-get install -y git ca-certificates curl && \
-  install -m 0755 -d /etc/apt/keyrings && \
-  curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
-  chmod a+r /etc/apt/keyrings/docker.asc && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-  apt-get update && \
-  apt-get install -y docker-ce-cli docker-compose-plugin && \
-  rm -rf /var/lib/apt/lists/* && \
-  git config --global --add safe.directory /opt
+FROM base AS deps
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package.json package-lock.json* ./
+RUN npm install
 
-# Copy application
-COPY app.py .
-COPY templates templates/
-COPY static static/
+FROM deps AS build
 
-# Create data directory
-RUN mkdir -p /data
+COPY tsconfig.json ./
+COPY vite.config.ts ./
+COPY svelte.config.js ./
+COPY src ./src
+COPY frontend ./frontend
+RUN npm run build
+
+FROM node:20-slim AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/package-lock.json ./package-lock.json
+RUN npm install --omit=dev
+
+COPY --from=build /app/dist ./dist
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "gevent", "--worker-connections", "1000", "--timeout", "120", "app:app"]
+CMD ["node", "dist/server/main.js"]

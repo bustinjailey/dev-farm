@@ -17,6 +17,8 @@ import threading
 from threading import RLock
 import queue
 import functools
+import shlex
+from urllib.parse import quote
 
 # Import gevent for spawning greenlets under gunicorn's gevent workers
 try:
@@ -50,6 +52,37 @@ EXTERNAL_URL = os.environ.get('EXTERNAL_URL', 'http://localhost:5000')
 # Server-Sent Events support
 SSE_CLIENTS = []
 SSE_LOCK = threading.Lock()
+
+
+def build_tunnel_url(env_id, workspace_path=None):
+    """Construct the vscode.dev tunnel URL for an environment."""
+    base = f"https://insiders.vscode.dev/tunnel/{env_id}"
+    if workspace_path:
+        sanitized = workspace_path.lstrip('/')
+        if sanitized:
+            base = f"{base}?folder=/{quote(sanitized)}"
+    return base
+
+
+def exec_in_container(container, command, *, user='coder', workdir=None, environment=None, use_shell=None, stream=False):
+    """Execute a command inside a container with sensible defaults."""
+
+    if isinstance(command, (list, tuple)):
+        cmd = list(command)
+    else:
+        if use_shell is False:
+            cmd = shlex.split(command)
+        else:
+            cmd = ['bash', '-lc', command]
+
+    return container.exec_run(
+        cmd,
+        user=user,
+        workdir=workdir,
+        environment=environment,
+        stream=stream,
+    )
+
 
 def broadcast_sse(event_type, data):
     """Broadcast an SSE message to all connected clients"""
@@ -375,10 +408,7 @@ def index():
                 
                 mode = env_data.get('mode', 'workspace')
                 workspace_path = get_workspace_path(mode)
-                
-                # Generate path-based URL using EXTERNAL_URL
-                base_url = EXTERNAL_URL.rstrip('/')
-                env_url = f"{base_url}/env/{env_id}?folder={workspace_path}"
+                env_url = build_tunnel_url(env_id, workspace_path)
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),  # Use display_name if available
@@ -392,7 +422,8 @@ def index():
                     'git_url': env_data.get('git_url'),
                     'stats': stats,
                     'ready': ready,
-                    'url': env_url
+                    'url': env_url,
+                    'workspace_path': workspace_path
                 })
             except docker.errors.NotFound:
                 # Container no longer exists
@@ -454,11 +485,8 @@ def api_environments():
                 ready = is_env_ready(container.name, env_data.get('port')) if status == 'running' else False
                 display_status = 'running' if ready else ('starting' if status == 'running' else status)
                 mode = env_data.get('mode', 'workspace')
-                
-                # Generate insiders.vscode.dev tunnel URL (tunnel names must be 20 chars or less)
-                # Note: Don't append workspace path - tunnels point to the server and users navigate from there
-                tunnel_name = env_id
-                env_url = f"https://insiders.vscode.dev/tunnel/{tunnel_name}"
+                workspace_path = get_workspace_path(mode)
+                env_url = build_tunnel_url(env_id, workspace_path)
                 
                 environments.append({
                     'name': env_data.get('display_name', env_id),
@@ -466,7 +494,9 @@ def api_environments():
                     'port': env_data['port'],
                     'status': display_status,
                     'ready': ready,
-                    'url': env_url
+                    'url': env_url,
+                    'workspace_path': workspace_path,
+                    'mode': mode
                 })
             except docker.errors.NotFound:
                 pass
@@ -585,12 +615,15 @@ def create_environment():
             print(f"[Config] Added BRAVE_API_KEY from farm.config")
         
         # Add mode-specific environment variables
+        ssh_alias = None
         if mode == 'ssh':
             env_vars['SSH_HOST'] = ssh_host
             env_vars['SSH_USER'] = ssh_user
             env_vars['SSH_PATH'] = ssh_path
             if ssh_password:  # Only add password if provided
                 env_vars['SSH_PASSWORD'] = ssh_password
+            ssh_alias = f"devfarm-{env_id}"
+            env_vars['SSH_ALIAS'] = ssh_alias
         elif mode == 'git':
             env_vars['GIT_URL'] = git_url
         
@@ -688,7 +721,10 @@ def create_environment():
             'project': project,
             'mode': mode,
             'ssh_host': ssh_host if mode == 'ssh' else None,
+            'ssh_user': ssh_user if mode == 'ssh' else None,
+            'ssh_path': ssh_path if mode == 'ssh' else None,
             'ssh_password': ssh_password if mode == 'ssh' and ssh_password else None,  # Store password if provided
+            'ssh_alias': ssh_alias if mode == 'ssh' else None,
             'git_url': git_url if mode == 'git' else None,
             # Parent-child tracking
             'parent_env_id': parent_env_id,
@@ -708,10 +744,7 @@ def create_environment():
         save_registry(registry)
         
         workspace_path = get_workspace_path(mode)
-        
-        # Generate insiders.vscode.dev tunnel URL (tunnel names must be 20 chars or less)
-        tunnel_name = env_id
-        env_url = f"https://insiders.vscode.dev/tunnel/{tunnel_name}/{workspace_path}"
+        env_url = build_tunnel_url(env_id, workspace_path)
         
         return jsonify({
             'success': True,
@@ -719,9 +752,10 @@ def create_environment():
             'display_name': display_name,
             'port': port,
             'url': env_url,
-            'tunnel_name': tunnel_name,
+            'tunnel_name': env_id,
             'mode': mode,
-            'project': project
+            'project': project,
+            'workspace_path': workspace_path
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -783,9 +817,18 @@ def start_environment(env_name):
         return jsonify({'error': 'Environment not found'}), 404
     
     try:
-        container = client.containers.get(registry[env_name]['container_id'])
+        env_data = registry[env_name]
+        container = client.containers.get(env_data['container_id'])
         container.start()
-        broadcast_sse('env-status', {'env_id': env_name, 'status': 'starting'})
+        mode = env_data.get('mode', 'workspace')
+        workspace_path = get_workspace_path(mode)
+        broadcast_sse('env-status', {
+            'env_id': env_name,
+            'status': 'starting',
+            'url': build_tunnel_url(env_name, workspace_path),
+            'workspace_path': workspace_path,
+            'mode': mode
+        })
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -802,9 +845,18 @@ def stop_environment(env_name):
         return jsonify({'error': 'Environment not found'}), 404
     
     try:
-        container = client.containers.get(registry[env_name]['container_id'])
+        env_data = registry[env_name]
+        container = client.containers.get(env_data['container_id'])
         container.stop()
-        broadcast_sse('env-status', {'env_id': env_name, 'status': 'exited'})
+        mode = env_data.get('mode', 'workspace')
+        workspace_path = get_workspace_path(mode)
+        broadcast_sse('env-status', {
+            'env_id': env_name,
+            'status': 'exited',
+            'url': build_tunnel_url(env_name, workspace_path),
+            'workspace_path': workspace_path,
+            'mode': mode
+        })
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -821,9 +873,18 @@ def restart_environment(env_id):
         return jsonify({'error': 'Environment not found'}), 404
     
     try:
-        container = client.containers.get(registry[env_id]['container_id'])
+        env_data = registry[env_id]
+        container = client.containers.get(env_data['container_id'])
         container.restart()
-        broadcast_sse('env-status', {'env_id': env_id, 'status': 'restarting'})
+        mode = env_data.get('mode', 'workspace')
+        workspace_path = get_workspace_path(mode)
+        broadcast_sse('env-status', {
+            'env_id': env_id,
+            'status': 'restarting',
+            'url': build_tunnel_url(env_id, workspace_path),
+            'workspace_path': workspace_path,
+            'mode': mode
+        })
         return jsonify({'success': True, 'message': f'Environment {env_id} restarted'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2435,10 +2496,15 @@ def background_status_monitor():
                             if last_status != display_status:
                                 LAST_KNOWN_STATUS[env_id] = display_status
                                 # Broadcast status change
+                                mode = env_data.get('mode', 'workspace')
+                                workspace_path = get_workspace_path(mode)
                                 broadcast_sse('env-status', {
                                     'env_id': env_id,
                                     'status': display_status,
-                                    'port': env_data.get('port')
+                                    'port': env_data.get('port'),
+                                    'url': build_tunnel_url(env_id, workspace_path),
+                                    'workspace_path': workspace_path,
+                                    'mode': mode
                                 })
                     except docker.errors.NotFound:
                         # Container was deleted

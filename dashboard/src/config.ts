@@ -1,0 +1,11 @@
+export const REGISTRY_FILE = process.env.REGISTRY_FILE || '/data/environments.json';
+export const PATH_ALIAS_CONFIG = process.env.DEVFARM_ALIAS_CONFIG || '/home/coder/.devfarm/path-aliases.json';
+export const BASE_PORT = Number(process.env.BASE_PORT || 8100);
+export const GITHUB_TOKEN_FILE = process.env.GITHUB_TOKEN_FILE || '/data/.github_token';
+export const DEVICE_CODE_FILE = process.env.DEVICE_CODE_FILE || '/data/.device_code.json';
+export const HOST_REPO_PATH = process.env.HOST_REPO_PATH || '/opt/dev-farm';
+export const FARM_CONFIG_FILE = process.env.FARM_CONFIG_FILE || `${HOST_REPO_PATH}/farm.config`;
+export const EXTERNAL_URL = (process.env.EXTERNAL_URL || 'http://localhost:5000').replace(/\/$/, '');
+export const SECRET_KEY = process.env.SECRET_KEY || 'dev-farm-secret-key';
+export const DEFAULT_GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'bustinjailey';
+export const DEFAULT_GITHUB_EMAIL = process.env.GITHUB_EMAIL || 'bustinjailey@users.noreply.github.com';

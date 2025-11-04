@@ -1,0 +1,64 @@
+type EventHandler = (data: any) => void;
+
+interface Handlers {
+  [event: string]: Set<EventHandler>;
+}
+
+export class SSEClient {
+  private source: EventSource | null = null;
+  private handlers: Handlers = {};
+
+  constructor(private url: string) {}
+
+  connect() {
+    if (this.source) return;
+    this.source = new EventSource(this.url);
+    this.source.onopen = () => {
+      /* connected */
+    };
+    this.source.onerror = () => {
+      this.disconnect();
+      setTimeout(() => this.connect(), 2000);
+    };
+
+    this.source.onmessage = (event) => {
+      this.emit('message', JSON.parse(event.data));
+    };
+
+    const known = ['registry-update', 'env-status', 'update-progress', 'ai-response'];
+    for (const event of known) {
+      this.source.addEventListener(event, (ev) => {
+        try {
+          const payload = JSON.parse((ev as MessageEvent).data);
+          this.emit(event, payload);
+        } catch (error) {
+          console.error('Failed to parse SSE payload', error);
+        }
+      });
+    }
+  }
+
+  on(event: string, handler: EventHandler) {
+    if (!this.handlers[event]) {
+      this.handlers[event] = new Set();
+    }
+    this.handlers[event].add(handler);
+  }
+
+  off(event: string, handler: EventHandler) {
+    this.handlers[event]?.delete(handler);
+  }
+
+  private emit(event: string, data: any) {
+    this.handlers[event]?.forEach((handler) => handler(data));
+  }
+
+  disconnect() {
+    if (this.source) {
+      this.source.close();
+      this.source = null;
+    }
+  }
+}
+
+export const sseClient = new SSEClient('/api/stream');

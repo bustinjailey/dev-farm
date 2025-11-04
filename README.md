@@ -20,9 +20,9 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 - 🔒 **Consistent Configuration** - Every environment has GitHub CLI and Copilot MCP pre-configured
 - � **No Trust Prompts** - Workspaces always open in trusted mode
 - 🐳 **Docker-Based** - Isolated containers for each project
-- 📊 **Resource Monitoring** - See CPU and memory usage at a glance
+- 📊 **Resource Monitoring & Logs** - Real-time stats, logs, and AI chat in every card
 - 🚀 **One-Click Access** - Tap to open VS Code Server in your browser
-- 🧹 **Orphan Detection** - Automatically find and clean up zombie containers
+- 🧹 **Maintenance Tools** - Orphan cleanup, registry recovery, image rebuilds, and self-update controls
 
 ## 🏗️ Architecture
 
@@ -48,7 +48,8 @@ Perfect for running multiple projects on a Proxmox LXC, with consistent GitHub i
 │           Proxmox LXC/Host             │
 │                                         │
 │  ┌──────────────────────────────────┐  │
-│  │   Dashboard Container (Flask)    │  │
+│  │   Dashboard Container (Node)     │  │
+│  │   - Fastify API + Svelte UI      │  │
 │  │   - Docker orchestration         │  │
 │  │   - Environment registry         │  │
 │  └──────────────────────────────────┘  │
@@ -112,7 +113,19 @@ git clone https://github.com/bustinjailey/dev-farm.git
 cd dev-farm
 ```
 
-2. **Access the dashboard:**
+2. **Build the dashboard image (first run or after dashboard updates):**
+
+```bash
+docker compose build dashboard
+```
+
+3. **Start Dev Farm:**
+
+```bash
+docker compose up -d
+```
+
+4. **Access the dashboard:**
 
 Open your browser (or phone browser) and navigate to:
 
@@ -120,7 +133,7 @@ Open your browser (or phone browser) and navigate to:
 http://<your-lxc-ip>:5000
 ```
 
-3. **(Recommended) Configure GitHub Authentication:**
+5. **(Recommended) Configure GitHub Authentication:**
 
 **Option A: farm.config (Best for local development)**
 
@@ -159,22 +172,10 @@ export GITHUB_TOKEN="your_github_token_here"
 
 ### System Management
 
-**Self-Update:**
-
-- Click the "⬆️ Update Now" button in the dashboard
-- System will pull latest code and restart automatically
-- No SSH or manual commands required
-
-**GitHub Authentication:**
-
-- Click "🔗 Connect" button to authenticate via OAuth
-- Token is automatically applied to all new and existing environments
-- Restart existing containers to apply the token
-
-**Orphan Cleanup:**
-
-- Dashboard automatically detects zombie containers
-- Click "🧹 Clean Up" to remove orphaned containers
+- Monitor git revisions, Docker connectivity, and environment counts from the status cards.
+- Launch a **system update** to fetch/pull `origin/main`, rebuild dashboard/code-server images, and restart proxy/dashboard containers—progress streams in real time.
+- Manage GitHub access from the same view: paste a PAT, or walk through the device-flow OAuth without leaving the UI. The git environment modal includes a repo browser backed by your account.
+- Clean up orphaned containers, recover the environment registry, tail environment logs, and rebuild images directly from the dashboard.
 
 ## 🛠️ Management Commands
 
@@ -208,6 +209,26 @@ The `devfarm.sh` script provides easy management:
 ./scripts/devfarm.sh help
 
 ```
+
+## 🧑‍💻 Local Development Workflow
+
+For local iteration on the new Node/Svelte dashboard:
+
+```bash
+cd dashboard
+npm install
+npm run dev:server   # Fastify API (http://localhost:5000)
+npm run dev:client   # Vite + Svelte UI (http://localhost:5173)
+
+# Linting / tests
+npm run check        # svelte-check diagnostics
+npm test             # Vitest backend tests
+
+# Build production bundles (dist/server + dist/client)
+npm run build
+```
+
+The Dockerfile invokes `npm run build` so `docker compose build dashboard` always picks up the latest TypeScript/Svelte output.
 
 ## 🎛️ Configuration
 
