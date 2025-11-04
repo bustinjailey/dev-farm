@@ -995,11 +995,11 @@
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
           </button>
-          <button class="btn" onclick="toggleMonitoring('{{ env.id }}')" style="background: #48bb78;">
+          <button class="btn" id="monitor-{{ env.id }}" onclick="toggleMonitoring('{{ env.id }}')" style="background: #48bb78;">
             👁️ Monitor
           </button>
-          <button class="btn" onclick="toggleAIChat('{{ env.id }}')" style="background: #667eea; color: white;">
-            🤖 AI Chat
+          <button class="btn" id="aichat-{{ env.id }}" onclick="toggleAIChat('{{ env.id }}')" style="background: #667eea; color: white;">
+            🤖 Copilot Chat
           </button>
           {% elif env.status == 'starting' %}
           <button class="btn btn-open" id="open-{{ env.id }}" disabled style="opacity: 0.6;">
@@ -1030,19 +1030,16 @@
             <h3>🤖 AI Assistant</h3>
             <button class="btn-close" onclick="toggleAIChat('{{ env.id }}')">✕</button>
           </div>
-          <div class="ai-tool-selector">
-            <button class="ai-tool-btn active" data-tool="aider"
-              onclick="selectAITool('{{ env.id }}', 'aider')">Aider</button>
-            <button class="ai-tool-btn" data-tool="copilot" onclick="selectAITool('{{ env.id }}', 'copilot')">Copilot
-              CLI</button>
+          <div class="ai-info-banner" style="background: #f7fafc; border-left: 4px solid #667eea; padding: 12px; margin-bottom: 16px; border-radius: 4px;">
+            <div style="font-size: 14px; color: #4a5568;">
+              <strong>💡 GitHub Copilot Chat</strong> - Use the integrated Copilot Chat extension in VS Code for the best AI coding experience.
+            </div>
           </div>
-          <div class="ai-output" id="ai-output-{{ env.id }}">
-            <div class="output-placeholder">AI assistant ready. Type your request below.</div>
-          </div>
-          <div class="ai-input-container">
-            <textarea class="ai-input" id="ai-input-{{ env.id }}" placeholder="Ask AI to help with your code..."
-              rows="3"></textarea>
-            <button class="btn btn-send" onclick="sendAIMessage('{{ env.id }}')">Send</button>
+          <div style="padding: 20px; text-align: center; color: #718096;">
+            <p style="margin-bottom: 16px;">Open your tunnel in VS Code to access GitHub Copilot Chat with full context awareness and integrated features.</p>
+            <button class="btn" onclick="window.open('{{ env.url }}', '_blank')" style="background: #667eea; color: white;">
+              🔗 Open in VS Code
+            </button>
           </div>
         </div>
 
@@ -2463,16 +2460,34 @@
               // URL comes from server (vscode.dev tunnel URL)
               openBtn.onclick = () => window.open(data.url, '_blank');
               openBtn.textContent = '🔗 Open Tunnel';
+              
+              // Show Monitor and AI Chat buttons when running
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = '';
+              if (aiChatBtn) aiChatBtn.style.display = '';
             } else if (status === 'starting') {
               openBtn.disabled = true;
               openBtn.style.opacity = '0.6';
               openBtn.onclick = null;
               openBtn.textContent = '⏳ Starting...';
+              
+              // Hide Monitor and AI Chat buttons when starting
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = 'none';
+              if (aiChatBtn) aiChatBtn.style.display = 'none';
             } else {
               openBtn.disabled = false;
               openBtn.style.opacity = '';
               openBtn.onclick = () => startEnvironment(env_id);
               openBtn.textContent = '▶️ Start';
+              
+              // Hide Monitor and AI Chat buttons when stopped
+              const monitorBtn = document.getElementById(`monitor-${env_id}`);
+              const aiChatBtn = document.getElementById(`aichat-${env_id}`);
+              if (monitorBtn) monitorBtn.style.display = 'none';
+              if (aiChatBtn) aiChatBtn.style.display = 'none';
             }
           }
 
