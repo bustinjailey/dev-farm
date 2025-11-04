@@ -5,6 +5,9 @@
 ### Local Development
 
 ```bash
+# Open an environment in VS Code Insiders Desktop (after copying from dashboard)
+code-insiders --folder-uri "vscode-remote://tunnel/<env-name>"
+
 # Initial setup
 cp farm.config.example farm.config
 chmod 600 farm.config  # Secure permissions

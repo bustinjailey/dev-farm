@@ -156,6 +156,7 @@ describe('environment API', () => {
       id: 'test-env',
       project: 'demo',
       mode: 'workspace',
+      desktopCommand: expect.stringContaining('code-insiders'),
     });
   });
 });

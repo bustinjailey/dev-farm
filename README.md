@@ -164,7 +164,7 @@ export GITHUB_TOKEN="your_github_token_here"
 2. Navigate to `http://<your-lxc-ip>:5000`
 3. Tap **"➕ Create New Environment"**
 4. Enter a name and project type
-5. Tap **"🚀 Open VS Code"** to access your environment
+5. Tap **"🚀 Open VS Code"** for the in-browser tunnel, or **"🖥 Copy Desktop Command"** and run it locally to launch VS Code Insiders Desktop (required for tunneling into SSH-backed workspaces)
 
 ### Default Credentials
 

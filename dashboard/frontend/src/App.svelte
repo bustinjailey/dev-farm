@@ -57,6 +57,8 @@
   let imageBusy: Record<string, boolean> = {};
   let orphansBusy = false;
   let systemActionMessage: string | null = null;
+  let desktopCopyState: Record<string, 'copied' | 'failed' | ''> = {};
+  const desktopCopyTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   async function loadEnvironments() {
     loading = true;
@@ -121,6 +123,36 @@
     aiOpen = { ...aiOpen, [id]: !aiOpen[id] };
     if (!aiOpen[id]) {
       delete aiSseMessages[id];
+    }
+  }
+
+  function scheduleDesktopReset(envId: string) {
+    const timer = desktopCopyTimers.get(envId);
+    if (timer) {
+      clearTimeout(timer);
+    }
+    const handle = setTimeout(() => {
+      desktopCopyTimers.delete(envId);
+      desktopCopyState = { ...desktopCopyState, [envId]: '' };
+    }, 2500);
+    desktopCopyTimers.set(envId, handle);
+  }
+
+  async function copyDesktopCommand(env: EnvironmentSummary) {
+    if (!env.desktopCommand) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(env.desktopCommand);
+      } else {
+        throw new Error('Clipboard unavailable');
+      }
+      desktopCopyState = { ...desktopCopyState, [env.id]: 'copied' };
+    } catch (err) {
+      desktopCopyState = { ...desktopCopyState, [env.id]: 'failed' };
+      // Fallback prompt so the user can copy manually in environments without clipboard API
+      window.prompt('Copy this command into VS Code Insiders Desktop', env.desktopCommand);
+    } finally {
+      scheduleDesktopReset(env.id);
     }
   }
 
@@ -331,6 +363,7 @@
         mode: payload.mode,
         workspacePath: payload.workspacePath,
         ready: payload.status === 'running',
+        desktopCommand: payload.desktopCommand,
       });
     };
     const aiHandler = (payload: any) => {
@@ -371,6 +404,8 @@
       clearInterval(updatePollTimer);
       updatePollTimer = null;
     }
+    desktopCopyTimers.forEach((timer) => clearTimeout(timer));
+    desktopCopyTimers.clear();
   });
 
   $: if (showUpdateModal) {
@@ -499,6 +534,9 @@
           <div class="actions">
             {#if env.status === 'running'}
               <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+              <button class="btn secondary" type="button" on:click={() => copyDesktopCommand(env)}>
+                🖥 Copy Desktop Command
+              </button>
               <button class="btn" disabled={actionBusy[env.id]} on:click={() => perform(env.id, 'stop')}>
                 ⏸ Stop
               </button>
@@ -523,6 +561,12 @@
               🗑 Delete
             </button>
           </div>
+
+          {#if desktopCopyState[env.id] === 'copied'}
+            <p class="copy-status success">Desktop command copied. Paste into VS Code Insiders.</p>
+          {:else if desktopCopyState[env.id] === 'failed'}
+            <p class="copy-status warn">Clipboard unavailable. Use the prompt to copy manually.</p>
+          {/if}
 
           <MonitorPanel envId={env.id} open={!!monitorOpen[env.id]} />
           <AiChatPanel envId={env.id} open={!!aiOpen[env.id]} latestSse={aiSseMessages[env.id] ?? null} />
@@ -897,6 +941,10 @@
     color: white;
   }
 
+  .btn.secondary {
+    background: #e2e8f0;
+  }
+
   .btn.danger {
     background: #fee2e2;
     color: #c53030;
@@ -905,6 +953,20 @@
   .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  .copy-status {
+    margin: -0.25rem 0 0;
+    font-size: 0.85rem;
+    color: #4a5568;
+  }
+
+  .copy-status.success {
+    color: #2f855a;
+  }
+
+  .copy-status.warn {
+    color: #b7791f;
   }
 
   .modal-layer {

@@ -177,6 +177,13 @@ export function buildProxyUrl(envId: string, workspacePath?: string): string {
   return `${EXTERNAL_URL}/env/${envId}${suffix}`;
 }
 
+export function buildDesktopCommand(envId: string, workspacePath?: string): string {
+  const sanitized = (workspacePath ?? '').replace(/^\/+/, '');
+  const folderSuffix = sanitized ? `/${sanitized}` : '';
+  const remoteUri = `vscode-remote://tunnel/${envId}${folderSuffix}`;
+  return `code-insiders --folder-uri "${remoteUri}"`;
+}
+
 export function resetCaches(): void {
   aliasCache = null;
   farmConfigCache = null;

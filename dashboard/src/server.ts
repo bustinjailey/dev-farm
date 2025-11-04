@@ -16,7 +16,13 @@ import {
   upsertEnvironment,
   readEnvironment,
 } from './registry.js';
-import { buildTunnelUrl, getWorkspacePath, loadGitHubToken, kebabify } from './env-utils.js';
+import {
+  buildDesktopCommand,
+  buildTunnelUrl,
+  getWorkspacePath,
+  loadGitHubToken,
+  kebabify,
+} from './env-utils.js';
 import { sseChannel, sseHandler } from './sse.js';
 import { getContainerStats, isContainerHealthy } from './docker-utils.js';
 import { execToString } from './container-exec.js';
@@ -91,6 +97,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           status: displayStatus,
           ready,
           url: buildTunnelUrl(envId, workspacePath),
+          desktopCommand: buildDesktopCommand(envId, workspacePath),
           workspacePath,
           mode: env.mode,
           project: env.project,
@@ -479,12 +486,14 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       const container = docker.getContainer(record.containerId);
       await container.start();
       const workspacePath = await getWorkspacePath(record.mode);
+      const desktopCommand = buildDesktopCommand(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
         status: 'starting',
         url: buildTunnelUrl(envId, workspacePath),
         workspacePath,
         mode: record.mode,
+        desktopCommand,
       });
       return { success: true };
     } catch (error) {
@@ -502,12 +511,14 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       const container = docker.getContainer(record.containerId);
       await container.stop();
       const workspacePath = await getWorkspacePath(record.mode);
+      const desktopCommand = buildDesktopCommand(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
         status: 'exited',
         url: buildTunnelUrl(envId, workspacePath),
         workspacePath,
         mode: record.mode,
+        desktopCommand,
       });
       return { success: true };
     } catch (error) {
@@ -525,12 +536,14 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       const container = docker.getContainer(record.containerId);
       await container.restart();
       const workspacePath = await getWorkspacePath(record.mode);
+      const desktopCommand = buildDesktopCommand(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
         status: 'restarting',
         url: buildTunnelUrl(envId, workspacePath),
         workspacePath,
         mode: record.mode,
+        desktopCommand,
       });
       return { success: true, message: `Environment ${envId} restarted` };
     } catch (error) {
@@ -763,6 +776,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         if (previous !== displayStatus) {
           lastKnownStatus.set(envId, displayStatus);
           const workspacePath = await getWorkspacePath(record.mode);
+          const desktopCommand = buildDesktopCommand(envId, workspacePath);
           sseChannel.broadcast('env-status', {
             env_id: envId,
             status: displayStatus,
@@ -770,6 +784,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             url: buildTunnelUrl(envId, workspacePath),
             workspacePath,
             mode: record.mode,
+            desktopCommand,
           });
         }
       } catch (error) {

@@ -49,7 +49,8 @@ Dev Farm supports three different modes for development environments, each optim
 
 **Best for**: Working with existing servers or remote systems
 
-- Uses VS Code's native Remote-SSH extension
+- Launches through **VS Code Insiders Desktop** (web tunnels cannot run the Remote-SSH extension)
+- Uses VS Code's native Remote-SSH extension once the desktop tunnel is active
 - Connects directly to remote servers via SSH
 - Edit files directly on remote systems
 - Full VS Code experience on remote machines
@@ -74,10 +75,11 @@ Dev Farm supports three different modes for development environments, each optim
    - **SSH Private Key**: Alternative to password (optional)
    - **Remote Path**: Default folder to open (default: `/home`)
 3. Environment will test SSH connectivity on startup
-4. Open VS Code Command Palette (`Ctrl+Shift+P`)
-5. Select **Remote-SSH: Connect to Host...**
-6. Choose **remote-target** from the list
-7. VS Code opens a new window connected to the remote host
+4. In the dashboard, click **🖥 Copy Desktop Command** and run it locally: `code-insiders --folder-uri "vscode-remote://tunnel/<env-name>"`
+5. After VS Code Insiders Desktop attaches to the tunnel, open the Command Palette (`Ctrl+Shift+P`)
+6. Select **Remote-SSH: Connect to Host...**
+7. Choose **remote-target** from the list (preconfigured inside the container)
+8. VS Code opens a new window connected to the remote host
 
 **SSH Setup Requirements**:
 

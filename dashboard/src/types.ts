@@ -54,6 +54,7 @@ export interface EnvironmentSummary {
   status: string;
   ready: boolean;
   url: string;
+  desktopCommand: string;
   workspacePath: string;
   mode: EnvironmentMode;
   project: string;
