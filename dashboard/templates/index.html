@@ -184,6 +184,21 @@
       gap: 3px;
     }
 
+    @keyframes pulse-animation {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 15px 5px rgba(245, 158, 11, 0.4);
+      }
+    }
+
+    .pulse-animation {
+      animation: pulse-animation 2s ease-in-out infinite;
+    }
+
     @keyframes spin {
       from {
         transform: rotate(0deg);
@@ -1003,12 +1018,20 @@
             style="background: #667eea; color: white;">
             🤖 Copilot Chat
           </button>
+          <button class="btn" id="tunnel-auth-{{ env.id }}" onclick="showTunnelAuthForEnv('{{ env.id }}')"
+            style="background: #f59e0b; color: white; display: none;" title="Authenticate tunnel">
+            🔐 Tunnel Auth
+          </button>
           {% elif env.status == 'starting' %}
           <button class="btn btn-open" id="open-{{ env.id }}" disabled style="opacity: 0.6;">
             ⏳ Starting...
           </button>
           <button class="btn btn-stop" onclick="stopEnvironment('{{ env.id }}')">
             ⏸️ Stop
+          </button>
+          <button class="btn" id="tunnel-auth-{{ env.id }}" onclick="showTunnelAuthForEnv('{{ env.id }}')"
+            style="background: #f59e0b; color: white; display: none;" title="Authenticate tunnel">
+            🔐 Tunnel Auth
           </button>
           {% else %}
           <button class="btn btn-open" id="open-{{ env.id }}" onclick="startEnvironment('{{ env.id }}')">
@@ -3873,6 +3896,96 @@ alert('No device code found in logs. The tunnel may already be authenticated or 
 function hideTunnelAuthModal() {
 document.getElementById('tunnelAuthModal').classList.remove('active');
 }
+
+// Store detected auth codes per environment
+const detectedAuthCodes = {};
+
+// Check if environment needs tunnel authentication
+async function checkTunnelAuthNeeded(envId) {
+  try {
+    const response = await fetch(`/api/environments/${envId}/logs`);
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    if (!data.success || !data.logs) return;
+    
+    // Look for device code in logs
+    const codeMatch = data.logs.match(/use code ([A-Z0-9]{4}-[A-Z0-9]{4})/);
+    
+    if (codeMatch) {
+      const code = codeMatch[1];
+      const btn = document.getElementById(`tunnel-auth-${envId}`);
+      
+      if (btn && !detectedAuthCodes[envId]) {
+        // New code detected - show button
+        detectedAuthCodes[envId] = code;
+        btn.style.display = '';
+        btn.classList.add('pulse-animation');
+      }
+    } else if (detectedAuthCodes[envId]) {
+      // Code was there before but now gone (authenticated) - hide button
+      const btn = document.getElementById(`tunnel-auth-${envId}`);
+      if (btn) {
+        btn.style.display = 'none';
+        btn.classList.remove('pulse-animation');
+      }
+      delete detectedAuthCodes[envId];
+    }
+  } catch (error) {
+    console.error(`Failed to check tunnel auth for ${envId}:`, error);
+  }
+}
+
+// Show tunnel auth modal for specific environment
+async function showTunnelAuthForEnv(envId) {
+  try {
+    const response = await fetch(`/api/environments/${envId}/logs`);
+    if (!response.ok) {
+      alert('Failed to fetch logs');
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.success || !data.logs) {
+      alert('No logs available');
+      return;
+    }
+    
+    const codeMatch = data.logs.match(/use code ([A-Z0-9]{4}-[A-Z0-9]{4})/);
+    
+    if (codeMatch) {
+      document.getElementById('tunnelAuthCode').value = codeMatch[1];
+      document.getElementById('tunnelAuthModal').classList.add('active');
+    } else {
+      alert('No device code found in logs. The tunnel may already be authenticated.');
+    }
+  } catch (error) {
+    alert('Error: ' + error.message);
+  }
+}
+
+// Monitor all running/starting environments for auth needs
+let tunnelAuthCheckInterval = null;
+
+function startTunnelAuthMonitoring() {
+  if (tunnelAuthCheckInterval) return;
+  
+  tunnelAuthCheckInterval = setInterval(() => {
+    // Check all visible environment cards
+    document.querySelectorAll('[id^="status-"]').forEach(statusEl => {
+      const envId = statusEl.id.replace('status-', '');
+      const status = statusEl.textContent.trim();
+      
+      // Only check running or starting environments
+      if (status === 'running' || status === 'starting') {
+        checkTunnelAuthNeeded(envId);
+      }
+    });
+  }, 5000); // Check every 5 seconds
+}
+
+// Start monitoring when page loads
+document.addEventListener('DOMContentLoaded', startTunnelAuthMonitoring);
 
 async function copyTunnelCode(event) {
 const code = document.getElementById('tunnelAuthCode').value;
