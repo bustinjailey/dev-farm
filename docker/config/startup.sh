@@ -1413,7 +1413,8 @@ echo "All extensions run on the server and persist across browser disconnections
 # won't require re-authentication unless the cache expires.
 
 # Start tunnel with unique name based on environment ID
-TUNNEL_NAME="devfarm-${DEVFARM_ENV_ID:-unknown}"
+# Note: Tunnel names must be 20 characters or less
+TUNNEL_NAME="${DEVFARM_ENV_ID:-unknown}"
 echo "Starting tunnel with name: ${TUNNEL_NAME}" | tee -a "$LOG_FILE"
 echo "Access via: https://vscode.dev/tunnel/${TUNNEL_NAME}" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
