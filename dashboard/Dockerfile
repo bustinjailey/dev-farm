@@ -18,7 +18,6 @@ FROM deps AS build
 
 COPY tsconfig.json ./
 COPY vite.config.ts ./
-COPY svelte.config.js ./
 COPY src ./src
 COPY frontend ./frontend
 RUN npm run build
