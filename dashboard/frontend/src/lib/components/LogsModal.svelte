@@ -14,6 +14,7 @@
   let loading = $state(false);
   let autoRefreshInterval = $state<ReturnType<typeof setInterval> | null>(null);
   let deviceAuth = $state<{ code: string; url: string } | null>(null);
+  let logsContainer: HTMLPreElement | undefined = $state();
 
   async function loadLogs() {
     if (!envId) return;
@@ -22,10 +23,17 @@
       const result = await fetchEnvironmentLogs(envId);
       logs = result.logs;
       parseDeviceAuth(result.logs);
+      scrollToBottom();
     } catch (err) {
       console.error('Failed to load logs', err);
     } finally {
       loading = false;
+    }
+  }
+
+  function scrollToBottom() {
+    if (logsContainer) {
+      logsContainer.scrollTop = logsContainer.scrollHeight;
     }
   }
 
@@ -124,7 +132,7 @@
         </div>
       {/if}
 
-      <pre class="logs-content">{loading && !logs ? 'Loading logs...' : logs || 'No logs available'}</pre>
+      <pre class="logs-content" bind:this={logsContainer}>{loading && !logs ? 'Loading logs...' : logs || 'No logs available'}</pre>
 
       <footer>
         <button onclick={handleClose}>Close</button>
