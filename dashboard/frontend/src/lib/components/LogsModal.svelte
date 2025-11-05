@@ -63,17 +63,26 @@
     onClose();
   }
 
-  // Use untrack to prevent infinite loops - only respond to open/envId changes
+  // Track only open and envId changes, not logs state changes
+  let prevOpen = $state(false);
+  let prevEnvId = $state('');
+
   $effect(() => {
-    if (open && envId) {
+    // Only trigger when open/envId changes, not when logs updates
+    const currentOpen = open;
+    const currentEnvId = envId;
+    
+    if (currentOpen && currentEnvId && (!prevOpen || prevEnvId !== currentEnvId)) {
+      // Modal just opened or envId changed
       loadLogs();
       startAutoRefresh();
-      return () => {
-        stopAutoRefresh();
-      };
-    } else {
+    } else if (!currentOpen && prevOpen) {
+      // Modal just closed
       stopAutoRefresh();
     }
+    
+    prevOpen = currentOpen;
+    prevEnvId = currentEnvId;
   });
 
   onDestroy(() => {
