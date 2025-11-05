@@ -1,0 +1,46 @@
+{
+  "name": "dev-farm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "On-demand development environments powered by VS Code Remote Tunnels",
+  "type": "module",
+  "workspaces": [
+    "dashboard",
+    "docker"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w dashboard",
+    "dev:server": "npm run dev:server -w dashboard",
+    "dev:client": "npm run dev:client -w dashboard",
+    "build": "npm run build:docker && npm run build:dashboard",
+    "build:dashboard": "npm run build -w dashboard",
+    "build:docker": "npm run build -w docker",
+    "build:server": "npm run build:server -w dashboard",
+    "build:client": "npm run build:client -w dashboard",
+    "start": "npm run start -w dashboard",
+    "clean": "npm run clean -w dashboard && npm run clean -w docker",
+    "lint": "npm run lint -w dashboard",
+    "check": "npm run check -w dashboard",
+    "test": "npm run test -w dashboard",
+    "docker:build": "docker compose build",
+    "docker:build:code-server": "npm run build:code-server -w docker",
+    "docker:build:terminal": "npm run build:terminal -w docker",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:restart": "docker compose restart",
+    "docker:logs": "docker compose logs -f",
+    "docker:clean": "docker compose down -v && docker system prune -f",
+    "deploy": "npm run build && npm run docker:build && npm run docker:restart"
+  },
+  "keywords": [
+    "docker",
+    "vscode",
+    "development-environment",
+    "remote-tunnels"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

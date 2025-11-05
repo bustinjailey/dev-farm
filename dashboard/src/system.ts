@@ -40,7 +40,7 @@ export async function getSystemStatus(docker: Docker | null): Promise<SystemStat
       cwd: HOST_REPO_PATH,
     });
     result.current_sha = currentSha.trim();
-  } catch {}
+  } catch { }
 
   try {
     await execFile('git', ['fetch', 'origin', 'main'], { cwd: HOST_REPO_PATH });
@@ -54,7 +54,7 @@ export async function getSystemStatus(docker: Docker | null): Promise<SystemStat
     });
     result.commits_behind = Number.parseInt(behind.trim(), 10) || 0;
     result.updates_available = result.commits_behind > 0;
-  } catch {}
+  } catch { }
 
   return result;
 }
@@ -86,7 +86,7 @@ export async function cleanupOrphans(docker: Docker): Promise<{ cleaned: string[
   for (const orphan of orphans) {
     try {
       const container = docker.getContainer(orphan.id);
-      await container.stop().catch(() => {});
+      await container.stop().catch(() => { });
       await container.remove({ force: true });
       cleaned.push(orphan.id);
     } catch (error) {
@@ -116,7 +116,6 @@ export async function recoverRegistry(docker: Docker): Promise<{ restored: numbe
         containerId: info.Id,
         port: 0,
         created: new Date(inspect.Created).toISOString(),
-        project: inspect.Config.Labels['dev-farm.project'] ?? 'general',
         mode,
         sshHost: null,
         sshUser: null,

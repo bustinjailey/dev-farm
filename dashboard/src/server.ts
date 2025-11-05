@@ -52,9 +52,23 @@ import {
 import { startSystemUpdate, getUpdateStatus } from './system-update.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// When running from compiled code (dist/server), __dirname will be dist/server
+// When running from source (src), __dirname will be src
 const distClientRoot = path.join(__dirname, '..', 'client');
+const builtClientRoot = path.join(__dirname, '..', 'dist', 'client');
 const devFallbackRoot = path.resolve(process.cwd(), 'frontend', 'public');
-const clientRoot = fs.existsSync(distClientRoot) ? distClientRoot : devFallbackRoot;
+
+let clientRoot: string | null = null;
+if (fs.existsSync(distClientRoot)) {
+  // Running from compiled code (dist/server)
+  clientRoot = distClientRoot;
+} else if (fs.existsSync(builtClientRoot)) {
+  // Running from source (src) but client is built
+  clientRoot = builtClientRoot;
+} else if (fs.existsSync(devFallbackRoot)) {
+  // Fallback to dev public folder (only if it exists)
+  clientRoot = devFallbackRoot;
+}
 
 interface ServerOptions {
   enableBackgroundJobs?: boolean;
@@ -66,10 +80,14 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   const fastify = Fastify({ logger });
 
   await fastify.register(cors, { origin: true });
-  await fastify.register(fastifyStatic, {
-    root: clientRoot,
-    prefix: '/',
-  });
+
+  // Only serve static files if client root exists (production mode)
+  if (clientRoot) {
+    await fastify.register(fastifyStatic, {
+      root: clientRoot,
+      prefix: '/',
+    });
+  }
 
   fastify.get('/api/stream', sseHandler);
 
@@ -100,7 +118,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           desktopCommand: buildDesktopCommand(envId, workspacePath),
           workspacePath,
           mode: env.mode,
-          project: env.project,
         });
       } catch (error) {
         fastify.log.warn({ envId, err: error }, 'Failed to inspect container');
@@ -293,7 +310,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
     const displayName = (typeof body.name === 'string' && body.name.trim()) || `env-${Date.now()}`;
     const envId = kebabify(displayName);
-    const project = (typeof body.project === 'string' && body.project) || 'general';
     const mode = (typeof body.mode === 'string' && body.mode) || 'workspace';
     const connectionMode = (typeof body.connection_mode === 'string' && body.connection_mode) || 'web';
 
@@ -384,7 +400,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         'dev-farm': 'true',
         'dev-farm.id': envId,
         'dev-farm.name': displayName,
-        'dev-farm.project': project,
         'dev-farm.mode': mode,
       },
       HostConfig: {
@@ -404,7 +419,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       containerId: container.id,
       port,
       created: new Date().toISOString(),
-      project,
       mode: mode as EnvironmentRecord['mode'],
       sshHost: mode === 'ssh' ? sshHost : null,
       sshUser: mode === 'ssh' ? sshUser : null,
@@ -814,8 +828,16 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   await broadcastStatusChanges();
 
   fastify.setNotFoundHandler((request, reply) => {
-    if (request.method === 'GET' && request.headers.accept?.includes('text/html')) {
+    if (clientRoot && request.method === 'GET' && request.headers.accept?.includes('text/html')) {
       return reply.sendFile('index.html');
+    }
+    if (request.method === 'GET' && request.headers.accept?.includes('text/html')) {
+      // In dev mode, frontend is served by Vite on port 5173
+      return reply.status(200).send({
+        message: 'API server is running. Frontend is served by Vite at http://localhost:5173',
+        api_server: 'http://localhost:5000',
+        frontend_dev_server: 'http://localhost:5173'
+      });
     }
     reply.status(404).send({ error: 'Not found' });
   });

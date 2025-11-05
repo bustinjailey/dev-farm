@@ -4,11 +4,11 @@
 
   const dispatch = createEventDispatcher();
 
-  export let open = false;
+  let { open = false }: { open?: boolean } = $props();
 
-  let repos: { name: string; https_url: string; private: boolean; description: string | null }[] = [];
-  let loading = false;
-  let error: string | null = null;
+  let repos = $state<{ name: string; https_url: string; private: boolean; description: string | null }[]>([]);
+  let loading = $state(false);
+  let error = $state<string | null>(null);
 
   async function loadRepos() {
     loading = true;
@@ -28,9 +28,11 @@
     }
   }
 
-  $: if (open) {
-    loadRepos();
-  }
+  $effect(() => {
+    if (open) {
+      loadRepos();
+    }
+  });
 </script>
 
 {#if open}

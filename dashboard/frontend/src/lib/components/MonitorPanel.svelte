@@ -2,14 +2,13 @@
   import { onMount } from 'svelte';
   import { fetchTerminal, fetchGitActivity, fetchProcesses } from '../api';
 
-  export let envId: string;
-  export let open = false;
+  let { envId, open = false }: { envId: string; open?: boolean } = $props();
 
-  let loading = false;
-  let terminal = '';
-  let gitCommits: { sha: string; author: string; time: string; message: string }[] = [];
-  let processes: { pid: string; cpu: string; mem: string; time: string; command: string }[] = [];
-  let error: string | null = null;
+  let loading = $state(false);
+  let terminal = $state('');
+  let gitCommits = $state<{ sha: string; author: string; time: string; message: string }[]>([]);
+  let processes = $state<{ pid: string; cpu: string; mem: string; time: string; command: string }[]>([]);
+  let error = $state<string | null>(null);
 
   async function refreshAll() {
     loading = true;
@@ -32,20 +31,23 @@
 
   let interval: ReturnType<typeof setInterval> | null = null;
 
-  $: if (open) {
-    refreshAll();
-    if (!interval) {
-      interval = setInterval(refreshAll, 5000);
-    }
-  } else if (interval) {
-    clearInterval(interval);
-    interval = null;
-  }
-
-  onMount(() => () => {
-    if (interval) {
+  $effect(() => {
+    if (open) {
+      refreshAll();
+      if (!interval) {
+        interval = setInterval(refreshAll, 5000);
+      }
+    } else if (interval) {
       clearInterval(interval);
+      interval = null;
     }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
   });
 </script>
 

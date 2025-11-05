@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { CreateEnvironmentPayload } from '../api';
 
-  export let open = false;
+  let { open = false, gitUrl = $bindable('') }: { open?: boolean; gitUrl?: string } = $props();
 
   const dispatch = createEventDispatcher<{
     submit: CreateEnvironmentPayload;
@@ -10,18 +10,15 @@
     browseRepo: void;
   }>();
 
-  let name = '';
-  let project = 'general';
-  let mode: CreateEnvironmentPayload['mode'] = 'workspace';
-  export let gitUrl = '';
-  let sshHost = '';
-  let sshUser = 'root';
-  let sshPassword = '';
-  let sshPath = '/home';
+  let name = $state('');
+  let mode = $state<CreateEnvironmentPayload['mode']>('workspace');
+  let sshHost = $state('');
+  let sshUser = $state('root');
+  let sshPassword = $state('');
+  let sshPath = $state('/home');
 
   function resetForm() {
     name = '';
-    project = 'general';
     mode = 'workspace';
     gitUrl = '';
     sshHost = '';
@@ -38,7 +35,6 @@
   function submitForm() {
     const payload: CreateEnvironmentPayload = {
       name,
-      project,
       mode,
     };
 
@@ -78,11 +74,6 @@
         <label>
           <span>Name</span>
           <input bind:value={name} placeholder="Optional" />
-        </label>
-
-        <label>
-          <span>Project</span>
-          <input bind:value={project} />
         </label>
 
         <label>

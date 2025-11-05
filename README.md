@@ -113,16 +113,15 @@ git clone https://github.com/bustinjailey/dev-farm.git
 cd dev-farm
 ```
 
-2. **Build the dashboard image (first run or after dashboard updates):**
+2. **Build and start Dev Farm:**
 
 ```bash
-docker compose build dashboard
-```
+# Build all images and start services
+npm run docker:build
+npm run docker:up
 
-3. **Start Dev Farm:**
-
-```bash
-docker compose up -d
+# Or use docker compose directly:
+docker compose up -d --build
 ```
 
 4. **Access the dashboard:**
@@ -179,56 +178,72 @@ export GITHUB_TOKEN="your_github_token_here"
 
 ## 🛠️ Management Commands
 
-The `devfarm.sh` script provides easy management:
+### Docker Compose Commands
 
 ```bash
-# Setup (first time only)
-./scripts/devfarm.sh setup
+# Build all images (first time only)
+npm run docker:build
 
 # Start the dashboard
-./scripts/devfarm.sh start
+npm run docker:up
+# or: docker compose up -d
 
 # Stop the dashboard
-./scripts/devfarm.sh stop
-
-# Create a new environment (via CLI)
-./scripts/devfarm.sh create my-project python
-
-./scripts/devfarm.sh list
-
-# Delete an environment
-
-./scripts/devfarm.sh delete my-project
+npm run docker:down
+# or: docker compose down
 
 # View logs
+npm run docker:logs
+# or: docker compose logs -f
 
-./scripts/devfarm.sh logs
+# Restart services
+npm run docker:restart
+# or: docker compose restart
+```
 
-# Show help
+### Development Commands
 
-./scripts/devfarm.sh help
+```bash
+# Start both frontend and backend dev servers
+npm run dev
 
+# Start only the backend API
+npm run dev:server
+
+# Start only the frontend (Vite)
+npm run dev:client
 ```
 
 ## 🧑‍💻 Local Development Workflow
 
-For local iteration on the new Node/Svelte dashboard:
+Dev Farm uses npm workspaces for managing the monorepo:
 
 ```bash
-cd dashboard
+# Install all dependencies (from project root)
 npm install
-npm run dev:server   # Fastify API (http://localhost:5000)
-npm run dev:client   # Vite + Svelte UI (http://localhost:5173)
 
-# Linting / tests
-npm run check        # svelte-check diagnostics
-npm test             # Vitest backend tests
+# Start development servers (both frontend + backend)
+npm run dev          # Runs both servers concurrently
+npm run dev:server   # Backend only (http://localhost:5000)
+npm run dev:client   # Frontend only (http://localhost:5173)
 
-# Build production bundles (dist/server + dist/client)
-npm run build
+# Build for production
+npm run build        # Build all packages
+npm run build:server # Build backend only
+npm run build:client # Build frontend only
+
+# Quality checks
+npm run lint         # Lint all code
+npm run check        # TypeScript + Svelte checks
+npm test             # Run all tests
+
+# Docker operations
+npm run docker:build # Build Docker images
+npm run docker:up    # Start services
+npm run docker:down  # Stop services
 ```
 
-The Dockerfile invokes `npm run build` so `docker compose build dashboard` always picks up the latest TypeScript/Svelte output.
+The project structure uses workspaces for `dashboard` and `docker` packages.
 
 ## 🎛️ Configuration
 
@@ -338,27 +353,34 @@ Modify `docker/Dockerfile.code-server` to add:
 Then rebuild:
 
 ```bash
-./scripts/devfarm.sh build
+npm run docker:build:code-server
+# or: docker build -t dev-farm/code-server:latest -f docker/Dockerfile.code-server docker/
 ```
 
 ## 🗂️ Project Structure
 
 ```
-dev-farm/
-├── dashboard/              # Dashboard web app
-│   ├── app.py             # Flask application
-│   ├── templates/         # HTML templates
+dev-farm/                   # Monorepo root
+├── package.json           # Workspace configuration + scripts
+├── docker-compose.yml     # Service orchestration
+├── dashboard/             # Dashboard package (Node + Svelte)
+│   ├── package.json       # Dashboard dependencies + scripts
 │   ├── Dockerfile         # Dashboard container
-│   └── requirements.txt   # Python dependencies
-├── docker/                # Code-server configuration
-│   ├── Dockerfile.code-server
-│   └── config/
-│       ├── settings.json  # VS Code settings
-│       └── mcp.json       # MCP server config
-├── scripts/               # Management scripts
-│   └── devfarm.sh        # Main CLI tool
-├── docker-compose.yml     # Dashboard orchestration
-└── README.md             # This file
+│   ├── src/               # Backend API (Fastify + TypeScript)
+│   └── frontend/          # Frontend UI (Svelte + Vite)
+├── docker/                # Docker images package
+│   ├── package.json       # Build scripts for images
+│   ├── Dockerfile.code-server  # VS Code Server image
+│   ├── Dockerfile.terminal     # Terminal image
+│   └── config/            # Container configurations
+│       ├── workspace-settings.json
+│       ├── mcp-copilot.json
+│       └── startup.sh
+└── docs/                  # Documentation
+    ├── ENVIRONMENT_MODES.md
+    ├── TERMINAL_MODE.md
+    ├── SECRETS.md
+    └── QUICKREF.md
 ```
 
 ## 🤝 Contributing
@@ -389,7 +411,8 @@ MIT License - feel free to use for personal or commercial projects.
 docker info
 
 # View logs
-./scripts/devfarm.sh logs
+npm run docker:logs
+# or: docker compose logs -f dashboard
 ```
 
 ### Can't access from phone

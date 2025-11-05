@@ -7,7 +7,6 @@ export interface EnvironmentRecord {
   containerId: string;
   port: number;
   created: string;
-  project: string;
   mode: EnvironmentMode;
   sshHost?: string | null;
   sshUser?: string | null;
@@ -57,7 +56,6 @@ export interface EnvironmentSummary {
   desktopCommand: string;
   workspacePath: string;
   mode: EnvironmentMode;
-  project: string;
 }
 
 export interface ContainerStats {

@@ -1,23 +1,25 @@
 <script lang="ts">
   import { sendAiMessage, fetchAiOutput } from '../api';
 
-  export let envId: string;
-  export let open = false;
-  export let latestSse: string | null = null;
+  let { envId, open = false, latestSse = null }: { envId: string; open?: boolean; latestSse?: string | null } = $props();
 
-  let tool: 'aider' | 'copilot' = 'copilot';
-  let input = '';
-  let output = '';
-  let loading = false;
-  let error: string | null = null;
+  let tool = $state<'aider' | 'copilot'>('copilot');
+  let input = $state('');
+  let output = $state('');
+  let loading = $state(false);
+  let error = $state<string | null>(null);
 
-  $: if (open && latestSse) {
-    output = `${output}\n\n${latestSse}`.trim();
-  }
+  $effect(() => {
+    if (open && latestSse) {
+      output = `${output}\n\n${latestSse}`.trim();
+    }
+  });
 
-  $: if (open) {
-    refreshOutput();
-  }
+  $effect(() => {
+    if (open) {
+      refreshOutput();
+    }
+  });
 
   async function refreshOutput() {
     try {

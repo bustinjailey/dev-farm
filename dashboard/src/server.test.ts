@@ -11,19 +11,19 @@ class FakeExec {
 }
 
 class FakeContainer {
-  constructor(public id: string, public name: string) {}
+  constructor(public id: string, public name: string) { }
 
   async inspect() {
     return { State: { Status: 'running' } };
   }
 
-  async start() {}
+  async start() { }
 
-  async stop() {}
+  async stop() { }
 
-  async remove() {}
+  async remove() { }
 
-  async restart() {}
+  async restart() { }
 
   async stats() {
     return {
@@ -83,7 +83,7 @@ class FakeDocker {
 
   getVolume() {
     return {
-      remove: async () => {},
+      remove: async () => { },
     };
   }
 }
@@ -142,7 +142,7 @@ describe('environment API', () => {
     const createResponse = await server.inject({
       method: 'POST',
       url: '/create',
-      payload: { name: 'Test Env', project: 'demo', mode: 'workspace' },
+      payload: { name: 'Test Env', mode: 'workspace' },
     });
 
     expect(createResponse.statusCode).toBe(200);
@@ -154,7 +154,6 @@ describe('environment API', () => {
     expect(body).toHaveLength(1);
     expect(body[0]).toMatchObject({
       id: 'test-env',
-      project: 'demo',
       mode: 'workspace',
       desktopCommand: expect.stringContaining('code-insiders'),
     });

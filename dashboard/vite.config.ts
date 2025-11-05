@@ -8,6 +8,19 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    watch: {
+      // Ignore files that don't need watching to prevent ENOSPC errors
+      ignored: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/.git/**',
+        '**/data/**',
+        '**/*.log',
+        '**/docker/**',
+        '**/docs/**',
+      ],
+    },
     proxy: {
       '/api': 'http://localhost:5000',
       '/create': 'http://localhost:5000',

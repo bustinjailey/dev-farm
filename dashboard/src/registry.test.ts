@@ -44,7 +44,6 @@ describe('registry helpers', () => {
       containerId: 'cid',
       port: 9000,
       created: new Date().toISOString(),
-      project: 'demo',
       mode: 'workspace',
       children: [],
     } as any;

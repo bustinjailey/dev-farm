@@ -1,0 +1,21 @@
+{
+  "name": "docker",
+  "version": "1.0.0",
+  "description": "Docker image build scripts for Dev Farm environments",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:code-server && npm run build:terminal",
+    "build:code-server": "docker build -t dev-farm/code-server:latest -f Dockerfile.code-server .",
+    "build:terminal": "docker build -t dev-farm/terminal:latest -f Dockerfile.terminal .",
+    "clean": "echo 'To clean Docker images, run: docker image prune -f'"
+  },
+  "keywords": [
+    "docker",
+    "vscode",
+    "code-server",
+    "terminal"
+  ],
+  "author": "",
+  "license": "MIT"
+}

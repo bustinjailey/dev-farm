@@ -15,7 +15,6 @@ export async function listEnvironments(): Promise<EnvironmentSummary[]> {
 
 export interface CreateEnvironmentPayload {
   name: string;
-  project: string;
   mode: string;
   git_url?: string;
   ssh_host?: string;

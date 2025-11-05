@@ -31,37 +31,37 @@
   import AiChatPanel from './lib/components/AiChatPanel.svelte';
   import RepoBrowser from './lib/components/RepoBrowser.svelte';
 
-  let environments: EnvironmentSummary[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let showCreateModal = false;
-  let actionBusy: Record<string, boolean> = {};
-  let monitorOpen: Record<string, boolean> = {};
-  let aiOpen: Record<string, boolean> = {};
-  let aiSseMessages: Record<string, string> = {};
-  let systemStatus: any = null;
-  let githubStatusInfo: any = null;
-  let githubConfig: any = null;
-  let orphansInfo: any = { orphans: [], tracked: 0 };
-  let updateStatus: any = null;
-  let showUpdateModal = false;
-  let showGithubModal = false;
-  let githubPatInput = '';
-  let deviceFlow: any = null;
-  let devicePollTimer: ReturnType<typeof setInterval> | null = null;
-  let updatePollTimer: ReturnType<typeof setInterval> | null = null;
-  let repoBrowserOpen = false;
-  let pendingGitUrl = '';
-  let logsModal = { open: false, envId: '', logs: '' };
-  let imagesInfo: any = null;
-  let imageBusy: Record<string, boolean> = {};
-  let orphansBusy = false;
-  let systemActionMessage: string | null = null;
-  let desktopCopyState: Record<string, 'copied' | 'failed' | ''> = {};
+  let environments = $state<EnvironmentSummary[]>([]);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+  let showCreateModal = $state(false);
+  let actionBusy = $state<Record<string, boolean>>({});
+  let monitorOpen = $state<Record<string, boolean>>({});
+  let aiOpen = $state<Record<string, boolean>>({});
+  let aiSseMessages = $state<Record<string, string>>({});
+  let systemStatus = $state<any>(null);
+  let githubStatusInfo = $state<any>(null);
+  let githubConfig = $state<any>(null);
+  let orphansInfo = $state<any>({ orphans: [], tracked: 0 });
+  let updateStatus = $state<any>(null);
+  let showUpdateModal = $state(false);
+  let showGithubModal = $state(false);
+  let githubPatInput = $state('');
+  let deviceFlow = $state<any>(null);
+  let devicePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
+  let updatePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
+  let repoBrowserOpen = $state(false);
+  let pendingGitUrl = $state('');
+  let logsModal = $state({ open: false, envId: '', logs: '' });
+  let imagesInfo = $state<any>(null);
+  let imageBusy = $state<Record<string, boolean>>({});
+  let orphansBusy = $state(false);
+  let systemActionMessage = $state<string | null>(null);
+  let desktopCopyState = $state<Record<string, 'copied' | 'failed' | ''>>({});
   const desktopCopyTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  let systemActionResetTimer: ReturnType<typeof setTimeout> | null = null;
-  let deviceCodeCopyState: 'copied' | 'failed' | '' = '';
-  let deviceCodeCopyTimer: ReturnType<typeof setTimeout> | null = null;
+  let systemActionResetTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+  let deviceCodeCopyState = $state<'copied' | 'failed' | ''>('');
+  let deviceCodeCopyTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadEnvironments() {
     loading = true;
@@ -560,10 +560,6 @@
           </header>
 
           <dl>
-            <div>
-              <dt>Project</dt>
-              <dd>{env.project}</dd>
-            </div>
             <div>
               <dt>Tunnel</dt>
               <dd>{env.id}</dd>

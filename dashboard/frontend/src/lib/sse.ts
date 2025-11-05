@@ -9,7 +9,7 @@ export class SSEClient {
   private handlers: Handlers = {};
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private url: string) {}
+  constructor(private url: string) { }
 
   connect() {
     if (this.source) return;

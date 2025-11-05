@@ -1,29 +1,11 @@
 version: '3.8'
 
 services:
-  proxy:
-    image: nginx:alpine
-    container_name: devfarm-proxy
-    ports:
-      - "5000:80"
-    volumes:
-      - ./proxy/nginx.conf.template:/etc/nginx/nginx.conf:ro
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/proxy-health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    networks:
-      - devfarm
-    depends_on:
-      - dashboard
-
   dashboard:
     build: ./dashboard
     container_name: devfarm-dashboard
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - devfarm-data:/data
