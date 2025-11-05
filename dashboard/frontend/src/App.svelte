@@ -60,6 +60,8 @@
   let desktopCopyState: Record<string, 'copied' | 'failed' | ''> = {};
   const desktopCopyTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let systemActionResetTimer: ReturnType<typeof setTimeout> | null = null;
+  let deviceCodeCopyState: 'copied' | 'failed' | '' = '';
+  let deviceCodeCopyTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function loadEnvironments() {
     loading = true;
@@ -154,6 +156,27 @@
       window.prompt('Copy this command into VS Code Insiders Desktop', env.desktopCommand);
     } finally {
       scheduleDesktopReset(env.id);
+    }
+  }
+
+  async function copyDeviceCode() {
+    if (!deviceFlow?.user_code) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(deviceFlow.user_code);
+      } else {
+        throw new Error('Clipboard unavailable');
+      }
+      deviceCodeCopyState = 'copied';
+    } catch (err) {
+      deviceCodeCopyState = 'failed';
+      // Fallback prompt so the user can copy manually in environments without clipboard API
+      window.prompt('Copy this code to GitHub', deviceFlow.user_code);
+    } finally {
+      if (deviceCodeCopyTimer) clearTimeout(deviceCodeCopyTimer);
+      deviceCodeCopyTimer = setTimeout(() => {
+        deviceCodeCopyState = '';
+      }, 2500);
     }
   }
 
@@ -359,6 +382,11 @@
     showGithubModal = false;
     deviceFlow = null;
     clearDevicePoll();
+    if (deviceCodeCopyTimer) {
+      clearTimeout(deviceCodeCopyTimer);
+      deviceCodeCopyTimer = null;
+    }
+    deviceCodeCopyState = '';
   }
 
   function openCreateModalDialog() {
@@ -685,6 +713,12 @@
           <div class="device-info">
             <p>Enter this code at <a href={deviceFlow.verification_uri} target="_blank" rel="noreferrer">{deviceFlow.verification_uri}</a></p>
             <div class="device-code">{deviceFlow.user_code}</div>
+            <button class="copy-code-btn" on:click={copyDeviceCode}>📋 Copy Code</button>
+            {#if deviceCodeCopyState === 'copied'}
+              <p class="copy-status success">Code copied to clipboard!</p>
+            {:else if deviceCodeCopyState === 'failed'}
+              <p class="copy-status warn">Clipboard unavailable. Use the prompt to copy manually.</p>
+            {/if}
           </div>
         {/if}
         <button class="close" on:click={closeGithubModal}>Close</button>
@@ -1084,6 +1118,26 @@
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
     font-size: 1.4rem;
     letter-spacing: 0.2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .copy-code-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+  }
+
+  .copy-code-btn:hover {
+    opacity: 0.9;
+  }
+
+  .copy-code-btn:active {
+    transform: scale(0.98);
   }
 
   .logs-modal pre {
