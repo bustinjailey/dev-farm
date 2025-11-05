@@ -203,6 +203,7 @@
     font-weight: 600;
     cursor: pointer;
     font-size: 0.85rem;
+    line-height: 1.4;
     text-decoration: none;
     display: inline-block;
     transition: all 0.2s ease;

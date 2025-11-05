@@ -478,14 +478,15 @@
   <Sidebar
     bind:collapsed={sidebarCollapsed}
     githubStatusInfo={githubStatusInfo}
+    githubConfig={githubConfig}
     systemStatus={systemStatus}
     systemActionMessage={systemActionMessage}
     orphansInfo={orphansInfo}
     imagesInfo={imagesInfo}
     orphansBusy={orphansBusy}
     imageBusy={imageBusy}
-    onManageGithub={() => (showGithubModal = true)}
-    onDisconnectGithub={disconnectGithubAccount}
+    onGithubManage={() => (showGithubModal = true)}
+    onGithubDisconnect={disconnectGithubAccount}
     onStartUpdate={handleStartUpdate}
     onUpgradeSystem={handleUpgradeSystem}
     onCleanupOrphans={handleCleanupOrphans}
@@ -515,16 +516,17 @@
       {#each environments as env}
         <EnvironmentCard
           env={env}
-          actionBusy={actionBusy}
-          desktopCopyState={desktopCopyState}
-          monitorOpen={monitorOpen}
-          aiOpen={aiOpen}
-          aiSseMessages={aiSseMessages}
-          onCopyDesktop={() => copyDesktopCommand(env)}
-          onPerform={perform}
-          onToggleMonitor={toggleMonitor}
-          onToggleAi={toggleAi}
-          onOpenLogs={openLogs}
+          actionBusy={actionBusy[env.id] || false}
+          desktopCopyState={desktopCopyState[env.id] || ''}
+          monitorOpen={monitorOpen[env.id] || false}
+          aiOpen={aiOpen[env.id] || false}
+          onStart={() => perform(env.id, 'start')}
+          onStop={() => perform(env.id, 'stop')}
+          onDelete={() => perform(env.id, 'delete')}
+          onCopyDesktopCommand={() => copyDesktopCommand(env)}
+          onToggleMonitor={() => toggleMonitor(env.id)}
+          onToggleAi={() => toggleAi(env.id)}
+          onOpenLogs={() => openLogs(env.id)}
         />
       {/each}
     </section>
@@ -647,14 +649,18 @@
   main {
     display: flex;
     flex-direction: row;
-    gap: 1.5rem;
+    gap: 0;
     width: 100%;
     max-width: none;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
   }
 
   @media (max-width: 1024px) {
     main {
       flex-direction: column;
+      gap: 1.5rem;
     }
   }
 
@@ -696,6 +702,13 @@
     flex-direction: column;
     gap: 2rem;
     min-width: 0;
+    padding: 2rem 1.5rem 4rem 1.5rem;
+  }
+
+  @media (max-width: 1024px) {
+    .main-content {
+      padding: 2rem 1.5rem 4rem 1.5rem;
+    }
   }
 
   .status {

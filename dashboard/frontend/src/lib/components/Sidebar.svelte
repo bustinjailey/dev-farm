@@ -1,7 +1,6 @@
 <script lang="ts">
   interface Props {
     collapsed: boolean;
-    onToggle: () => void;
     githubStatusInfo: any;
     githubConfig: any;
     systemStatus: any;
@@ -21,7 +20,6 @@
 
   let {
     collapsed = $bindable(),
-    onToggle,
     githubStatusInfo,
     githubConfig,
     systemStatus,
@@ -38,15 +36,20 @@
     onRecoverRegistry,
     onImageBuild,
   }: Props = $props();
+
+  function toggleCollapsed() {
+    collapsed = !collapsed;
+  }
 </script>
 
 <aside class="sidebar" class:collapsed>
-  <button class="toggle" onclick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-    {collapsed ? '▶' : '◀'}
-  </button>
+  <div class="sidebar-inner">
+    <button class="toggle" onclick={toggleCollapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+      {collapsed ? '▶' : '◀'}
+    </button>
 
-  {#if !collapsed}
-    <div class="sidebar-content">
+    {#if !collapsed}
+      <div class="sidebar-content">
       <!-- GitHub Status -->
       <div class="status-card">
         <header>
@@ -110,28 +113,35 @@
           </div>
         {/if}
       </div>
-    </div>
-  {/if}
-</aside>
-
-<style>
+        </div>
+      {/if}
+  </div>
+</aside><style>
   .sidebar {
     position: sticky;
     top: 0;
-    height: fit-content;
-    max-height: 100vh;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
+    height: 100vh;
+    overflow-y: hidden;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(79, 70, 229, 0.1);
+    box-shadow: 4px 0 24px rgba(79, 70, 229, 0.08);
     transition: width 0.3s ease, min-width 0.3s ease;
     width: 320px;
     min-width: 320px;
   }
 
   .sidebar.collapsed {
-    width: 48px;
-    min-width: 48px;
+    width: 60px;
+    min-width: 60px;
+  }
+
+  .sidebar-inner {
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    height: 100%;
   }
 
   .toggle {
@@ -139,30 +149,32 @@
     border: none;
     border-radius: 12px;
     padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.92);
-    color: #4c51bf;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: 1rem;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-    transition: transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    line-height: 1;
   }
 
   .toggle:hover {
     transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
   }
 
   .sidebar-content {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
   }
 
   .status-card {
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: 18px;
-    padding: 1.25rem;
-    box-shadow: 0 12px 28px rgba(79, 70, 229, 0.15);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(79, 70, 229, 0.1);
+    border-radius: 16px;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -223,6 +235,13 @@
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
+    line-height: 1.4;
+    transition: all 0.2s ease;
+  }
+
+  .card-actions button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .card-actions button.secondary {
@@ -249,6 +268,13 @@
     font-weight: 600;
     font-size: 0.8rem;
     cursor: pointer;
+    line-height: 1.4;
+    transition: all 0.2s ease;
+  }
+
+  .image-buttons button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .image-buttons button:disabled {
