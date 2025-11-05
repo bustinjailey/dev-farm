@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "npm run build:code-server && npm run build:terminal",
-    "build:code-server": "docker build -t dev-farm/code-server:latest -f Dockerfile.code-server .",
-    "build:terminal": "docker build -t dev-farm/terminal:latest -f Dockerfile.terminal .",
+    "build:code-server": "docker buildx build -t dev-farm/code-server:latest -f Dockerfile.code-server .",
+    "build:terminal": "docker buildx build -t dev-farm/terminal:latest -f Dockerfile.terminal .",
     "clean": "echo 'To clean Docker images, run: docker image prune -f'"
   },
   "keywords": [

@@ -4,7 +4,17 @@ import path from 'path';
 
 export default defineConfig({
   root: path.resolve(__dirname, 'frontend'),
-  plugins: [svelte()],
+  plugins: [
+    svelte({
+      onwarn: (warning, handler) => {
+        // Suppress event_directive_deprecated warnings during build
+        // These are for migration to Svelte 5 event handlers (on:click -> onclick)
+        // Can be addressed in a dedicated migration task
+        if (warning.code === 'event_directive_deprecated') return;
+        handler(warning);
+      },
+    }),
+  ],
   server: {
     port: 5173,
     host: true,
