@@ -5,6 +5,7 @@
     env: EnvironmentSummary;
     actionBusy: boolean;
     desktopCopyState: '' | 'copied' | 'failed';
+    deviceAuth: { code: string; url: string } | null;
     onStart: () => void;
     onStop: () => void;
     onDelete: () => void;
@@ -12,6 +13,7 @@
     onToggleAi: () => void;
     onOpenLogs: () => void;
     onCopyDesktopCommand: () => void;
+    onCopyDeviceCode: () => void;
     monitorOpen: boolean;
     aiOpen: boolean;
   }
@@ -20,6 +22,7 @@
     env,
     actionBusy,
     desktopCopyState,
+    deviceAuth,
     onStart,
     onStop,
     onDelete,
@@ -27,6 +30,7 @@
     onToggleAi,
     onOpenLogs,
     onCopyDesktopCommand,
+    onCopyDeviceCode,
     monitorOpen,
     aiOpen,
   }: Props = $props();
@@ -40,6 +44,17 @@
     </div>
     <span class="badge {env.status}">{env.status}</span>
   </header>
+
+  {#if deviceAuth && env.status === 'starting'}
+    <div class="device-auth-banner">
+      <p>🔐 GitHub Authentication Required</p>
+      <div class="device-code">{deviceAuth.code}</div>
+      <div class="device-actions">
+        <button class="btn-copy-code" onclick={onCopyDeviceCode}>📋 Copy Code</button>
+        <a href={deviceAuth.url} target="_blank" rel="noopener" class="btn-auth">Open GitHub Auth →</a>
+      </div>
+    </div>
+  {/if}
 
   <dl>
     <div>
@@ -99,6 +114,68 @@
     gap: 1.25rem;
     box-shadow: 0 16px 32px rgba(79, 70, 229, 0.15);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .device-auth-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  .device-auth-banner p {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .device-code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-size: 1.4rem;
+    letter-spacing: 0.2rem;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-weight: 700;
+  }
+
+  .device-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-copy-code,
+  .btn-auth {
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-decoration: none;
+    display: inline-block;
+    line-height: 1.4;
+  }
+
+  .btn-copy-code {
+    background: white;
+    color: #667eea;
+  }
+
+  .btn-auth {
+    background: #48bb78;
+    color: white;
+  }
+
+  .btn-copy-code:hover,
+  .btn-auth:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
   }
 
   .card:hover {

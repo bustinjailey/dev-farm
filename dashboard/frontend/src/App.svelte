@@ -67,6 +67,7 @@
   let sidebarCollapsed = $state(false);
   let logsModalEnvId = $state('');
   let logsModalOpen = $state(false);
+  let envDeviceAuth = $state<Record<string, { code: string; url: string } | null>>({});
 
   async function loadEnvironments() {
     loading = true;
@@ -146,6 +147,33 @@
     desktopCopyTimers.set(envId, handle);
   }
 
+  async function loadDeviceAuth(envId: string) {
+    try {
+      const result = await fetchEnvironmentLogs(envId);
+      const match = result.logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+      if (match) {
+        envDeviceAuth = {
+          ...envDeviceAuth,
+          [envId]: { url: match[1], code: match[2] },
+        };
+      } else {
+        envDeviceAuth = { ...envDeviceAuth, [envId]: null };
+      }
+    } catch (err) {
+      console.error('Failed to load device auth', err);
+    }
+  }
+
+  async function copyDeviceCode(envId: string) {
+    const auth = envDeviceAuth[envId];
+    if (!auth) return;
+    try {
+      await navigator.clipboard.writeText(auth.code);
+    } catch (err) {
+      window.prompt('Copy this code to GitHub', auth.code);
+    }
+  }
+
   async function copyDesktopCommand(env: EnvironmentSummary) {
     if (!env.desktopCommand) return;
     try {
@@ -164,7 +192,7 @@
     }
   }
 
-  async function copyDeviceCode() {
+  async function copyModalDeviceCode() {
     if (!deviceFlow?.user_code) return;
     try {
       if (navigator.clipboard?.writeText) {
@@ -416,6 +444,10 @@
         ready: payload.status === 'running',
         desktopCommand: payload.desktopCommand,
       });
+      // Load device auth when starting
+      if (payload.status === 'starting') {
+        loadDeviceAuth(payload.env_id);
+      }
       // Force Svelte reactivity
       environments = [...environments];
     };
@@ -627,7 +659,7 @@
           <div class="device-info">
             <p>Enter this code at <a href={deviceFlow.verification_uri} target="_blank" rel="noreferrer">{deviceFlow.verification_uri}</a></p>
             <div class="device-code">{deviceFlow.user_code}</div>
-            <button class="copy-code-btn" on:click={copyDeviceCode}>📋 Copy Code</button>
+            <button class="copy-code-btn" on:click={copyModalDeviceCode}>📋 Copy Code</button>
             {#if deviceCodeCopyState === 'copied'}
               <p class="copy-status success">Code copied to clipboard!</p>
             {:else if deviceCodeCopyState === 'failed'}

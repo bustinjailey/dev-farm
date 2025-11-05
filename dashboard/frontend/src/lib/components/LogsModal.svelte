@@ -15,6 +15,8 @@
   let autoRefreshInterval = $state<ReturnType<typeof setInterval> | null>(null);
   let deviceAuth = $state<{ code: string; url: string } | null>(null);
   let logsContainer: HTMLPreElement | undefined = $state();
+  let copyLogsState = $state<'copied' | 'failed' | ''>('');
+  let copyLogsTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadLogs() {
     if (!envId) return;
@@ -51,6 +53,25 @@
       await navigator.clipboard.writeText(deviceAuth.code);
     } catch (err) {
       window.prompt('Copy this code to GitHub', deviceAuth.code);
+    }
+  }
+
+  async function copyLogs() {
+    try {
+      await navigator.clipboard.writeText(logs);
+      copyLogsState = 'copied';
+      if (copyLogsTimer) clearTimeout(copyLogsTimer);
+      copyLogsTimer = setTimeout(() => {
+        copyLogsState = '';
+        copyLogsTimer = null;
+      }, 2500);
+    } catch (err) {
+      copyLogsState = 'failed';
+      if (copyLogsTimer) clearTimeout(copyLogsTimer);
+      copyLogsTimer = setTimeout(() => {
+        copyLogsState = '';
+        copyLogsTimer = null;
+      }, 2500);
     }
   }
 
@@ -135,7 +156,12 @@
       <pre class="logs-content" bind:this={logsContainer}>{loading && !logs ? 'Loading logs...' : logs || 'No logs available'}</pre>
 
       <footer>
-        <button onclick={handleClose}>Close</button>
+        <div class="footer-left">
+          <button onclick={handleClose}>Close</button>
+          <button class="btn-copy" onclick={copyLogs} disabled={!logs}>
+            📋 {copyLogsState === 'copied' ? '✓ Copied!' : copyLogsState === 'failed' ? '⚠ Failed' : 'Copy Logs'}
+          </button>
+        </div>
         <small>Auto-refreshing every 3 seconds</small>
       </footer>
     </div>
@@ -294,6 +320,11 @@
     border-top: 1px solid #e2e8f0;
   }
 
+  .footer-left {
+    display: flex;
+    gap: 0.5rem;
+  }
+
   footer button {
     border: none;
     border-radius: 999px;
@@ -301,10 +332,25 @@
     background: #e2e8f0;
     font-weight: 600;
     cursor: pointer;
+    line-height: 1.4;
   }
 
-  footer button:hover {
+  footer button:hover:not(:disabled) {
     background: #cbd5e0;
+  }
+
+  footer button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  footer .btn-copy {
+    background: #4c51bf;
+    color: white;
+  }
+
+  footer .btn-copy:hover:not(:disabled) {
+    background: #434190;
   }
 
   footer small {
