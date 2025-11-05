@@ -34,13 +34,17 @@
       "type": "object",
       "description": "Model Context Protocol (MCP) server configuration",
       "properties": {
-        "api_keys": {
+        "env": {
           "type": "object",
-          "description": "API keys for MCP integrations",
+          "description": "Environment variables for MCP servers",
           "properties": {
-            "brave_search": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": {
               "type": "string",
-              "description": "Brave Search API key for web search functionality"
+              "description": "GitHub Personal Access Token for MCP GitHub server"
+            },
+            "BRAVE_API_KEY": {
+              "type": "string",
+              "description": "Brave Search API key for MCP web search functionality"
             }
           },
           "additionalProperties": {

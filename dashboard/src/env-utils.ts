@@ -18,7 +18,7 @@ interface FarmConfig {
     email?: string;
   };
   mcp?: {
-    api_keys?: Record<string, string>;
+    env?: Record<string, string>;
   };
 }
 
@@ -44,7 +44,7 @@ const farmConfigSchema = {
     mcp: {
       type: 'object',
       properties: {
-        api_keys: {
+        env: {
           type: 'object',
           additionalProperties: { type: 'string' },
         },

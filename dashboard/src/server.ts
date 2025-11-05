@@ -354,6 +354,15 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       fastify.log.warn('GITHUB_TOKEN not configured; environment will be unauthenticated');
     }
 
+    // Add MCP environment variables
+    if (farmConfig.mcp?.env) {
+      for (const [key, value] of Object.entries(farmConfig.mcp.env)) {
+        if (value) {
+          envVars[key] = value;
+        }
+      }
+    }
+
     if (mode === 'ssh') {
       envVars.SSH_HOST = sshHost;
       envVars.SSH_USER = sshUser;

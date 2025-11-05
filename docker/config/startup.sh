@@ -887,10 +887,14 @@ print(f"[MCP Config] Isolated config dir: {vscode_config_dir}")
 print(f"[MCP Config] MCP config will be written to: {mcp_json_path}")
 
 # Get environment variables
+# GITHUB_TOKEN: Used by dashboard for gh CLI, git, and GitHub Copilot (from farm-config github section)
+# GITHUB_PERSONAL_ACCESS_TOKEN: Used by MCP servers (from farm-config mcp.env section)
 github_token = os.environ.get('GITHUB_TOKEN', '')
+github_pat_mcp = os.environ.get('GITHUB_PERSONAL_ACCESS_TOKEN', '')
 brave_api_key = os.environ.get('BRAVE_API_KEY', '')
 
 print(f"[MCP Config] GITHUB_TOKEN present: {bool(github_token)}")
+print(f"[MCP Config] GITHUB_PERSONAL_ACCESS_TOKEN present: {bool(github_pat_mcp)}")
 print(f"[MCP Config] BRAVE_API_KEY present: {bool(brave_api_key)}")
 
 # Load MCP configuration template
@@ -898,7 +902,10 @@ with open(mcp_template_path, 'r') as f:
     mcp_config_str = f.read()
 
 # Expand environment variables
-mcp_config_str = mcp_config_str.replace('${GITHUB_TOKEN}', github_token)
+# Note: GITHUB_TOKEN and GITHUB_PERSONAL_ACCESS_TOKEN serve different purposes:
+#   - GITHUB_TOKEN: Dashboard functionality (gh CLI, git, Copilot)
+#   - GITHUB_PERSONAL_ACCESS_TOKEN: MCP server functionality (GitHub MCP server)
+mcp_config_str = mcp_config_str.replace('${GITHUB_PERSONAL_ACCESS_TOKEN}', github_pat_mcp)
 mcp_config_str = mcp_config_str.replace('${WORKSPACE_ROOT}', workspace_root)
 mcp_config_str = mcp_config_str.replace('${BRAVE_API_KEY}', brave_api_key)
 
