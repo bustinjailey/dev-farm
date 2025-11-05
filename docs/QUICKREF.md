@@ -9,9 +9,9 @@
 code-insiders --folder-uri "vscode-remote://tunnel/<env-name>"
 
 # Initial setup
-cp farm.config.example farm.config
-chmod 600 farm.config  # Secure permissions
-nano farm.config  # Add your secrets
+cp farm-config.example.json farm-config.json
+chmod 600 farm-config.json  # Secure permissions
+nano farm-config.json  # Add your secrets
 ./scripts/devfarm.sh setup
 
 # Upgrade to latest (use dashboard UI "Update" button)
@@ -35,12 +35,13 @@ ssh root@eagle.bustinjailey.org 'pct exec 200 -- curl -X POST http://localhost:5
 
 ## 📁 Important Files
 
-| File                    | Purpose                      | Tracked in Git? |
-| ----------------------- | ---------------------------- | --------------- |
-| `farm.config`           | Main configuration with secrets | ❌ No - Ignored |
-| `farm.config.example`   | Template for farm.config     | ✅ Yes          |
-| `docker-compose.yml`    | Container orchestration      | ✅ Yes          |
-| `scripts/devfarm.sh`    | Main management script       | ✅ Yes          |
+| File                       | Purpose                         | Tracked in Git? |
+| -------------------------- | ------------------------------- | --------------- |
+| `farm-config.json`         | Main configuration with secrets | ❌ No - Ignored |
+| `farm-config.example.json` | Template for farm-config.json   | ✅ Yes          |
+| `farm-config.schema.json`  | JSON schema for validation      | ✅ Yes          |
+| `docker-compose.yml`       | Container orchestration         | ✅ Yes          |
+| `scripts/devfarm.sh`       | Main management script          | ✅ Yes          |
 
 ## 🔑 GitHub Token Scopes
 
@@ -120,11 +121,11 @@ docker exec devfarm-<name> git config --list
 # Check logs
 docker logs devfarm-dashboard
 
-# Verify farm.config file exists
-ls -la /opt/dev-farm/farm.config
+# Verify farm-config.json file exists
+ls -la /opt/dev-farm/farm-config.json
 
 # Check configuration syntax
-cat /opt/dev-farm/farm.config | python3 -m json.tool
+cat /opt/dev-farm/farm-config.json | python3 -m json.tool
 
 # Rebuild and restart
 cd /opt/dev-farm
@@ -136,11 +137,11 @@ docker compose up -d
 ### Cannot pull from GitHub
 
 ```bash
-# Verify token in farm.config
-cat /opt/dev-farm/farm.config
+# Verify token in farm-config.json
+cat /opt/dev-farm/farm-config.json
 
 # Test token manually
-# Extract token from farm.config first
+# Extract token from farm-config.json first
 curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user
 
 # Check git remote

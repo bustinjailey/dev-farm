@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/bustinjailey/dev-farm/farm-config.schema.json",
+  "title": "Dev Farm Configuration",
+  "description": "Configuration file for Dev Farm development environment orchestrator",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration file version",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "github": {
+      "type": "object",
+      "description": "GitHub authentication and user settings",
+      "properties": {
+        "personal_access_token": {
+          "type": "string",
+          "description": "GitHub Personal Access Token with repo, read:org, workflow scopes"
+        },
+        "username": {
+          "type": "string",
+          "description": "GitHub username (required)"
+        },
+        "email": {
+          "type": "string",
+          "description": "Git commit email address (required)"
+        }
+      },
+      "required": ["username", "email"],
+      "additionalProperties": false
+    },
+    "mcp": {
+      "type": "object",
+      "description": "Model Context Protocol (MCP) server configuration",
+      "properties": {
+        "api_keys": {
+          "type": "object",
+          "description": "API keys for MCP integrations",
+          "properties": {
+            "brave_search": {
+              "type": "string",
+              "description": "Brave Search API key for web search functionality"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

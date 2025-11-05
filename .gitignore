@@ -1,4 +1,13 @@
-# Python
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Python (if any Python scripts remain)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,7 +24,7 @@ ENV/
 *.log
 
 # Secrets
-farm.config
+farm-config.json
 *.secret
 
 # IDE
@@ -34,6 +43,7 @@ dashboard/data/
 *.sqlite
 *.db
 
+# Workspace files
 *.code-workspace
 
 *.md

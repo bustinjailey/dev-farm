@@ -7,7 +7,6 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import type Docker from 'dockerode';
 
-import { DEFAULT_GITHUB_EMAIL, DEFAULT_GITHUB_USERNAME } from './config.js';
 import { getDocker } from './docker.js';
 import {
   getNextPort,
@@ -21,6 +20,7 @@ import {
   buildTunnelUrl,
   getWorkspacePath,
   loadGitHubToken,
+  loadFarmConfig,
   kebabify,
 } from './env-utils.js';
 import { sseChannel, sseHandler } from './sse.js';
@@ -107,7 +107,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const status = inspect.State?.Status ?? 'unknown';
         const ready = await isContainerHealthy(container);
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
-        const workspacePath = await getWorkspacePath(env.mode);
+        const workspacePath = getWorkspacePath(env.mode);
         summaries.push({
           name: env.displayName ?? env.name,
           id: envId,
@@ -319,7 +319,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }
 
     const port = await getNextPort();
-    const workspacePath = await getWorkspacePath(mode);
+    const workspacePath = getWorkspacePath(mode);
 
     const sshHost = typeof body.ssh_host === 'string' ? body.ssh_host : '';
     const sshUser = typeof body.ssh_user === 'string' ? body.ssh_user : 'root';
@@ -333,14 +333,18 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     const creatorEnvId = typeof body.creator_env_id === 'string' ? body.creator_env_id : undefined;
     const creationSource = typeof body.creation_source === 'string' ? body.creation_source : 'dashboard';
 
+    const farmConfig = await loadFarmConfig();
+    const githubUsername = farmConfig.github?.username || 'developer';
+    const githubEmail = farmConfig.github?.email || 'developer@localhost';
+
     const envVars: Record<string, string> = {
       DEV_MODE: mode,
       CONNECTION_MODE: connectionMode,
       WORKSPACE_NAME: displayName,
       DEVFARM_ENV_ID: envId,
       ENV_NAME: envId,
-      GITHUB_USERNAME: DEFAULT_GITHUB_USERNAME,
-      GITHUB_EMAIL: DEFAULT_GITHUB_EMAIL,
+      GITHUB_USERNAME: githubUsername,
+      GITHUB_EMAIL: githubEmail,
     };
 
     const githubToken = await loadGitHubToken();
@@ -499,7 +503,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     try {
       const container = docker.getContainer(record.containerId);
       await container.start();
-      const workspacePath = await getWorkspacePath(record.mode);
+      const workspacePath = getWorkspacePath(record.mode);
       const desktopCommand = buildDesktopCommand(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
@@ -524,7 +528,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     try {
       const container = docker.getContainer(record.containerId);
       await container.stop();
-      const workspacePath = await getWorkspacePath(record.mode);
+      const workspacePath = getWorkspacePath(record.mode);
       const desktopCommand = buildDesktopCommand(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
@@ -549,7 +553,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     try {
       const container = docker.getContainer(record.containerId);
       await container.restart();
-      const workspacePath = await getWorkspacePath(record.mode);
+      const workspacePath = getWorkspacePath(record.mode);
       const desktopCommand = buildDesktopCommand(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
@@ -789,7 +793,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const previous = lastKnownStatus.get(envId);
         if (previous !== displayStatus) {
           lastKnownStatus.set(envId, displayStatus);
-          const workspacePath = await getWorkspacePath(record.mode);
+          const workspacePath = getWorkspacePath(record.mode);
           const desktopCommand = buildDesktopCommand(envId, workspacePath);
           sseChannel.broadcast('env-status', {
             env_id: envId,

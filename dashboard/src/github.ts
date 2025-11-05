@@ -186,11 +186,8 @@ export async function updateGithubConfig(data: {
       return { success: false, error: 'Invalid token format. Must start with ghp_ or github_pat_' };
     }
     github.personal_access_token = pat;
-    if (pat) {
-      await saveGitHubToken(pat);
-    } else {
-      await clearGitHubToken();
-    }
+    // Don't write to .github_token file - PAT entered via UI stays in farm-config.json only
+    // The .github_token file is only for OAuth device flow tokens
   }
 
   if (data.username !== undefined) {

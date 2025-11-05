@@ -32,8 +32,8 @@ describe('registry helpers', () => {
   });
 
   it('getNextPort skips used ports', async () => {
-    await registry.saveRegistry({ env1: { port: 9000 } } as any);
-    expect(await registry.getNextPort()).toBe(9001);
+    await registry.saveRegistry({ env1: { port: 8100 } } as any);
+    expect(await registry.getNextPort()).toBe(8101);
   });
 
   it('upsertEnvironment adds and readEnvironment fetches', async () => {

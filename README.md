@@ -134,11 +134,11 @@ http://<your-lxc-ip>:5000
 
 5. **(Recommended) Configure GitHub Authentication:**
 
-**Option A: farm.config (Best for local development)**
+**Option A: farm-config.json (Best for local development)**
 
 ```bash
-cp farm.config.example farm.config
-nano farm.config  # Add your GitHub PAT
+cp farm-config.example.json farm-config.json
+nano farm-config.json  # Add your GitHub PAT
 ```
 
 Create a PAT at https://github.com/settings/tokens/new with scopes: `repo`, `read:org`, `workflow`
@@ -249,7 +249,7 @@ The project structure uses workspaces for `dashboard` and `docker` packages.
 
 ### GitHub Integration
 
-Each environment is **automatically authenticated** with GitHub using your personal access token from the `farm.config` file.
+Each environment is **automatically authenticated** with GitHub using your personal access token from the `farm-config.json` file.
 
 Features:
 

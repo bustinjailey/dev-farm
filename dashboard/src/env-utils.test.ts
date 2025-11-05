@@ -68,24 +68,12 @@ describe('buildDesktopCommand', () => {
 });
 
 describe('getWorkspacePath', () => {
-  it('returns defaults when aliases missing', async () => {
-    expect(await envUtils.getWorkspacePath('workspace')).toBe('/workspace');
-    expect(await envUtils.getWorkspacePath('git')).toBe('/repo');
-    expect(await envUtils.getWorkspacePath('ssh')).toBe('/workspace');
-    expect(await envUtils.getWorkspacePath('terminal')).toBe('/workspace');
-    expect(await envUtils.getWorkspacePath('unknown')).toBe('/workspace');
-  });
-
-  it('uses alias mappings when available', async () => {
-    const aliasFile = process.env.DEVFARM_ALIAS_CONFIG as string;
-    await fs.writeFile(
-      aliasFile,
-      JSON.stringify({ workspace: '/custom/ws', repo: '/custom/repo', remote: '/custom/remote' })
-    );
-    envUtils.resetCaches();
-    expect(await envUtils.getWorkspacePath('workspace')).toBe('/custom/ws');
-    expect(await envUtils.getWorkspacePath('git')).toBe('/custom/repo');
-    expect(await envUtils.getWorkspacePath('ssh')).toBe('/custom/ws');
+  it('returns workspace paths for different modes', () => {
+    expect(envUtils.getWorkspacePath('workspace')).toBe('/workspace');
+    expect(envUtils.getWorkspacePath('git')).toBe('/repo');
+    expect(envUtils.getWorkspacePath('ssh')).toBe('/workspace');
+    expect(envUtils.getWorkspacePath('terminal')).toBe('/workspace');
+    expect(envUtils.getWorkspacePath('unknown')).toBe('/workspace');
   });
 });
 

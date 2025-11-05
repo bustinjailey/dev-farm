@@ -113,10 +113,23 @@ beforeEach(async () => {
   dockerStub.containersByName.clear();
   tmpDir = mkdtempSync(path.join(os.tmpdir(), 'devfarm-test-'));
   process.env.REGISTRY_FILE = path.join(tmpDir, 'registry.json');
-  process.env.DEVFARM_ALIAS_CONFIG = path.join(tmpDir, 'aliases.json');
   process.env.GITHUB_TOKEN_FILE = path.join(tmpDir, 'token.txt');
   process.env.DEVICE_CODE_FILE = path.join(tmpDir, 'device.json');
+  process.env.FARM_CONFIG_FILE = path.join(tmpDir, 'farm-config.json');
+
+  // Create valid farm-config.json for tests
+  writeFileSync(
+    process.env.FARM_CONFIG_FILE,
+    JSON.stringify({
+      version: '1.0',
+      github: {
+        username: 'testuser',
+        email: 'test@example.com',
+      },
+    })
+  );
   writeFileSync(process.env.GITHUB_TOKEN_FILE, 'test-token');
+
   vi.resetModules();
   const module = await import('./server.js');
   server = await module.buildServer({ enableBackgroundJobs: false, logger: false });

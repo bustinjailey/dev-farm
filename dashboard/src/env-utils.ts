@@ -1,14 +1,17 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import {
   FARM_CONFIG_FILE,
-  PATH_ALIAS_CONFIG,
   EXTERNAL_URL,
   GITHUB_TOKEN_FILE,
   DEVICE_CODE_FILE,
+  WORKSPACE_PATHS,
 } from './config.js';
 
 interface FarmConfig {
+  version?: string;
   github?: {
     personal_access_token?: string;
     username?: string;
@@ -19,7 +22,43 @@ interface FarmConfig {
   };
 }
 
-let aliasCache: Record<string, string> | null = null;
+const farmConfigSchema = {
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  type: 'object',
+  properties: {
+    version: {
+      type: 'string',
+      pattern: '^\\d+\\.\\d+$',
+    },
+    github: {
+      type: 'object',
+      properties: {
+        personal_access_token: {
+          type: 'string',
+        },
+        username: { type: 'string' },
+        email: { type: 'string' },
+      },
+      additionalProperties: false,
+    },
+    mcp: {
+      type: 'object',
+      properties: {
+        api_keys: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  additionalProperties: true,
+};
+
+const ajv = new Ajv({ allErrors: true });
+addFormats(ajv);
+const validateFarmConfig = ajv.compile(farmConfigSchema);
+
 let farmConfigCache: FarmConfig | null = null;
 
 export function kebabify(name: string): string {
@@ -30,40 +69,8 @@ export function kebabify(name: string): string {
     .replace(/-+/g, '-');
 }
 
-export async function loadPathAliases(): Promise<Record<string, string>> {
-  if (aliasCache) {
-    return aliasCache;
-  }
-  try {
-    const raw = await fs.readFile(PATH_ALIAS_CONFIG, 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (parsed && typeof parsed === 'object') {
-      aliasCache = Object.fromEntries(
-        Object.entries(parsed).filter(([, value]) => typeof value === 'string') as [string, string][]
-      );
-      return aliasCache;
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      console.warn(`[Paths] Failed to load ${PATH_ALIAS_CONFIG}:`, error);
-    }
-  }
-  aliasCache = {};
-  return aliasCache;
-}
-
-export async function getWorkspacePath(mode: string): Promise<string> {
-  const aliasMap = await loadPathAliases();
-  const lookup: Record<string, [string, string]> = {
-    git: ['repo', '/repo'],
-    workspace: ['workspace', '/workspace'],
-    ssh: ['workspace', '/workspace'],
-    terminal: ['workspace', '/workspace'],
-  };
-
-  const entry = lookup[mode] ?? lookup.workspace;
-  const alias = aliasMap[entry[0]];
-  return alias ?? entry[1];
+export function getWorkspacePath(mode: string): string {
+  return WORKSPACE_PATHS[mode as keyof typeof WORKSPACE_PATHS] ?? WORKSPACE_PATHS.workspace;
 }
 
 export async function loadFarmConfig(): Promise<FarmConfig> {
@@ -72,10 +79,18 @@ export async function loadFarmConfig(): Promise<FarmConfig> {
   }
   try {
     const raw = await fs.readFile(FARM_CONFIG_FILE, 'utf-8');
-    farmConfigCache = JSON.parse(raw) as FarmConfig;
+    const parsed = JSON.parse(raw) as FarmConfig;
+
+    // Validate against schema
+    if (!validateFarmConfig(parsed)) {
+      console.warn('[Config] farm-config.json validation errors:', ajv.errorsText(validateFarmConfig.errors));
+      console.warn('[Config] Using config despite validation errors. Please fix the configuration.');
+    }
+
+    farmConfigCache = parsed;
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      console.warn(`[Config] Error loading farm.config:`, error);
+      console.warn(`[Config] Error loading farm-config.json:`, error);
     }
     farmConfigCache = {};
   }
@@ -116,7 +131,7 @@ export async function saveGitHubToken(token: string): Promise<void> {
   const trimmed = token.trim();
   await fs.mkdir(path.dirname(GITHUB_TOKEN_FILE), { recursive: true });
   await fs.writeFile(GITHUB_TOKEN_FILE, trimmed, 'utf-8');
-  await fs.chmod(GITHUB_TOKEN_FILE, 0o600).catch(() => {});
+  await fs.chmod(GITHUB_TOKEN_FILE, 0o600).catch(() => { });
   process.env.GITHUB_TOKEN = trimmed;
 }
 
@@ -185,6 +200,5 @@ export function buildDesktopCommand(envId: string, workspacePath?: string): stri
 }
 
 export function resetCaches(): void {
-  aliasCache = null;
   farmConfigCache = null;
 }

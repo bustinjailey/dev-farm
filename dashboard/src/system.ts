@@ -107,7 +107,7 @@ export async function recoverRegistry(docker: Docker): Promise<{ restored: numbe
       const inspect = await container.inspect();
       const envId = inspect.Config.Labels['dev-farm.id'] ?? info.Id;
       const mode = (inspect.Config.Labels['dev-farm.mode'] ?? 'workspace') as EnvironmentRecord['mode'];
-      const workspacePath = await getWorkspacePath(mode);
+      const workspacePath = getWorkspacePath(mode);
 
       registry[envId] = {
         name: inspect.Config.Labels['dev-farm.name'] ?? envId,
