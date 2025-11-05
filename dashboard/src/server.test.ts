@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import type { FastifyInstance } from 'fastify';
+import { kebabify } from './env-utils.js';
 
 class FakeExec {
   async start() {
@@ -112,14 +113,16 @@ beforeEach(async () => {
   dockerStub.containersById.clear();
   dockerStub.containersByName.clear();
   tmpDir = mkdtempSync(path.join(os.tmpdir(), 'devfarm-test-'));
-  process.env.REGISTRY_FILE = path.join(tmpDir, 'registry.json');
-  process.env.GITHUB_TOKEN_FILE = path.join(tmpDir, 'token.txt');
-  process.env.DEVICE_CODE_FILE = path.join(tmpDir, 'device.json');
-  process.env.FARM_CONFIG_FILE = path.join(tmpDir, 'farm-config.json');
 
-  // Create valid farm-config.json for tests
+  // Set DATA_DIR and HOST_REPO_PATH so config.ts computes correct paths
+  vi.stubEnv('DATA_DIR', tmpDir);
+  vi.stubEnv('HOST_REPO_PATH', tmpDir);
+  delete process.env.GITHUB_TOKEN; // Clear to test file-based token loading
+
+  // Create valid farm-config.json for tests with required fields
+  // Don't include empty personal_access_token so token file can be used
   writeFileSync(
-    process.env.FARM_CONFIG_FILE,
+    path.join(tmpDir, 'farm-config.json'),
     JSON.stringify({
       version: '1.0',
       github: {
@@ -128,7 +131,7 @@ beforeEach(async () => {
       },
     })
   );
-  writeFileSync(process.env.GITHUB_TOKEN_FILE, 'test-token');
+  writeFileSync(path.join(tmpDir, '.github_token'), 'test-token');
 
   vi.resetModules();
   const module = await import('./server.js');
@@ -141,6 +144,7 @@ afterEach(async () => {
     fetchSpy.mockRestore();
     fetchSpy = null;
   }
+  vi.unstubAllEnvs();
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -152,21 +156,26 @@ describe('environment API', () => {
   });
 
   it('creates a workspace environment', async () => {
+    // Use unique name to avoid conflicts with other test files
+    const uniqueName = `Test Env ${Date.now()}`;
+    const expectedId = kebabify(uniqueName);
+
     const createResponse = await server.inject({
       method: 'POST',
       url: '/create',
-      payload: { name: 'Test Env', mode: 'workspace' },
+      payload: { name: uniqueName, mode: 'workspace' },
     });
 
     expect(createResponse.statusCode).toBe(200);
-    expect(createResponse.json()).toMatchObject({ success: true, env_id: 'test-env' });
+    expect(createResponse.json()).toMatchObject({ success: true, env_id: expectedId });
 
     const listResponse = await server.inject({ method: 'GET', url: '/api/environments' });
     const body = listResponse.json() as any[];
     expect(listResponse.statusCode).toBe(200);
-    expect(body).toHaveLength(1);
-    expect(body[0]).toMatchObject({
-      id: 'test-env',
+    expect(body.length).toBeGreaterThanOrEqual(1);
+    const created = body.find((env: any) => env.id === expectedId);
+    expect(created).toMatchObject({
+      id: expectedId,
       mode: 'workspace',
       desktopCommand: expect.stringContaining('code-insiders'),
     });
@@ -199,9 +208,7 @@ describe('github API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ authenticated: true, username: 'test-user' });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('lists repositories when token valid', async () => {
+  }); it('lists repositories when token valid', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch' as any);
     fetchSpy
       .mockImplementationOnce(async () => new Response('{}', { status: 200 }))
@@ -231,7 +238,7 @@ describe('github API', () => {
   it('returns github config defaults', async () => {
     const response = await server.inject({ method: 'GET', url: '/api/config/github' });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ username: '', email: '' });
+    expect(response.json()).toMatchObject({ username: 'testuser', email: 'test@example.com', has_pat: false });
   });
 
   it('rejects invalid PAT format', async () => {

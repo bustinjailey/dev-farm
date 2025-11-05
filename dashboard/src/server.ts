@@ -458,7 +458,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       url: buildTunnelUrl(envId, workspacePath),
       tunnel_name: envId,
       mode,
-      project,
       workspacePath,
     };
   });

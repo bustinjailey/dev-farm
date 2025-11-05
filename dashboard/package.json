@@ -14,7 +14,8 @@
     "start": "node dist/server/main.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "check": "svelte-check --tsconfig frontend/tsconfig.json",
-    "test": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",

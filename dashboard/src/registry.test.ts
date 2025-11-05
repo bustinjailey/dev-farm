@@ -9,7 +9,7 @@ let registry: typeof import('./registry.js');
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'registry-test-'));
   vi.resetModules();
-  vi.stubEnv('REGISTRY_FILE', path.join(tmpDir, 'registry.json'));
+  vi.stubEnv('DATA_DIR', tmpDir); // Set DATA_DIR so config.ts computes correct paths
   vi.stubEnv('BASE_PORT', '9000');
   registry = await import('./registry.js');
 });
@@ -21,6 +21,7 @@ afterEach(async () => {
 
 describe('registry helpers', () => {
   it('loadRegistry returns empty map when file missing', async () => {
+    // This test must run with pristine state - file should not exist yet
     expect(await registry.loadRegistry()).toEqual({});
   });
 

@@ -14,11 +14,8 @@ async function loadModule() {
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'env-utils-test-'));
   vi.resetModules();
+  vi.stubEnv('DATA_DIR', tmpDir); // Set DATA_DIR so config.ts computes correct paths
   vi.stubEnv('HOST_REPO_PATH', tmpDir);
-  vi.stubEnv('FARM_CONFIG_FILE', path.join(tmpDir, 'farm.config'));
-  vi.stubEnv('GITHUB_TOKEN_FILE', path.join(tmpDir, 'github.token'));
-  vi.stubEnv('DEVICE_CODE_FILE', path.join(tmpDir, 'device.json'));
-  vi.stubEnv('DEVFARM_ALIAS_CONFIG', path.join(tmpDir, 'aliases.json'));
   await loadModule();
 });
 
@@ -79,45 +76,63 @@ describe('getWorkspacePath', () => {
 
 describe('farm config + GitHub tokens', () => {
   it('saves and loads farm config with secure permissions', async () => {
+    const configFile = path.join(tmpDir, 'farm-config.json');
     const config = { github: { personal_access_token: 'pat', username: 'user' } };
     await envUtils.saveFarmConfig(config);
     const loaded = await envUtils.loadFarmConfig();
     expect(loaded).toEqual(config);
     if (process.platform !== 'win32') {
-      const stat = await fs.stat(process.env.FARM_CONFIG_FILE as string);
+      const stat = await fs.stat(configFile);
       expect(stat.mode & 0o777).toBe(0o600);
     }
   });
 
   it('loadGitHubToken prefers farm.config, then file, then env', async () => {
+    // Clear process.env.GITHUB_TOKEN first to test priority correctly
+    delete process.env.GITHUB_TOKEN;
+    const tokenFile = path.join(tmpDir, '.github_token');
+
+    // Test 1: farm-config takes priority over everything
     await envUtils.saveFarmConfig({ github: { personal_access_token: 'from-config' } });
-    await fs.writeFile(process.env.GITHUB_TOKEN_FILE as string, 'from-file');
+    await fs.writeFile(tokenFile, 'from-file');
     process.env.GITHUB_TOKEN = 'from-env';
     envUtils.resetCaches();
     expect(await envUtils.loadGitHubToken()).toBe('from-config');
 
+    // Test 2: when farm-config has no PAT, file takes priority
     await envUtils.saveFarmConfig({ github: {} });
+    delete process.env.GITHUB_TOKEN; // Clear env var so file is used
     envUtils.resetCaches();
     expect(await envUtils.loadGitHubToken()).toBe('from-file');
 
-    await fs.rm(process.env.GITHUB_TOKEN_FILE as string, { force: true });
+    // Test 3: when no farm-config PAT and no file, env var is used
+    await fs.rm(tokenFile, { force: true });
+    process.env.GITHUB_TOKEN = 'from-env';
     envUtils.resetCaches();
     expect(await envUtils.loadGitHubToken()).toBe('from-env');
   });
 
   it('saveGitHubToken writes file and updates env', async () => {
+    const tokenFile = path.join(tmpDir, '.github_token');
     await envUtils.saveGitHubToken('new-token');
-    const file = await fs.readFile(process.env.GITHUB_TOKEN_FILE as string, 'utf-8');
+    const file = await fs.readFile(tokenFile, 'utf-8');
     expect(file).toBe('new-token');
     expect(process.env.GITHUB_TOKEN).toBe('new-token');
+
+    // Verify file has secure permissions (non-Windows only)
+    if (process.platform !== 'win32') {
+      const stat = await fs.stat(tokenFile);
+      expect(stat.mode & 0o777).toBe(0o600);
+    }
   });
 
   it('clearGitHubToken removes file and clears PAT in config', async () => {
+    const tokenFile = path.join(tmpDir, '.github_token');
     await envUtils.saveFarmConfig({ github: { personal_access_token: 'pat' } });
     await envUtils.saveGitHubToken('token');
     await envUtils.clearGitHubToken();
     const exists = await fs
-      .stat(process.env.GITHUB_TOKEN_FILE as string)
+      .stat(tokenFile)
       .then(() => true)
       .catch(() => false);
     expect(exists).toBe(false);
