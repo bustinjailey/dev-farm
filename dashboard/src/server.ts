@@ -308,8 +308,9 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       return reply.code(400).send({ error: 'Missing body' });
     }
 
-    const displayName = (typeof body.name === 'string' && body.name.trim()) || `env-${Date.now()}`;
-    const envId = kebabify(displayName);
+    const userProvidedName = typeof body.name === 'string' ? body.name.trim() : '';
+    const displayName = userProvidedName || `Environment ${Date.now()}`;
+    const envId = userProvidedName ? kebabify(userProvidedName) : `env-${Date.now()}`;
     const mode = (typeof body.mode === 'string' && body.mode) || 'workspace';
     const connectionMode = (typeof body.connection_mode === 'string' && body.connection_mode) || 'web';
 

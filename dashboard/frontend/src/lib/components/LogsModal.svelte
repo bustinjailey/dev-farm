@@ -63,10 +63,14 @@
     onClose();
   }
 
+  // Use untrack to prevent infinite loops - only respond to open/envId changes
   $effect(() => {
-    if (open) {
+    if (open && envId) {
       loadLogs();
       startAutoRefresh();
+      return () => {
+        stopAutoRefresh();
+      };
     } else {
       stopAutoRefresh();
     }
