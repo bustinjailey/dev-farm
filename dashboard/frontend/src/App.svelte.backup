@@ -30,9 +30,6 @@
   import MonitorPanel from './lib/components/MonitorPanel.svelte';
   import AiChatPanel from './lib/components/AiChatPanel.svelte';
   import RepoBrowser from './lib/components/RepoBrowser.svelte';
-  import Sidebar from './lib/components/Sidebar.svelte';
-  import EnvironmentCard from './lib/components/EnvironmentCard.svelte';
-  import LogsModal from './lib/components/LogsModal.svelte';
 
   let environments = $state<EnvironmentSummary[]>([]);
   let loading = $state(true);
@@ -55,6 +52,7 @@
   let updatePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let repoBrowserOpen = $state(false);
   let pendingGitUrl = $state('');
+  let logsModal = $state({ open: false, envId: '', logs: '' });
   let imagesInfo = $state<any>(null);
   let imageBusy = $state<Record<string, boolean>>({});
   let orphansBusy = $state(false);
@@ -65,8 +63,11 @@
   let deviceCodeCopyState = $state<'copied' | 'failed' | ''>('');
   let deviceCodeCopyTimer = $state<ReturnType<typeof setTimeout> | null>(null);
   let sidebarCollapsed = $state(false);
-  let logsModalEnvId = $state('');
-  let logsModalOpen = $state(false);
+  let envDeviceAuth = $state<Record<string, { code: string; url: string }>>({});
+  let logsStreamInterval = $state<ReturnType<typeof setInterval> | null>(null);
+  let sidebarCollapsed = $state(false);
+  let envDeviceAuth = $state<Record<string, { code: string; url: string }>>({});
+  let logsStreamInterval = $state<ReturnType<typeof setInterval> | null>(null);
 
   async function loadEnvironments() {
     loading = true;
@@ -306,14 +307,17 @@
     }
   }
 
-  function openLogs(envId: string) {
-    logsModalEnvId = envId;
-    logsModalOpen = true;
+  async function openLogs(envId: string) {
+    try {
+      const { logs } = await fetchEnvironmentLogs(envId);
+      logsModal = { open: true, envId, logs };
+    } catch (err) {
+      alert((err as Error).message);
+    }
   }
 
   function closeLogs() {
-    logsModalOpen = false;
-    logsModalEnvId = '';
+    logsModal = { open: false, envId: '', logs: '' };
   }
 
   async function saveGithubPat() {
@@ -475,33 +479,77 @@
 </script>
 
 <main>
-  <Sidebar
-    bind:collapsed={sidebarCollapsed}
-    githubStatusInfo={githubStatusInfo}
-    systemStatus={systemStatus}
-    systemActionMessage={systemActionMessage}
-    orphansInfo={orphansInfo}
-    imagesInfo={imagesInfo}
-    orphansBusy={orphansBusy}
-    imageBusy={imageBusy}
-    onManageGithub={() => (showGithubModal = true)}
-    onDisconnectGithub={disconnectGithubAccount}
-    onStartUpdate={handleStartUpdate}
-    onUpgradeSystem={handleUpgradeSystem}
-    onCleanupOrphans={handleCleanupOrphans}
-    onRecoverRegistry={handleRecoverRegistry}
-    onImageBuild={handleImageBuild}
-  />
+  <header class="hero">
+    <div>
+      <h1>🚜 Dev Farm</h1>
+    </div>
+    <button class="create" on:click={openCreateModalDialog}>➕ New Environment</button>
+  </header>
 
-  <div class="main-content">
-    <header class="hero">
-      <div>
-        <h1>🚜 Dev Farm</h1>
+  <section class="status-cards">
+    <div class="status-card">
+      <header>
+        <h3>GitHub</h3>
+        <span class={`badge ${githubStatusInfo?.authenticated ? 'success' : 'warn'}`}>
+          {githubStatusInfo?.authenticated ? githubStatusInfo.username : 'Not Connected'}
+        </span>
+      </header>
+      <p>
+        {#if githubStatusInfo?.authenticated}
+          Token scopes: {githubStatusInfo.scopes?.join(', ') || 'unknown'}
+        {:else}
+          {githubStatusInfo?.message || 'Connect your GitHub account.'}
+        {/if}
+      </p>
+      <div class="card-actions">
+        <button on:click={() => (showGithubModal = true)}>Manage</button>
+        <button class="secondary" on:click={disconnectGithubAccount}>Disconnect</button>
       </div>
-      <button class="create" on:click={openCreateModalDialog}>➕ New Environment</button>
-    </header>
+    </div>
 
-    {#if loading}
+    <div class="status-card">
+      <header>
+        <h3>System Version</h3>
+        <span class={`badge ${systemStatus?.updates_available ? 'warn' : 'success'}`}>
+          {systemStatus?.updates_available ? `${systemStatus.commits_behind} behind` : 'Up to date'}
+        </span>
+      </header>
+      <p>Current: {systemStatus?.current_sha || 'N/A'}</p>
+      <p>Latest: {systemStatus?.latest_sha || 'N/A'}</p>
+      <div class="card-actions">
+        <button on:click={handleStartUpdate}>Start Update</button>
+        <button class="secondary" on:click={handleUpgradeSystem}>Run Upgrade</button>
+      </div>
+      {#if systemActionMessage}
+        <small>{systemActionMessage}</small>
+      {/if}
+    </div>
+
+    <div class="status-card">
+      <header>
+        <h3>Maintenance</h3>
+      </header>
+      <p>Tracked: {orphansInfo?.tracked ?? 0}</p>
+      <p>Orphans: {orphansInfo?.orphans?.length ?? 0}</p>
+      <div class="card-actions">
+        <button on:click={handleCleanupOrphans} disabled={orphansBusy}>Clean Up</button>
+        <button class="secondary" on:click={handleRecoverRegistry} disabled={orphansBusy}>
+          Recover Registry
+        </button>
+      </div>
+      {#if imagesInfo?.images}
+        <div class="image-buttons">
+          {#each ['code-server', 'terminal', 'dashboard'] as type}
+            <button on:click={() => handleImageBuild(type as any)} disabled={imageBusy[type as any]}>
+              Rebuild {type}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </section>
+
+  {#if loading}
     <p class="status">Loading environments…</p>
   {:else if error}
     <p class="status error">{error}</p>
@@ -513,19 +561,66 @@
   {:else}
     <section class="grid">
       {#each environments as env}
-        <EnvironmentCard
-          env={env}
-          actionBusy={actionBusy}
-          desktopCopyState={desktopCopyState}
-          monitorOpen={monitorOpen}
-          aiOpen={aiOpen}
-          aiSseMessages={aiSseMessages}
-          onCopyDesktop={() => copyDesktopCommand(env)}
-          onPerform={perform}
-          onToggleMonitor={toggleMonitor}
-          onToggleAi={toggleAi}
-          onOpenLogs={openLogs}
-        />
+        <article class="card" data-status={env.status}>
+          <header>
+            <div>
+              <h2>{env.name}</h2>
+              <small>{env.mode} mode • status {env.status}</small>
+            </div>
+            <span class={`badge ${env.status}`}>{env.status}</span>
+          </header>
+
+          <dl>
+            <div>
+              <dt>Tunnel</dt>
+              <dd>{env.id}</dd>
+            </div>
+            <div>
+              <dt>Workspace Path</dt>
+              <dd>{env.workspacePath}</dd>
+            </div>
+          </dl>
+
+          <div class="actions">
+            {#if env.status === 'running'}
+              <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+              <button class="btn secondary" type="button" on:click={() => copyDesktopCommand(env)}>
+                🖥 Copy Desktop Command
+              </button>
+              <button class="btn" disabled={actionBusy[env.id]} on:click={() => perform(env.id, 'stop')}>
+                ⏸ Stop
+              </button>
+            {:else if env.status === 'starting'}
+              <button class="btn" disabled>Starting…</button>
+            {:else}
+              <button class="btn primary" disabled={actionBusy[env.id]} on:click={() => perform(env.id, 'start')}>
+                ▶️ Start
+              </button>
+            {/if}
+
+            <button class="btn" disabled={actionBusy[env.id]} on:click={() => toggleMonitor(env.id)}>
+              👁 {monitorOpen[env.id] ? 'Hide Monitor' : 'Monitor'}
+            </button>
+            <button class="btn" disabled={actionBusy[env.id]} on:click={() => toggleAi(env.id)}>
+              🤖 {aiOpen[env.id] ? 'Hide AI' : 'AI Assist'}
+            </button>
+            <button class="btn" disabled={actionBusy[env.id]} on:click={() => openLogs(env.id)}>
+              📝 Logs
+            </button>
+            <button class="btn danger" disabled={actionBusy[env.id]} on:click={() => perform(env.id, 'delete')}>
+              🗑 Delete
+            </button>
+          </div>
+
+          {#if desktopCopyState[env.id] === 'copied'}
+            <p class="copy-status success">Desktop command copied. Paste into VS Code Insiders.</p>
+          {:else if desktopCopyState[env.id] === 'failed'}
+            <p class="copy-status warn">Clipboard unavailable. Use the prompt to copy manually.</p>
+          {/if}
+
+          <MonitorPanel envId={env.id} open={!!monitorOpen[env.id]} />
+          <AiChatPanel envId={env.id} open={!!aiOpen[env.id]} latestSse={aiSseMessages[env.id] ?? null} />
+        </article>
       {/each}
     </section>
   {/if}
@@ -638,24 +733,37 @@
     </div>
   {/if}
 
-  </div>
-
-  <LogsModal envId={logsModalEnvId} open={logsModalOpen} onClose={closeLogs} />
+  {#if logsModal.open}
+    <div
+      class="backdrop modal-layer"
+      role="button"
+      tabindex="0"
+      on:click={closeLogs}
+      on:keydown={(e) => e.key === 'Escape' && closeLogs()}
+    >
+      <div
+        class="logs-modal"
+        role="dialog"
+        aria-modal="true"
+        tabindex="0"
+        on:click|stopPropagation
+        on:keydown={(e) => e.key === 'Escape' && closeLogs()}
+      >
+        <header>
+          <h2>Logs: {logsModal.envId}</h2>
+        </header>
+        <pre>{logsModal.logs}</pre>
+        <button on:click={closeLogs}>Close</button>
+      </div>
+    </div>
+  {/if}
 </main>
 
 <style>
   main {
     display: flex;
-    flex-direction: row;
-    gap: 1.5rem;
-    width: 100%;
-    max-width: none;
-  }
-
-  @media (max-width: 1024px) {
-    main {
-      flex-direction: column;
-    }
+    flex-direction: column;
+    gap: 2rem;
   }
 
   .hero {
@@ -690,12 +798,80 @@
     cursor: pointer;
   }
 
-  .main-content {
-    flex: 1;
+  .status-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+    margin: 1.5rem 0;
+  }
+
+  .status-card {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 18px;
+    padding: 1.25rem;
+    box-shadow: 0 12px 28px rgba(79, 70, 229, 0.15);
     display: flex;
     flex-direction: column;
-    gap: 2rem;
-    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  .status-card header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .status-card .badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+  }
+
+  .status-card .badge.success {
+    background: #48bb78;
+    color: white;
+  }
+
+  .status-card .badge.warn {
+    background: #f6ad55;
+    color: white;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .card-actions button {
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 1.1rem;
+    background: #edf2f7;
+    color: #1a202c;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .card-actions button.secondary {
+    background: #e2e8f0;
+  }
+
+  .image-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .image-buttons button {
+    border: none;
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-weight: 600;
+    cursor: pointer;
   }
 
   .status {
@@ -860,7 +1036,8 @@
   }
 
   .update-modal,
-  .github-modal {
+  .github-modal,
+  .logs-modal {
     background: white;
     color: #1a202c;
     border-radius: 16px;
@@ -927,6 +1104,7 @@
   }
 
   .github-modal button,
+  .logs-modal button,
   .update-modal button {
     align-self: flex-start;
     border: none;
@@ -967,6 +1145,15 @@
 
   .copy-code-btn:active {
     transform: scale(0.98);
+  }
+
+  .logs-modal pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 12px;
+    max-height: 400px;
+    overflow: auto;
   }
 
   @media (max-width: 720px) {

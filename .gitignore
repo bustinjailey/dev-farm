@@ -45,3 +45,5 @@ dashboard/data/
 
 # Workspace files
 *.code-workspace
+
+*.md
