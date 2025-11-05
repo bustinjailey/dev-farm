@@ -395,7 +395,7 @@
   }
 
   function setupRealtimeStreams() {
-  console.log('[App] setupRealtimeStreams start');
+    console.log('[App] setupRealtimeStreams start');
     loadEnvironments();
     loadSystemStatus();
     loadGithubInfo();
