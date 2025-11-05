@@ -7,6 +7,31 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import type Docker from 'dockerode';
 
+// Fun word lists for auto-generated environment names
+const adjectives = [
+  'happy', 'sleepy', 'bouncy', 'clever', 'quirky', 'zesty', 'mighty', 'gentle',
+  'swift', 'brave', 'calm', 'wise', 'eager', 'jolly', 'proud', 'noble',
+  'bright', 'silent', 'cosmic', 'golden', 'silver', 'crystal', 'electric', 'turbo'
+];
+
+const nouns = [
+  'panda', 'falcon', 'dragon', 'phoenix', 'tiger', 'wolf', 'eagle', 'bear',
+  'lion', 'hawk', 'fox', 'otter', 'raven', 'owl', 'lynx', 'cobra',
+  'shark', 'whale', 'dolphin', 'penguin', 'octopus', 'squid', 'mantis', 'spider'
+];
+
+const verbs = [
+  'coding', 'building', 'testing', 'deploying', 'debugging', 'shipping', 'hacking', 'crafting',
+  'forging', 'brewing', 'weaving', 'sculpting', 'painting', 'dancing', 'flying', 'racing'
+];
+
+function generateFunName(): string {
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const verb = verbs[Math.floor(Math.random() * verbs.length)];
+  return `${adj}-${noun}-${verb}`;
+}
+
 import { getDocker } from './docker.js';
 import {
   getNextPort,
@@ -309,8 +334,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }
 
     const userProvidedName = typeof body.name === 'string' ? body.name.trim() : '';
-    const displayName = userProvidedName || `Environment ${Date.now()}`;
-    const envId = userProvidedName ? kebabify(userProvidedName) : `env-${Date.now()}`;
+    const displayName = userProvidedName || generateFunName();
+    const envId = userProvidedName ? kebabify(userProvidedName) : kebabify(displayName);
     const mode = (typeof body.mode === 'string' && body.mode) || 'workspace';
     const connectionMode = (typeof body.connection_mode === 'string' && body.connection_mode) || 'web';
 
