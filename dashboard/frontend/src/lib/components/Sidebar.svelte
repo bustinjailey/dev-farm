@@ -9,10 +9,10 @@
     imageBusy: Record<string, boolean>;
     orphansBusy: boolean;
     systemActionMessage: string | null;
+    updateInProgress: boolean;
     onGithubManage: () => void;
     onGithubDisconnect: () => void;
     onStartUpdate: () => void;
-    onUpgradeSystem: () => void;
     onCleanupOrphans: () => void;
     onRecoverRegistry: () => void;
     onImageBuild: (type: 'code-server' | 'terminal' | 'dashboard') => void;
@@ -28,10 +28,10 @@
     imageBusy,
     orphansBusy,
     systemActionMessage,
+    updateInProgress,
     onGithubManage,
     onGithubDisconnect,
     onStartUpdate,
-    onUpgradeSystem,
     onCleanupOrphans,
     onRecoverRegistry,
     onImageBuild,
@@ -82,8 +82,9 @@
         <p>Current: {systemStatus?.current_sha || 'N/A'}</p>
         <p>Latest: {systemStatus?.latest_sha || 'N/A'}</p>
         <div class="card-actions">
-          <button onclick={onStartUpdate}>Start Update</button>
-          <button class="secondary" onclick={onUpgradeSystem}>Run Upgrade</button>
+          <button onclick={onStartUpdate} disabled={updateInProgress}>
+            {updateInProgress ? 'Update Running...' : 'Start Update'}
+          </button>
         </div>
         {#if systemActionMessage}
           <small>{systemActionMessage}</small>

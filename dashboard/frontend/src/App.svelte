@@ -302,22 +302,8 @@
     }
   }
 
-  async function handleUpgradeSystem() {
-    systemActionMessage = 'Running upgrade…';
-    try {
-      const result = await upgradeSystemRequest();
-      systemActionMessage = result.success ? 'Upgrade completed' : `Upgrade failed: ${result.error}`;
-    } catch (err) {
-      systemActionMessage = (err as Error).message;
-    }
-    await loadSystemStatus();
-    if (systemActionResetTimer) {
-      clearTimeout(systemActionResetTimer);
-    }
-    systemActionResetTimer = setTimeout(() => {
-      systemActionMessage = null;
-      systemActionResetTimer = null;
-    }, 4000);
+  function isUpdateInProgress(): boolean {
+    return updateStatus?.running ?? false;
   }
 
   async function handleImageBuild(type: 'code-server' | 'terminal' | 'dashboard') {
@@ -421,6 +407,10 @@
   }
 
   function openCreateModalDialog() {
+    if (isUpdateInProgress()) {
+      alert('Cannot create new environments while system update is in progress');
+      return;
+    }
     pendingGitUrl = '';
     showCreateModal = true;
   }
@@ -527,10 +517,10 @@
     imagesInfo={imagesInfo}
     orphansBusy={orphansBusy}
     imageBusy={imageBusy}
+    updateInProgress={isUpdateInProgress()}
     onGithubManage={() => (showGithubModal = true)}
     onGithubDisconnect={disconnectGithubAccount}
     onStartUpdate={handleStartUpdate}
-    onUpgradeSystem={handleUpgradeSystem}
     onCleanupOrphans={handleCleanupOrphans}
     onRecoverRegistry={handleRecoverRegistry}
     onImageBuild={handleImageBuild}
