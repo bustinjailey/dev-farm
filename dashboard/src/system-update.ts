@@ -95,14 +95,14 @@ async function runUpdate(docker: Docker) {
   }
   appendStage('rebuild_dashboard', 'success', 'Dashboard image rebuilt');
 
-  appendStage('restart_dashboard', 'starting', 'Restarting proxy and dashboard services');
+  appendStage('restart_dashboard', 'starting', 'Restarting dashboard service');
   const updater = await ensureUpdaterContainer(docker);
-  const restartCommand = `cd ${HOST_REPO_PATH} && docker compose stop proxy dashboard && docker compose rm -f proxy dashboard && docker compose up -d proxy dashboard`;
+  const restartCommand = `cd ${HOST_REPO_PATH} && docker compose stop dashboard && docker compose rm -f dashboard && docker compose up -d dashboard`;
   const restartResult = await runCommandInContainer(updater, restartCommand);
   if (!restartResult.success) {
     throw new Error(`Failed to restart services: ${restartResult.output}`);
   }
-  appendStage('restart_dashboard', 'success', 'Services restarted');
+  appendStage('restart_dashboard', 'success', 'Dashboard service restarted');
 
   appendStage('complete', 'success', 'System update completed successfully');
 }

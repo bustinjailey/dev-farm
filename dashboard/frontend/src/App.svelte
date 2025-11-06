@@ -485,6 +485,19 @@
         [payload.env_id]: { url: payload.url, code: payload.code },
       };
     };
+    const systemStatusHandler = (payload: any) => {
+      console.log('[SSE] system-status event:', payload);
+      // Update systemStatus with new git information
+      if (systemStatus) {
+        systemStatus = {
+          ...systemStatus,
+          updates_available: payload.updates_available,
+          commits_behind: payload.commits_behind,
+          current_sha: payload.current_sha,
+          latest_sha: payload.latest_sha,
+        };
+      }
+    };
 
     sseClient.on('registry-update', registryHandler);
     sseClient.on('env-status', statusHandler);
@@ -492,6 +505,7 @@
     sseClient.on('update-progress', updateHandler);
     sseClient.on('update-started', updateStartedHandler);
     sseClient.on('device-auth', deviceAuthHandler);
+    sseClient.on('system-status', systemStatusHandler);
 
     return () => {
       sseClient.off('registry-update', registryHandler);
@@ -500,6 +514,7 @@
       sseClient.off('update-progress', updateHandler);
       sseClient.off('update-started', updateStartedHandler);
       sseClient.off('device-auth', deviceAuthHandler);
+      sseClient.off('system-status', systemStatusHandler);
       sseClient.disconnect();
     };
   }

@@ -855,41 +855,46 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         let deviceAuthInfo: { code: string; url: string } | null = null;
 
         if (displayStatus === 'starting' || displayStatus === 'running') {
-          // Check if we already know about device auth for this env
-          if (lastKnownDeviceAuth.has(envId)) {
-            requiresAuth = true;
-            deviceAuthInfo = lastKnownDeviceAuth.get(envId)!;
-          } else {
-            // Check logs for device auth requirement
-            try {
-              const logs = await getContainerLogs(docker, record.containerId, 100);
-              const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-              if (authMatch) {
-                const deviceAuth = { url: authMatch[1], code: authMatch[2] };
+          // Always check logs to get the current auth code (don't rely on cache)
+          try {
+            const logs = await getContainerLogs(docker, record.containerId, 100);
+            const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+            if (authMatch) {
+              const deviceAuth = { url: authMatch[1], code: authMatch[2] };
+              
+              // Only update cache and broadcast if the code changed
+              const cached = lastKnownDeviceAuth.get(envId);
+              if (!cached || cached.code !== deviceAuth.code) {
                 lastKnownDeviceAuth.set(envId, deviceAuth);
-                requiresAuth = true;
-                deviceAuthInfo = deviceAuth;
-                fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required');
+                fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required (new code)');
                 // Still broadcast device-auth for backward compatibility
                 sseChannel.broadcast('device-auth', {
                   env_id: envId,
                   url: deviceAuth.url,
                   code: deviceAuth.code,
                 });
-              } else {
-                // Check if auth completed (tunnel ready message appears after auth)
-                const tunnelReady = logs.includes('Open this link in your browser') || logs.includes('Visual Studio Code Server');
-                if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
-                  // Auth was required but is now complete
-                  lastKnownDeviceAuth.delete(envId);
-                  requiresAuth = false;
-                  deviceAuthInfo = null;
-                  fastify.log.info({ envId }, 'Device auth completed');
-                }
               }
-            } catch (error) {
-              fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
+              
+              requiresAuth = true;
+              deviceAuthInfo = deviceAuth;
+            } else {
+              // Check if auth completed (tunnel ready message appears after auth)
+              const tunnelReady = logs.includes('Open this link in your browser') || logs.includes('Visual Studio Code Server');
+              if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
+                // Auth was required but is now complete
+                lastKnownDeviceAuth.delete(envId);
+                requiresAuth = false;
+                deviceAuthInfo = null;
+                fastify.log.info({ envId }, 'Device auth completed');
+              }
             }
+          } catch (error) {
+            fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
+          }
+        } else {
+          // Container is not starting/running, clear any cached auth
+          if (lastKnownDeviceAuth.has(envId)) {
+            lastKnownDeviceAuth.delete(envId);
           }
         }
 
@@ -920,8 +925,51 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }
   }
 
+  // Track last known system status to detect changes
+  let lastSystemStatus: {
+    commits_behind?: number;
+    current_sha?: string;
+    latest_sha?: string;
+  } = {};
+
+  async function broadcastSystemStatus(): Promise<void> {
+    try {
+      const status = await getSystemStatus(docker);
+      
+      // Check if there are changes worth broadcasting
+      const hasChanges = 
+        lastSystemStatus.commits_behind !== status.commits_behind ||
+        lastSystemStatus.current_sha !== status.current_sha ||
+        lastSystemStatus.latest_sha !== status.latest_sha;
+
+      if (hasChanges) {
+        lastSystemStatus = {
+          commits_behind: status.commits_behind,
+          current_sha: status.current_sha,
+          latest_sha: status.latest_sha,
+        };
+        
+        sseChannel.broadcast('system-status', {
+          updates_available: status.updates_available,
+          commits_behind: status.commits_behind,
+          current_sha: status.current_sha,
+          latest_sha: status.latest_sha,
+        });
+        
+        fastify.log.info({ 
+          commits_behind: status.commits_behind,
+          current_sha: status.current_sha,
+          latest_sha: status.latest_sha,
+        }, 'System status changed - new commits detected');
+      }
+    } catch (error) {
+      fastify.log.debug({ error }, 'Failed to check system status');
+    }
+  }
+
   let statusInterval: NodeJS.Timeout | null = null;
   let heartbeatInterval: NodeJS.Timeout | null = null;
+  let systemStatusInterval: NodeJS.Timeout | null = null;
 
   console.log('[DIAGNOSTIC] enableBackgroundJobs =', enableBackgroundJobs);
   if (enableBackgroundJobs) {
@@ -932,14 +980,24 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }, 2000);
     statusInterval?.unref?.();
 
+    // Check for system updates (git commits) every 60 seconds
+    systemStatusInterval = setInterval(() => {
+      broadcastSystemStatus().catch((error) => fastify.log.debug({ error }, 'System status check error'));
+    }, 60000);
+    systemStatusInterval?.unref?.();
+
     heartbeatInterval = setInterval(() => sseChannel.heartbeat(), 45000);
     heartbeatInterval?.unref?.();
 
     fastify.addHook('onClose', async () => {
       if (statusInterval) clearInterval(statusInterval);
+      if (systemStatusInterval) clearInterval(systemStatusInterval);
       if (heartbeatInterval) clearInterval(heartbeatInterval);
     });
   }
+
+  // Initialize system status on startup
+  await broadcastSystemStatus();
 
   await broadcastStatusChanges();
 
