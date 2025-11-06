@@ -816,6 +816,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }
   });
 
+  const lastKnownDeviceAuth = new Map<string, { code: string; url: string }>();
+
   async function broadcastStatusChanges(): Promise<void> {
     const registry = await loadRegistry();
     for (const [envId, record] of Object.entries(registry)) {
@@ -839,6 +841,25 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             mode: record.mode,
             desktopCommand,
           });
+        }
+
+        // Check for device auth code if not already found
+        if ((displayStatus === 'starting' || displayStatus === 'running') && !lastKnownDeviceAuth.has(envId)) {
+          try {
+            const logs = await getContainerLogs(docker, record.containerId, 100);
+            const match = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+            if (match) {
+              const deviceAuth = { url: match[1], code: match[2] };
+              lastKnownDeviceAuth.set(envId, deviceAuth);
+              sseChannel.broadcast('device-auth', {
+                env_id: envId,
+                url: deviceAuth.url,
+                code: deviceAuth.code,
+              });
+            }
+          } catch (error) {
+            // Silently ignore log fetch errors
+          }
         }
       } catch (error) {
         fastify.log.debug({ envId, err: error }, 'Failed to monitor container');

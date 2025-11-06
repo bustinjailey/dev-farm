@@ -53,7 +53,6 @@
   let deviceFlow = $state<any>(null);
   let devicePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let updatePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
-  let deviceAuthPollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let repoBrowserOpen = $state(false);
   let pendingGitUrl = $state('');
   let imagesInfo = $state<any>(null);
@@ -149,48 +148,6 @@
       desktopCopyState = { ...desktopCopyState, [envId]: '' };
     }, 2500);
     desktopCopyTimers.set(envId, handle);
-  }
-
-  function startDeviceAuthPolling() {
-    if (deviceAuthPollTimer) return; // Already polling
-    deviceAuthPollTimer = setInterval(() => {
-      // Check device auth for starting or running environments without auth
-      const needsAuth = environments.filter(
-        e => (e.status === 'starting' || e.status === 'running') && !envDeviceAuth[e.id]
-      );
-      for (const env of needsAuth) {
-        loadDeviceAuth(env.id);
-      }
-      // Stop polling if no environments need auth
-      if (needsAuth.length === 0) {
-        stopDeviceAuthPolling();
-      }
-    }, 3000);
-  }
-
-  function stopDeviceAuthPolling() {
-    if (deviceAuthPollTimer) {
-      clearInterval(deviceAuthPollTimer);
-      deviceAuthPollTimer = null;
-    }
-  }
-
-  async function loadDeviceAuth(envId: string) {
-    try {
-      const result = await fetchEnvironmentLogs(envId);
-      const match = result.logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-      if (match) {
-        console.log('[Device Auth] Found for', envId, ':', match[2]);
-        envDeviceAuth = {
-          ...envDeviceAuth,
-          [envId]: { url: match[1], code: match[2] },
-        };
-      } else {
-        console.log('[Device Auth] Not found yet for', envId);
-      }
-    } catch (err) {
-      console.error('Failed to load device auth', err);
-    }
   }
 
   async function copyDeviceCode(envId: string) {
@@ -493,13 +450,7 @@
         ready: payload.status === 'running',
         desktopCommand: payload.desktopCommand,
       });
-      // Load device auth when starting or running (if not already loaded)
-      if (payload.status === 'starting' || payload.status === 'running') {
-        if (!envDeviceAuth[payload.env_id]) {
-          loadDeviceAuth(payload.env_id);
-          startDeviceAuthPolling();
-        }
-      }
+      // Device auth is now broadcast via separate SSE event (device-auth)
     };
     const aiHandler = (payload: any) => {
       const { env_id: envId, response } = payload;
@@ -516,12 +467,20 @@
       openUpdateModal();
       refreshUpdateStatus();
     };
+    const deviceAuthHandler = (payload: any) => {
+      console.log('[Device Auth] Received via SSE:', payload.env_id, payload.code);
+      envDeviceAuth = {
+        ...envDeviceAuth,
+        [payload.env_id]: { url: payload.url, code: payload.code },
+      };
+    };
 
     sseClient.on('registry-update', registryHandler);
     sseClient.on('env-status', statusHandler);
     sseClient.on('ai-response', aiHandler);
     sseClient.on('update-progress', updateHandler);
     sseClient.on('update-started', updateStartedHandler);
+    sseClient.on('device-auth', deviceAuthHandler);
 
     return () => {
       sseClient.off('registry-update', registryHandler);
@@ -529,6 +488,7 @@
       sseClient.off('ai-response', aiHandler);
       sseClient.off('update-progress', updateHandler);
       sseClient.off('update-started', updateStartedHandler);
+      sseClient.off('device-auth', deviceAuthHandler);
       sseClient.disconnect();
     };
   }
@@ -540,7 +500,6 @@
       clearInterval(updatePollTimer);
       updatePollTimer = null;
     }
-    stopDeviceAuthPolling();
     clearDevicePoll();
     for (const timer of desktopCopyTimers.values()) {
       clearTimeout(timer);
