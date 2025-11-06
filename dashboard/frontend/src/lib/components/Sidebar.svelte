@@ -50,8 +50,11 @@
     function checkMobile() {
       const wasMobile = isMobile;
       isMobile = window.innerWidth <= 1024;
-      // Only auto-collapse when transitioning from desktop to mobile
-      // or on initial mount (when wasMobile is false and isMobile becomes true)
+      // Auto-collapse sidebar when entering mobile mode:
+      // - On initial page load (wasMobile=false, isMobile=true)
+      // - When resizing from desktop to mobile (wasMobile=false, isMobile=true)
+      // Does NOT auto-collapse when already on mobile (wasMobile=true, isMobile=true),
+      // allowing users to manually toggle the sidebar without interference
       if (isMobile && !wasMobile && !collapsed) {
         collapsed = true;
       }
