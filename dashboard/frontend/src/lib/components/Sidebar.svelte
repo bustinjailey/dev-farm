@@ -48,8 +48,11 @@
     if (typeof window === 'undefined') return;
     
     function checkMobile() {
+      const wasMobile = isMobile;
       isMobile = window.innerWidth <= 1024;
-      if (isMobile && !collapsed) {
+      // Only auto-collapse when transitioning from desktop to mobile
+      // or on initial mount (when wasMobile is false and isMobile becomes true)
+      if (isMobile && !wasMobile && !collapsed) {
         collapsed = true;
       }
     }
