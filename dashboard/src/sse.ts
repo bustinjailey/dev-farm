@@ -8,8 +8,9 @@ interface SSEClient {
 
 export class SSEChannel {
   private clients = new Map<string, SSEClient>();
+  private replyToId = new WeakMap<FastifyReply, string>();
 
-  register(reply: FastifyReply): () => void {
+  register(reply: FastifyReply): string {
     reply.type('text/event-stream');
     reply.header('Cache-Control', 'no-cache');
     reply.header('Connection', 'keep-alive');
@@ -18,16 +19,19 @@ export class SSEChannel {
     const id = randomUUID();
     const client: SSEClient = { id, reply };
     this.clients.set(id, client);
-
-    reply.raw.on('close', () => {
-      this.clients.delete(id);
-    });
+    this.replyToId.set(reply, id);
 
     this.send(reply, 'connected', { type: 'connected' });
 
-    return () => {
+    return id;
+  }
+
+  unregister(reply: FastifyReply): void {
+    const id = this.replyToId.get(reply);
+    if (id) {
       this.clients.delete(id);
-    };
+      this.replyToId.delete(reply);
+    }
   }
 
   broadcast(event: string, data: unknown): void {
@@ -51,9 +55,18 @@ export class SSEChannel {
 export const sseChannel = new SSEChannel();
 
 export const sseHandler = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-  const unregister = sseChannel.register(reply);
-  request.raw.on('close', unregister);
-  request.raw.on('error', unregister);
-  // keep connection open
+  // Don't await - keep connection open indefinitely
+  return new Promise((resolve) => {
+    const unregister = () => {
+      sseChannel.unregister(reply);
+      resolve();
+    };
+    
+    sseChannel.register(reply);
+    
+    request.raw.on('close', unregister);
+    request.raw.on('error', unregister);
+    reply.raw.on('close', unregister);
+  });
 };
 
