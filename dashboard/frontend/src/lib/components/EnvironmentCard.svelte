@@ -69,7 +69,13 @@
 
   <div class="actions">
     {#if env.status === 'running'}
-      <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+      {#if deviceAuth}
+        <button class="btn primary" disabled title="Complete GitHub authentication first">
+          🔒 Open Tunnel (Auth Required)
+        </button>
+      {:else}
+        <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+      {/if}
       <button class="btn secondary" type="button" onclick={onCopyDesktopCommand}>
         🖥 Copy Desktop Command
       </button>
