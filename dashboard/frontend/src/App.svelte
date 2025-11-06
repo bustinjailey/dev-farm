@@ -53,6 +53,7 @@
   let deviceFlow = $state<any>(null);
   let devicePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let updatePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
+  let deviceAuthPollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let repoBrowserOpen = $state(false);
   let pendingGitUrl = $state('');
   let imagesInfo = $state<any>(null);
@@ -150,7 +151,31 @@
     desktopCopyTimers.set(envId, handle);
   }
 
-  async function loadDeviceAuth(envId: string, retryCount = 0) {
+  function startDeviceAuthPolling() {
+    if (deviceAuthPollTimer) return; // Already polling
+    deviceAuthPollTimer = setInterval(() => {
+      // Check device auth for all starting environments
+      const startingEnvs = environments.filter(e => e.status === 'starting');
+      for (const env of startingEnvs) {
+        if (!envDeviceAuth[env.id]) {
+          loadDeviceAuth(env.id);
+        }
+      }
+      // Stop polling if no starting environments
+      if (startingEnvs.length === 0) {
+        stopDeviceAuthPolling();
+      }
+    }, 3000);
+  }
+
+  function stopDeviceAuthPolling() {
+    if (deviceAuthPollTimer) {
+      clearInterval(deviceAuthPollTimer);
+      deviceAuthPollTimer = null;
+    }
+  }
+
+  async function loadDeviceAuth(envId: string) {
     try {
       const result = await fetchEnvironmentLogs(envId);
       const match = result.logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
@@ -161,14 +186,7 @@
           [envId]: { url: match[1], code: match[2] },
         };
       } else {
-        // Retry up to 3 times with 2s delay if not found (logs may not be ready yet)
-        if (retryCount < 3) {
-          console.log('[Device Auth] Not found yet for', envId, ', retrying in 2s...');
-          setTimeout(() => loadDeviceAuth(envId, retryCount + 1), 2000);
-        } else {
-          console.log('[Device Auth] Not found for', envId, 'after 3 retries');
-          envDeviceAuth = { ...envDeviceAuth, [envId]: null };
-        }
+        console.log('[Device Auth] Not found yet for', envId);
       }
     } catch (err) {
       console.error('Failed to load device auth', err);
@@ -231,6 +249,22 @@
       imagesInfo = await fetchImages();
     } catch (err) {
       console.error('Failed to load system status', err);
+    }
+  }
+
+  async function loadOrphans() {
+    try {
+      orphansInfo = await fetchOrphans();
+    } catch (err) {
+      console.error('Failed to load orphans', err);
+    }
+  }
+
+  async function loadImages() {
+    try {
+      imagesInfo = await fetchImages();
+    } catch (err) {
+      console.error('Failed to load images', err);
     }
   }
 
@@ -462,6 +496,10 @@
       // Load device auth when starting
       if (payload.status === 'starting') {
         loadDeviceAuth(payload.env_id);
+        startDeviceAuthPolling();
+      } else if (payload.status === 'running') {
+        // Stop polling when running
+        stopDeviceAuthPolling();
       }
     };
     const aiHandler = (payload: any) => {
@@ -503,6 +541,7 @@
       clearInterval(updatePollTimer);
       updatePollTimer = null;
     }
+    stopDeviceAuthPolling();
     clearDevicePoll();
     for (const timer of desktopCopyTimers.values()) {
       clearTimeout(timer);
