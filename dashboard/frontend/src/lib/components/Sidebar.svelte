@@ -40,27 +40,6 @@
   function toggleCollapsed() {
     collapsed = !collapsed;
   }
-
-  // Check if mobile on mount and handle resize
-  let isMobile = $state(false);
-  
-  $effect(() => {
-    if (typeof window === 'undefined') return;
-    
-    function checkMobile() {
-      isMobile = window.innerWidth <= 1024;
-      if (isMobile && !collapsed) {
-        collapsed = true;
-      }
-    }
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-    };
-  });
 </script>
 
 <aside class="sidebar" class:collapsed={collapsed}>
