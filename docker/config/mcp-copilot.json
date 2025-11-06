@@ -6,7 +6,7 @@
       "args": [
         "/home/coder/.local/bin/aggregate-mcp-server/dist/index.js",
         "--config",
-        "/home/coder/.local/bin/aggregate-mcp-server/aggregate.mcp.json"
+        "/home/coder/.local/bin/aggregate-mcp-server/server-config.json"
       ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",

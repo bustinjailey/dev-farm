@@ -490,12 +490,12 @@ else
                     if [ "$UPDATE_SUCCESS" = true ]; then
                         echo "✓ Aggregate MCP server updated successfully" | tee -a "$LOG_FILE"
                         
-                        # Substitute environment variables directly into aggregate.mcp.json
-                        echo "Configuring aggregate.mcp.json with environment variables..." | tee -a "$LOG_FILE"
-                        if [ -f "$MCP_INSTALL_DIR/aggregate.mcp.json" ]; then
-                            sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-                            sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-                            echo "✓ Configured aggregate.mcp.json with secrets" | tee -a "$LOG_FILE"
+                        # Substitute environment variables directly into server-config.json
+                        echo "Configuring server-config.json with environment variables..." | tee -a "$LOG_FILE"
+                        if [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
+                            sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+                            sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+                            echo "✓ Configured server-config.json with secrets" | tee -a "$LOG_FILE"
                         fi
                     else
                         echo "✗ Failed to build aggregate MCP server update" | tee -a "$LOG_FILE"
@@ -508,14 +508,14 @@ else
                 echo "✓ Aggregate MCP server already up to date" | tee -a "$LOG_FILE"
                 
                 # Still update config in case environment variables changed
-                echo "Updating aggregate.mcp.json with latest environment variables..." | tee -a "$LOG_FILE"
-                if [ -f "$MCP_INSTALL_DIR/aggregate.mcp.json" ]; then
+                echo "Updating server-config.json with latest environment variables..." | tee -a "$LOG_FILE"
+                if [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
                     # Reset to template version first
-                    git checkout aggregate.mcp.json 2>/dev/null || true
+                    git checkout server-config.json 2>/dev/null || true
                     # Substitute current environment variables
-                    sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-                    sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-                    echo "✓ Updated aggregate.mcp.json with current secrets" | tee -a "$LOG_FILE"
+                    sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+                    sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+                    echo "✓ Updated server-config.json with current secrets" | tee -a "$LOG_FILE"
                 fi
             fi
         else
@@ -558,14 +558,14 @@ else
             if [ "$INSTALL_SUCCESS" = true ]; then
                 echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
                 
-                # Substitute environment variables directly into aggregate.mcp.json
-                echo "Configuring aggregate.mcp.json with environment variables..." | tee -a "$LOG_FILE"
-                if [ -f "$MCP_INSTALL_DIR/aggregate.mcp.json" ]; then
-                    sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-                    sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-                    echo "✓ Configured aggregate.mcp.json with secrets" | tee -a "$LOG_FILE"
+                # Substitute environment variables directly into server-config.json
+                echo "Configuring server-config.json with environment variables..." | tee -a "$LOG_FILE"
+                if [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
+                    sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+                    sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+                    echo "✓ Configured server-config.json with secrets" | tee -a "$LOG_FILE"
                 else
-                    echo "⚠ aggregate.mcp.json not found in repository" | tee -a "$LOG_FILE"
+                    echo "⚠ server-config.json not found in repository" | tee -a "$LOG_FILE"
                 fi
             else
                 echo "✗ Failed to build aggregate MCP server" | tee -a "$LOG_FILE"
@@ -580,19 +580,19 @@ else
         fi
     fi
     
-    # Update aggregate.mcp.json if MCP server exists (for both install and update paths)
-    if [ -d "$MCP_INSTALL_DIR" ] && [ -f "$MCP_INSTALL_DIR/aggregate.mcp.json" ]; then
-        echo "Ensuring aggregate.mcp.json has latest environment variables..." | tee -a "$LOG_FILE"
+    # Update server-config.json if MCP server exists (for both install and update paths)
+    if [ -d "$MCP_INSTALL_DIR" ] && [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
+        echo "Ensuring server-config.json has latest environment variables..." | tee -a "$LOG_FILE"
         # Reset to template version first (in case env vars changed)
         if [ -f "$MCP_INSTALL_DIR/.git/config" ]; then
             cd "$MCP_INSTALL_DIR"
-            git checkout aggregate.mcp.json 2>/dev/null || true
+            git checkout server-config.json 2>/dev/null || true
             cd /home/coder
         fi
         # Substitute current environment variables
-        sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-        sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/aggregate.mcp.json"
-        echo "✓ Updated aggregate.mcp.json with current secrets" | tee -a "$LOG_FILE"
+        sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+        sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
+        echo "✓ Updated server-config.json with current secrets" | tee -a "$LOG_FILE"
     fi
 fi
 
@@ -1034,7 +1034,7 @@ fi
 
 echo "MCP configuration complete" | tee -a "$LOG_FILE"
 echo "Note: MCP servers are in isolated .vscode directory (symlinked to workspace)" | tee -a "$LOG_FILE"
-echo "Note: aggregate-mcp-server uses aggregate.mcp.json with substituted environment variables" | tee -a "$LOG_FILE"
+echo "Note: aggregate-mcp-server uses server-config.json with substituted environment variables" | tee -a "$LOG_FILE"
 
 # Create workspace-specific .gitignore based on mode
 # This prevents .vscode symlink and other dev-farm files from being committed
