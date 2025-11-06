@@ -10,7 +10,7 @@ import {
   pollGithubDeviceFlow,
   startGithubDeviceFlow,
   updateGithubConfig,
-} from '../../github';
+} from '../../github.js';
 
 export function registerGithubRoutes(fastify: FastifyInstance): void {
   fastify.get('/api/github/status', async (_request, reply) => {

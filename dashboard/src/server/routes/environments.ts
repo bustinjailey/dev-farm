@@ -2,8 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type Docker from 'dockerode';
 import { randomUUID } from 'crypto';
 
-import { execToString } from '../../container-exec';
-import { getContainerStats, isContainerHealthy } from '../../docker-utils';
+import { execToString } from '../../container-exec.js';
+import { getContainerStats, isContainerHealthy } from '../../docker-utils.js';
 import {
   buildDesktopCommand,
   buildTerminalUrl,
@@ -12,17 +12,17 @@ import {
   loadFarmConfig,
   loadGitHubToken,
   kebabify,
-} from '../../env-utils';
-import { getContainerLogs, getEnvironmentHierarchy } from '../../system';
+} from '../../env-utils.js';
+import { getContainerLogs, getEnvironmentHierarchy } from '../../system.js';
 import {
   getNextPort,
   loadRegistry,
   readEnvironment,
   removeEnvironment,
   upsertEnvironment,
-} from '../../registry';
-import { sseChannel } from '../../sse';
-import type { EnvironmentRecord, EnvironmentSummary } from '../../types';
+} from '../../registry.js';
+import { sseChannel } from '../../sse.js';
+import type { EnvironmentRecord, EnvironmentSummary } from '../../types.js';
 
 const adjectives = [
   'happy', 'sleepy', 'bouncy', 'clever', 'quirky', 'zesty', 'mighty', 'gentle',

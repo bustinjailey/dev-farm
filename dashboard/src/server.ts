@@ -5,13 +5,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-import { getDocker } from './docker';
-import { sseChannel, sseHandler } from './sse';
-import { getSystemStatus } from './system';
-import { registerTerminalProxy } from './server/terminalProxy';
-import { createEnvironmentFeature } from './server/routes/environments';
-import { registerGithubRoutes } from './server/routes/github';
-import { registerSystemRoutes } from './server/routes/system';
+// IMPORTANT: retain .js extensions for runtime ESM resolution in Node
+import { getDocker } from './docker.js';
+import { sseChannel, sseHandler } from './sse.js';
+import { getSystemStatus } from './system.js';
+import { registerTerminalProxy } from './server/terminalProxy.js';
+import { createEnvironmentFeature } from './server/routes/environments.js';
+import { registerGithubRoutes } from './server/routes/github.js';
+import { registerSystemRoutes } from './server/routes/system.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distClientRoot = path.join(__dirname, '..', 'client');

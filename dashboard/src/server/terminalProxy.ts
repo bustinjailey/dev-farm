@@ -3,7 +3,7 @@ import { createProxyServer } from 'http-proxy';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 
-import { readEnvironment } from '../registry';
+import { readEnvironment } from '../registry.js';
 
 function buildTerminalForwardUrl(envId: string, requestUrl?: string): string {
   if (!requestUrl) {

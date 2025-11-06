@@ -9,9 +9,9 @@ import {
   recoverRegistry,
   upgradeSystem,
   buildImage,
-} from '../../system';
-import { getUpdateStatus, startSystemUpdate } from '../../system-update';
-import { sseChannel } from '../../sse';
+} from '../../system.js';
+import { getUpdateStatus, startSystemUpdate } from '../../system-update.js';
+import { sseChannel } from '../../sse.js';
 
 export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): void {
   fastify.get('/api/system/status', async (_request, reply) => {
