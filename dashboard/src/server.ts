@@ -1,4 +1,7 @@
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest, type FastifyServerOptions } from 'fastify';
+import { createProxyServer } from 'http-proxy';
+import type { IncomingMessage, ServerResponse } from 'http';
+import type { Socket } from 'net';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
@@ -57,6 +60,7 @@ import {
 } from './registry.js';
 import {
   buildDesktopCommand,
+  buildTerminalUrl,
   buildTunnelUrl,
   getWorkspacePath,
   loadGitHubToken,
@@ -119,6 +123,38 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   const { enableBackgroundJobs = true, logger = true } = options;
   const fastify = Fastify({ logger });
 
+  const terminalProxy = createProxyServer({ ws: true, changeOrigin: true });
+
+  terminalProxy.on('error', (error: Error, _req: IncomingMessage, res: ServerResponse | Socket | undefined) => {
+    fastify.log.error({ err: error }, 'Terminal proxy error');
+
+    if (!res) {
+      return;
+    }
+
+    // HTTP response
+    if ('writeHead' in res && typeof res.writeHead === 'function') {
+      try {
+        if (!res.headersSent) {
+          res.writeHead(502, { 'content-type': 'text/plain' });
+        }
+        res.end('Unable to reach terminal environment');
+      } catch (proxyErr) {
+        fastify.log.error({ err: proxyErr }, 'Failed to finalize proxy error response');
+      }
+      return;
+    }
+
+    // WebSocket / socket fallback
+    if ('destroy' in res && typeof res.destroy === 'function') {
+      try {
+        res.destroy();
+      } catch (proxyErr) {
+        fastify.log.error({ err: proxyErr }, 'Failed to destroy proxy socket');
+      }
+    }
+  });
+
   await fastify.register(cors, { origin: true });
 
   // Only serve static files if client root exists (production mode)
@@ -136,6 +172,87 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   const aiSessions = new Map<string, { active: boolean; sessionId: string }>();
   const aiOutputCache = new Map<string, string>();
 
+  async function resolveTerminalProxyTarget(envId: string): Promise<string | null> {
+    const record = await readEnvironment(envId);
+    if (!record || record.mode !== 'terminal') {
+      return null;
+    }
+    return `http://devfarm-${envId}:8080`;
+  }
+
+  function buildTerminalForwardUrl(envId: string, requestUrl?: string): string {
+    if (!requestUrl) {
+      return '/';
+    }
+
+    try {
+      const parsed = new URL(requestUrl, 'http://localhost');
+      const prefix = `/terminal/${envId}`;
+      if (!parsed.pathname.startsWith(prefix)) {
+        return '/';
+      }
+
+      const remainder = parsed.pathname.slice(prefix.length) || '/';
+      const normalizedPath = remainder.startsWith('/') ? remainder : `/${remainder}`;
+      return `${normalizedPath}${parsed.search}`;
+    } catch {
+      return '/';
+    }
+  }
+
+  function extractTerminalInfo(requestUrl?: string): { envId: string; forwardUrl: string } | null {
+    if (!requestUrl) {
+      return null;
+    }
+
+    try {
+      const parsed = new URL(requestUrl, 'http://localhost');
+      const match = parsed.pathname.match(/^\/terminal\/([^/]+)(.*)$/);
+      if (!match) {
+        return null;
+      }
+
+      const envId = match[1];
+      const rest = match[2] ?? '';
+      const normalized = rest ? (rest.startsWith('/') ? rest : `/${rest}`) : '/';
+      return {
+        envId,
+        forwardUrl: `${normalized}${parsed.search}`,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function proxyTerminalHttp(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const { envId } = request.params as { envId: string };
+    const target = await resolveTerminalProxyTarget(envId);
+
+    if (!target) {
+      await reply.code(404).send({ error: 'Terminal environment is unavailable' });
+      return;
+    }
+
+    const forwardUrl = buildTerminalForwardUrl(envId, request.raw.url ?? '/');
+
+    reply.hijack();
+    request.raw.url = forwardUrl;
+
+    terminalProxy.web(request.raw, reply.raw, { target }, (err: Error) => {
+      if (err) {
+        fastify.log.error({ envId, err }, 'Terminal HTTP proxy failed');
+        try {
+          if (!reply.raw.headersSent) {
+            reply.raw.writeHead(502, { 'content-type': 'text/plain' });
+          }
+          reply.raw.end('Terminal proxy error');
+        } catch (proxyErr) {
+          fastify.log.error({ envId, err: proxyErr }, 'Failed to send terminal proxy error response');
+        }
+      }
+    });
+  }
+
   async function getEnvironmentSummaries(): Promise<EnvironmentSummary[]> {
     const registry = await loadRegistry();
     const summaries: EnvironmentSummary[] = [];
@@ -148,6 +265,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const ready = await isContainerHealthy(container);
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
         const workspacePath = getWorkspacePath(env.mode);
+        const summaryUrl = env.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
 
         // Check for device auth status
         const requiresAuth = lastKnownDeviceAuth.has(envId);
@@ -159,7 +277,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           port: env.port,
           status: displayStatus,
           ready,
-          url: buildTunnelUrl(envId, workspacePath),
+          url: summaryUrl,
           desktopCommand: buildDesktopCommand(envId, workspacePath),
           workspacePath,
           mode: env.mode,
@@ -177,6 +295,44 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   fastify.get('/api/environments', async () => {
     return getEnvironmentSummaries();
   });
+
+  fastify.all('/terminal/:envId', proxyTerminalHttp);
+  fastify.all('/terminal/:envId/*', proxyTerminalHttp);
+
+  const handleTerminalUpgrade = (req: any, socket: any, head: Buffer) => {
+    const info = extractTerminalInfo(req.url);
+    if (!info) {
+      return;
+    }
+
+    resolveTerminalProxyTarget(info.envId)
+      .then((target) => {
+        if (!target) {
+          try {
+            socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+          } catch {
+            /* ignore */
+          }
+          socket.destroy();
+          return;
+        }
+
+        req.url = info.forwardUrl;
+        terminalProxy.ws(req, socket, head, { target });
+      })
+      .catch((err) => {
+        fastify.log.error({ envId: info.envId, err }, 'Terminal WS proxy failed');
+        if (!socket.destroyed) {
+          try {
+            socket.destroy();
+          } catch (destroyErr) {
+            fastify.log.error({ envId: info.envId, err: destroyErr }, 'Failed to destroy socket after proxy failure');
+          }
+        }
+      });
+  };
+
+  fastify.server.on('upgrade', handleTerminalUpgrade);
 
   fastify.get('/api/github/status', async (_request, reply) => {
     const status = await getGithubStatus();
@@ -508,12 +664,14 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
     sseChannel.broadcast('registry-update', { timestamp: Date.now() });
 
+    const environmentUrl = mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
+
     return {
       success: true,
       env_id: envId,
       display_name: displayName,
       port,
-      url: buildTunnelUrl(envId, workspacePath),
+      url: environmentUrl,
       tunnel_name: envId,
       mode,
       workspacePath,
@@ -562,10 +720,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       await container.start();
       const workspacePath = getWorkspacePath(record.mode);
       const desktopCommand = buildDesktopCommand(envId, workspacePath);
+      const statusUrl = record.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
         status: 'starting',
-        url: buildTunnelUrl(envId, workspacePath),
+        url: statusUrl,
         workspacePath,
         mode: record.mode,
         desktopCommand,
@@ -587,10 +746,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       await container.stop();
       const workspacePath = getWorkspacePath(record.mode);
       const desktopCommand = buildDesktopCommand(envId, workspacePath);
+      const statusUrl = record.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
         status: 'exited',
-        url: buildTunnelUrl(envId, workspacePath),
+        url: statusUrl,
         workspacePath,
         mode: record.mode,
         desktopCommand,
@@ -612,10 +772,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       await container.restart();
       const workspacePath = getWorkspacePath(record.mode);
       const desktopCommand = buildDesktopCommand(envId, workspacePath);
+      const statusUrl = record.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
       sseChannel.broadcast('env-status', {
         env_id: envId,
         status: 'restarting',
-        url: buildTunnelUrl(envId, workspacePath),
+        url: statusUrl,
         workspacePath,
         mode: record.mode,
         desktopCommand,
@@ -910,11 +1071,12 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           lastKnownStatus.set(`${envId}:auth`, requiresAuth ? 'true' : 'false');
           const workspacePath = getWorkspacePath(record.mode);
           const desktopCommand = buildDesktopCommand(envId, workspacePath);
+          const statusUrl = record.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
           sseChannel.broadcast('env-status', {
             env_id: envId,
             status: displayStatus,
             port: record.port,
-            url: buildTunnelUrl(envId, workspacePath),
+            url: statusUrl,
             workspacePath,
             mode: record.mode,
             desktopCommand,
@@ -998,6 +1160,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       if (heartbeatInterval) clearInterval(heartbeatInterval);
     });
   }
+
+  fastify.addHook('onClose', async () => {
+    fastify.server.off('upgrade', handleTerminalUpgrade);
+    terminalProxy.close();
+  });
 
   // Initialize system status on startup
   await broadcastSystemStatus();

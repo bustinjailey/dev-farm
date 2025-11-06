@@ -193,6 +193,10 @@ export function buildProxyUrl(envId: string, workspacePath?: string): string {
   return `${EXTERNAL_URL}/env/${envId}${suffix}`;
 }
 
+export function buildTerminalUrl(envId: string): string {
+  return `${EXTERNAL_URL}/terminal/${envId}`;
+}
+
 export function buildDesktopCommand(envId: string, workspacePath?: string): string {
   const sanitized = (workspacePath ?? '').replace(/^\/+/, '');
   const folderSuffix = sanitized ? `/${sanitized}` : '';

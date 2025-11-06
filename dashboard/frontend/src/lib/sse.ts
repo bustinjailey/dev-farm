@@ -9,6 +9,15 @@ export class SSEClient {
   private handlers: Handlers = {};
   private registeredEvents: Set<string> = new Set();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private eventListeners: Map<string, (event: MessageEvent) => void> = new Map();
+  private readonly defaultMessageHandler = (event: MessageEvent) => {
+    try {
+      const payload = JSON.parse(event.data);
+      this.emit('message', payload);
+    } catch (error) {
+      console.error('Failed to parse default SSE message', error);
+    }
+  };
 
   constructor(private url: string) { }
 
@@ -24,17 +33,10 @@ export class SSEClient {
     };
 
     // Default 'message' event handler (fallback for events without explicit type)
-    this.source.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        this.emit('message', payload);
-      } catch (error) {
-        console.error('Failed to parse default SSE message', error);
-      }
-    };
+    this.source.onmessage = this.defaultMessageHandler;
 
     // Re-register all event listeners that were added before connection
-    this.registeredEvents.forEach(eventType => {
+    this.registeredEvents.forEach((eventType) => {
       this.registerEventListener(eventType);
     });
   }
@@ -44,8 +46,12 @@ export class SSEClient {
       this.handlers[event] = new Set();
       // Automatically register EventSource listener for this event type
       this.registeredEvents.add(event);
-      if (this.source && event !== 'message') {
-        this.registerEventListener(event);
+      if (this.source) {
+        if (event === 'message') {
+          this.source.onmessage = this.defaultMessageHandler;
+        } else {
+          this.registerEventListener(event);
+        }
       }
     }
     this.handlers[event].add(handler);
@@ -54,18 +60,46 @@ export class SSEClient {
   private registerEventListener(eventType: string) {
     if (!this.source || eventType === 'message') return;
 
-    this.source.addEventListener(eventType, (ev) => {
+    if (this.eventListeners.has(eventType)) {
+      return;
+    }
+
+    const listener = (ev: MessageEvent) => {
       try {
-        const payload = JSON.parse((ev as MessageEvent).data);
+        const payload = JSON.parse(ev.data);
         this.emit(eventType, payload);
       } catch (error) {
         console.error(`Failed to parse SSE payload for event '${eventType}'`, error);
       }
-    });
+    };
+
+    this.eventListeners.set(eventType, listener);
+    this.source.addEventListener(eventType, listener);
+  }
+
+  private removeEventListener(eventType: string) {
+    if (!this.source || eventType === 'message') return;
+
+    const listener = this.eventListeners.get(eventType);
+    if (listener) {
+      this.source.removeEventListener(eventType, listener);
+      this.eventListeners.delete(eventType);
+    }
   }
 
   off(event: string, handler: EventHandler) {
-    this.handlers[event]?.delete(handler);
+    const handlers = this.handlers[event];
+    handlers?.delete(handler);
+
+    if (!handlers || handlers.size === 0) {
+      if (event === 'message' && this.source) {
+        this.source.onmessage = null;
+      } else {
+        this.removeEventListener(event);
+      }
+      delete this.handlers[event];
+      this.registeredEvents.delete(event);
+    }
   }
 
   private emit(event: string, data: any) {
@@ -93,6 +127,7 @@ export class SSEClient {
       this.source.close();
       this.source = null;
     }
+    this.eventListeners.clear();
   }
 }
 

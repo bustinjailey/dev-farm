@@ -69,11 +69,25 @@
   let logsModalOpen = $state(false);
   let envDeviceAuth = $state<Record<string, { code: string; url: string } | null>>({});
 
+  function reconcileDeviceAuth(list: EnvironmentSummary[]) {
+    const next: Record<string, { code: string; url: string } | null> = {};
+    for (const env of list) {
+      if (env.deviceAuth) {
+        next[env.id] = env.deviceAuth;
+      } else if (env.requiresAuth && envDeviceAuth[env.id]) {
+        next[env.id] = envDeviceAuth[env.id];
+      }
+    }
+    envDeviceAuth = next;
+  }
+
   async function loadEnvironments() {
     loading = true;
     error = null;
     try {
-      environments = await listEnvironments();
+      const list = await listEnvironments();
+      environments = list;
+      reconcileDeviceAuth(list);
     } catch (err) {
       error = (err as Error).message;
     } finally {
@@ -83,19 +97,14 @@
 
   function updateEnvironmentStatus(update: Partial<EnvironmentSummary> & { id: string }) {
     const index = environments.findIndex((env) => env.id === update.id);
-    console.log('[UPDATE] Updating env status:', update, 'found at index:', index);
     if (index === -1) {
-      // fetch full list if unknown env
-      console.log('[UPDATE] Environment not found, reloading full list');
       loadEnvironments();
       return;
     }
     // Create new array to ensure Svelte detects the change
-    const oldStatus = environments[index].status;
-    environments = environments.map((env, idx) => 
+    environments = environments.map((env, idx) =>
       idx === index ? { ...env, ...update } : env
     );
-    console.log('[UPDATE] Status changed from', oldStatus, 'to', environments[index].status);
   }
 
   async function handleCreate(payload: CreateEnvironmentPayload) {
@@ -132,9 +141,11 @@
   }
 
   function toggleAi(id: string) {
-    aiOpen = { ...aiOpen, [id]: !aiOpen[id] };
-    if (!aiOpen[id]) {
-      delete aiSseMessages[id];
+    const nextOpen = !aiOpen[id];
+    aiOpen = { ...aiOpen, [id]: nextOpen };
+    if (!nextOpen) {
+      const { [id]: _ignored, ...rest } = aiSseMessages;
+      aiSseMessages = rest;
     }
   }
 
@@ -427,119 +438,135 @@
   }
 
   async function setupRealtimeStreams() {
-    console.log('[App] setupRealtimeStreams start');
-    loadEnvironments();
-    loadSystemStatus();
-    loadGithubInfo();
-    
-    // Check if update is in progress AND if UI refresh is pending
-    const status = await refreshUpdateStatus();
-    if (status?.cacheBustPending) {
-      console.log('[App] Cache bust pending - reloading UI in 1s');
-      setTimeout(() => window.location.reload(), 1000);
-      return; // Skip setting up other handlers since we're reloading
-    }
-    
-    sseClient.connect();
+    try {
+      await Promise.all([loadEnvironments(), loadSystemStatus(), loadGithubInfo()]);
 
-    const registryHandler = () => {
-      // Refresh all dashboard data when registry changes (create/delete/recover)
-      loadEnvironments();
-      loadSystemStatus();
-      loadOrphans();
-      loadImages();
-    };
-    const statusHandler = (payload: any) => {
-      console.log('[SSE] env-status event:', payload);
-      updateEnvironmentStatus({
-        id: payload.env_id,
-        status: payload.status,
-        url: payload.url,
-        mode: payload.mode,
-        workspacePath: payload.workspacePath,
-        ready: payload.status === 'running',
-        desktopCommand: payload.desktopCommand,
-        requiresAuth: payload.requiresAuth,
-        deviceAuth: payload.deviceAuth,
-      });
-      // Also update envDeviceAuth for backward compatibility
-      if (payload.deviceAuth) {
+      const status = await refreshUpdateStatus();
+      if (status?.cacheBustPending) {
+        setTimeout(() => window.location.reload(), 1000);
+        return;
+      }
+
+      sseClient.connect();
+
+      const registryHandler = () => {
+        loadEnvironments();
+        loadSystemStatus();
+        loadOrphans();
+        loadImages();
+      };
+
+      const statusHandler = (payload: any) => {
+        updateEnvironmentStatus({
+          id: payload.env_id,
+          status: payload.status,
+          url: payload.url,
+          mode: payload.mode,
+          workspacePath: payload.workspacePath,
+          ready: payload.status === 'running',
+          desktopCommand: payload.desktopCommand,
+          requiresAuth: payload.requiresAuth,
+          deviceAuth: payload.deviceAuth,
+        });
+
+        if (payload.deviceAuth) {
+          envDeviceAuth = {
+            ...envDeviceAuth,
+            [payload.env_id]: payload.deviceAuth,
+          };
+        } else if (envDeviceAuth[payload.env_id]) {
+          const { [payload.env_id]: _ignored, ...rest } = envDeviceAuth;
+          envDeviceAuth = rest;
+        }
+      };
+
+      const aiHandler = (payload: any) => {
+        const { env_id: envId, response } = payload;
+        aiSseMessages = {
+          ...aiSseMessages,
+          [envId]: `${aiSseMessages[envId] ?? ''}\n\n${response}`.trim(),
+        };
+      };
+
+      const updateHandler = () => {
+        openUpdateModal();
+        refreshUpdateStatus();
+      };
+
+      const deviceAuthHandler = (payload: any) => {
         envDeviceAuth = {
           ...envDeviceAuth,
-          [payload.env_id]: payload.deviceAuth,
+          [payload.env_id]: { url: payload.url, code: payload.code },
         };
-      } else if (envDeviceAuth[payload.env_id]) {
-        // Clear device auth when it's no longer required
-        const { [payload.env_id]: _, ...rest } = envDeviceAuth;
-        envDeviceAuth = rest;
-      }
-    };
-    const aiHandler = (payload: any) => {
-      const { env_id: envId, response } = payload;
-      aiSseMessages = {
-        ...aiSseMessages,
-        [envId]: `${aiSseMessages[envId] ?? ''}\n\n${response}`.trim(),
       };
-    };
-    const updateHandler = () => {
-      openUpdateModal();
-      refreshUpdateStatus();
-    };
-    const updateStartedHandler = () => {
-      openUpdateModal();
-      refreshUpdateStatus();
-    };
-    const deviceAuthHandler = (payload: any) => {
-      console.log('[Device Auth] Received via SSE:', payload.env_id, payload.code);
-      envDeviceAuth = {
-        ...envDeviceAuth,
-        [payload.env_id]: { url: payload.url, code: payload.code },
+
+      const systemStatusHandler = (payload: any) => {
+        systemStatus = systemStatus
+          ? {
+              ...systemStatus,
+              updates_available: payload.updates_available,
+              commits_behind: payload.commits_behind,
+              current_sha: payload.current_sha,
+              latest_sha: payload.latest_sha,
+            }
+          : payload;
       };
-    };
-    const systemStatusHandler = (payload: any) => {
-      console.log('[SSE] system-status event:', payload);
-      // Update systemStatus with new git information
-      if (systemStatus) {
-        systemStatus = {
-          ...systemStatus,
-          updates_available: payload.updates_available,
-          commits_behind: payload.commits_behind,
-          current_sha: payload.current_sha,
-          latest_sha: payload.latest_sha,
-        };
-      }
-    };
-    const cacheBustHandler = (payload: any) => {
-      console.log('[SSE] cache-bust event:', payload);
-      // Reload page to get new frontend assets
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    };
 
-    sseClient.on('registry-update', registryHandler);
-    sseClient.on('env-status', statusHandler);
-    sseClient.on('ai-response', aiHandler);
-    sseClient.on('update-progress', updateHandler);
-    sseClient.on('update-started', updateStartedHandler);
-    sseClient.on('device-auth', deviceAuthHandler);
-    sseClient.on('system-status', systemStatusHandler);
-    sseClient.on('cache-bust', cacheBustHandler);
+      const cacheBustHandler = () => {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      };
 
-    return () => {
-      sseClient.off('registry-update', registryHandler);
-      sseClient.off('env-status', statusHandler);
-      sseClient.off('ai-response', aiHandler);
-      sseClient.off('update-progress', updateHandler);
-      sseClient.off('update-started', updateStartedHandler);
-      sseClient.off('device-auth', deviceAuthHandler);
-      sseClient.off('system-status', systemStatusHandler);
-      sseClient.off('cache-bust', cacheBustHandler);
-      sseClient.disconnect();
-    };
+      sseClient.on('registry-update', registryHandler);
+      sseClient.on('env-status', statusHandler);
+      sseClient.on('ai-response', aiHandler);
+      sseClient.on('update-progress', updateHandler);
+      sseClient.on('update-started', updateHandler);
+      sseClient.on('device-auth', deviceAuthHandler);
+      sseClient.on('system-status', systemStatusHandler);
+      sseClient.on('cache-bust', cacheBustHandler);
+
+      return () => {
+        sseClient.off('registry-update', registryHandler);
+        sseClient.off('env-status', statusHandler);
+        sseClient.off('ai-response', aiHandler);
+        sseClient.off('update-progress', updateHandler);
+        sseClient.off('update-started', updateHandler);
+        sseClient.off('device-auth', deviceAuthHandler);
+        sseClient.off('system-status', systemStatusHandler);
+        sseClient.off('cache-bust', cacheBustHandler);
+        sseClient.disconnect();
+      };
+    } catch (err) {
+      console.error('Failed to initialize realtime streams', err);
+      return;
+    }
   }
 
-  onMount(setupRealtimeStreams);
+  onMount(() => {
+    let cleanup: (() => void) | void;
+    let disposed = false;
+
+    (async () => {
+      const result = await setupRealtimeStreams();
+      if (disposed && typeof result === 'function') {
+        result();
+        return;
+      }
+      cleanup = result;
+    })().catch((err) => {
+      console.error('Realtime initialization failed', err);
+    });
+
+    return () => {
+      disposed = true;
+      if (typeof cleanup === 'function') {
+        cleanup();
+        cleanup = undefined;
+      }
+    };
+  });
 
   onDestroy(() => {
     if (updatePollTimer) {
@@ -554,10 +581,6 @@
     if (systemActionResetTimer) {
       clearTimeout(systemActionResetTimer);
       systemActionResetTimer = null;
-    }
-    if (logsStreamInterval) {
-      clearInterval(logsStreamInterval);
-      logsStreamInterval = null;
     }
   });
 </script>
@@ -606,7 +629,7 @@
           env={env}
           actionBusy={actionBusy[env.id] || false}
           desktopCopyState={desktopCopyState[env.id] || ''}
-          deviceAuth={envDeviceAuth[env.id] || null}
+          deviceAuth={envDeviceAuth[env.id] ?? env.deviceAuth ?? null}
           monitorOpen={monitorOpen[env.id] || false}
           aiOpen={aiOpen[env.id] || false}
           onStart={() => perform(env.id, 'start')}

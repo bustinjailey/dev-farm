@@ -7,20 +7,26 @@
   let output = $state('');
   let loading = $state(false);
   let error = $state<string | null>(null);
+  const EMPTY_SSE = Symbol('empty-sse');
+  let lastSseToken: string | symbol | null = null;
 
   $effect(() => {
-    if (open && latestSse) {
-      output = `${output}\n\n${latestSse}`.trim();
+    if (!open) {
+      lastSseToken = null;
+      return;
     }
-  });
 
-  $effect(() => {
-    if (open) {
-      refreshOutput();
+    const token: string | symbol = latestSse ?? EMPTY_SSE;
+    if (token === lastSseToken) {
+      return;
     }
+
+    lastSseToken = token;
+    refreshOutput();
   });
 
   async function refreshOutput() {
+    error = null;
     try {
       const res = await fetchAiOutput(envId);
       if (res.output) {
