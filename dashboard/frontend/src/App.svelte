@@ -251,11 +251,15 @@
 
   function closeUpdateModal() {
     showUpdateModal = false;
-    updateStatus = null;
-    if (updatePollTimer) {
-      clearInterval(updatePollTimer);
-      updatePollTimer = null;
+    // Don't clear updateStatus - keep polling if update is still running
+    if (!updateStatus?.running) {
+      updateStatus = null;
+      if (updatePollTimer) {
+        clearInterval(updatePollTimer);
+        updatePollTimer = null;
+      }
     }
+    // If update is still running, keep polling in background
   }
 
   function openUpdateModal() {
@@ -272,6 +276,11 @@
       updateStatus = await fetchUpdateStatus();
       if (updateStatus && !updateStatus.running) {
         loadSystemStatus();
+        // Update completed - stop polling
+        if (updatePollTimer) {
+          clearInterval(updatePollTimer);
+          updatePollTimer = null;
+        }
       }
     } catch (err) {
       console.error('Failed to fetch update status', err);
