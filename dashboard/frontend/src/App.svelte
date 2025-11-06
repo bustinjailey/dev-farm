@@ -563,12 +563,14 @@
           env={env}
           actionBusy={actionBusy[env.id] || false}
           desktopCopyState={desktopCopyState[env.id] || ''}
+          deviceAuth={envDeviceAuth[env.id] || null}
           monitorOpen={monitorOpen[env.id] || false}
           aiOpen={aiOpen[env.id] || false}
           onStart={() => perform(env.id, 'start')}
           onStop={() => perform(env.id, 'stop')}
           onDelete={() => perform(env.id, 'delete')}
           onCopyDesktopCommand={() => copyDesktopCommand(env)}
+          onCopyDeviceCode={() => copyDeviceCode(env.id)}
           onToggleMonitor={() => toggleMonitor(env.id)}
           onToggleAi={() => toggleAi(env.id)}
           onOpenLogs={() => openLogs(env.id)}

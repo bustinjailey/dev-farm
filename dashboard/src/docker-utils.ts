@@ -25,7 +25,7 @@ export async function getContainerStats(container: Docker.Container): Promise<Co
 export async function isContainerHealthy(container: Docker.Container): Promise<boolean> {
   try {
     const details = await container.inspect();
-    
+
     // If container has health check, use it
     const health = details.State?.Health?.Status;
     if (health === 'healthy') {
@@ -34,7 +34,7 @@ export async function isContainerHealthy(container: Docker.Container): Promise<b
     if (health === 'unhealthy' || health === 'starting') {
       return false;
     }
-    
+
     // For containers without health checks, verify tunnel process is running
     if (details.State?.Status === 'running') {
       try {
@@ -59,7 +59,7 @@ export async function isContainerHealthy(container: Docker.Container): Promise<b
         return false;
       }
     }
-    
+
     return false;
   } catch (error) {
     return false;

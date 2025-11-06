@@ -59,16 +59,16 @@ export const sseChannel = new SSEChannel();
 export const sseHandler = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
   // Prevent Fastify from automatically sending the response
   reply.hijack();
-  
+
   return new Promise((resolve) => {
     const unregister = () => {
       sseChannel.unregister(reply);
       reply.raw.end();
       resolve();
     };
-    
+
     sseChannel.register(reply);
-    
+
     request.raw.on('close', unregister);
     request.raw.on('error', unregister);
     reply.raw.on('close', unregister);
