@@ -6,14 +6,14 @@
   interface Props {
     envId: string;
     open: boolean;
+    deviceAuth: { code: string; url: string } | null;
     onClose: () => void;
   }
 
-  let { envId, open, onClose }: Props = $props();
+  let { envId, open, deviceAuth, onClose }: Props = $props();
   let logs = $state('');
   let loading = $state(false);
   let autoRefreshInterval = $state<ReturnType<typeof setInterval> | null>(null);
-  let deviceAuth = $state<{ code: string; url: string } | null>(null);
   let logsContainer: HTMLPreElement | undefined = $state();
   let copyLogsState = $state<'copied' | 'failed' | ''>('');
   let copyLogsTimer = $state<ReturnType<typeof setTimeout> | null>(null);
@@ -24,7 +24,6 @@
     try {
       const result = await fetchEnvironmentLogs(envId);
       logs = result.logs;
-      parseDeviceAuth(result.logs);
       scrollToBottom();
     } catch (err) {
       console.error('Failed to load logs', err);
@@ -36,14 +35,6 @@
   function scrollToBottom() {
     if (logsContainer) {
       logsContainer.scrollTop = logsContainer.scrollHeight;
-    }
-  }
-
-  function parseDeviceAuth(logText: string) {
-    // Parse: "log into https://github.com/login/device and use code 27E8-8D59"
-    const match = logText.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-    if (match) {
-      deviceAuth = { url: match[1], code: match[2] };
     }
   }
 

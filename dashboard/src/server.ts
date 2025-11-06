@@ -822,7 +822,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   });
 
   const lastKnownDeviceAuth = new Map<string, { code: string; url: string }>();
-  
+
   // VS Code tunnel log patterns for device auth detection
   const TUNNEL_READY_PATTERNS = ['Open this link in your browser', 'Visual Studio Code Server'] as const;
 
@@ -844,18 +844,18 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           // Always check logs to get the current auth code (don't rely on cache)
           try {
             const logs = await getContainerLogs(docker, record.containerId, 100);
-            
+
             // Check for device auth requirement FIRST
             // The pattern "log into https://... and use code XYZ" appears when auth is needed
             const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-            
+
             if (authMatch) {
               const deviceAuth = { url: authMatch[1], code: authMatch[2] };
-              
+
               // Check if tunnel is ready (authentication complete)
               // Look for "Open this link in your browser" which appears AFTER successful auth
               const tunnelReady = logs.includes('Open this link in your browser');
-              
+
               if (tunnelReady) {
                 // Tunnel is ready, auth was required but is now complete
                 if (lastKnownDeviceAuth.has(envId)) {

@@ -735,7 +735,12 @@
 
   </div>
 
-  <LogsModal envId={logsModalEnvId} open={logsModalOpen} onClose={closeLogs} />
+  <LogsModal
+    envId={logsModalEnvId}
+    open={logsModalOpen}
+    deviceAuth={envDeviceAuth[logsModalEnvId] || null}
+    onClose={closeLogs}
+  />
 </main>
 
 <style>
