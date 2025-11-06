@@ -26,7 +26,7 @@ export class SSEClient {
       this.emit('message', JSON.parse(event.data));
     };
 
-    const known = ['registry-update', 'env-status', 'update-progress', 'update-started', 'ai-response'];
+    const known = ['registry-update', 'env-status', 'update-progress', 'update-started', 'ai-response', 'device-auth'];
     for (const event of known) {
       this.source.addEventListener(event, (ev) => {
         try {

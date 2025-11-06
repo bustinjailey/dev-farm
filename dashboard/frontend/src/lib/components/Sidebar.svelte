@@ -75,8 +75,8 @@
       <div class="status-card">
         <header>
           <h3>System Version</h3>
-          <span class="badge {systemStatus?.updates_available ? 'warn' : 'success'}">
-            {systemStatus?.updates_available ? `${systemStatus.commits_behind} behind` : 'Up to date'}
+          <span class="badge {updateInProgress ? 'warn' : systemStatus?.updates_available ? 'warn' : 'success'}">
+            {updateInProgress ? 'Updating...' : systemStatus?.updates_available ? `${systemStatus.commits_behind} behind` : 'Up to date'}
           </span>
         </header>
         <p>Current: {systemStatus?.current_sha || 'N/A'}</p>
