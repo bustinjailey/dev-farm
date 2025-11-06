@@ -873,10 +873,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   let statusInterval: NodeJS.Timeout | null = null;
   let heartbeatInterval: NodeJS.Timeout | null = null;
 
-  fastify.log.info({ enableBackgroundJobs }, 'Background jobs setting');
+  console.log('[DIAGNOSTIC] enableBackgroundJobs =', enableBackgroundJobs);
   if (enableBackgroundJobs) {
-    fastify.log.info('Starting background monitoring threads (status + device auth detection)');
+    console.log('[DIAGNOSTIC] Setting up background monitoring intervals');
     statusInterval = setInterval(() => {
+      console.log('[DIAGNOSTIC] broadcastStatusChanges tick');
       broadcastStatusChanges().catch((error) => fastify.log.debug({ error }, 'Status monitor error'));
     }, 2000);
     statusInterval?.unref?.();
