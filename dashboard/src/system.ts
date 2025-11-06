@@ -143,7 +143,11 @@ export async function recoverRegistry(docker: Docker): Promise<{ restored: numbe
 
 function stripAnsiCodes(text: string): string {
   // Remove ANSI escape codes (colors, formatting, cursor movement, etc.)
-  return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+  let cleaned = text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+  // Remove Docker log stream prefixes (8 bytes: 1 byte stream type + 3 bytes padding + 4 bytes size)
+  // These appear as random characters at line starts
+  cleaned = cleaned.replace(/^[\x00-\x08].{7}/gm, '');
+  return cleaned;
 }
 
 export async function getContainerLogs(docker: Docker, name: string, lines = 200): Promise<string> {

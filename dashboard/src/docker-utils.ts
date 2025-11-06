@@ -25,6 +25,8 @@ export async function getContainerStats(container: Docker.Container): Promise<Co
 export async function isContainerHealthy(container: Docker.Container): Promise<boolean> {
   try {
     const details = await container.inspect();
+    
+    // If container has health check, use it
     const health = details.State?.Health?.Status;
     if (health === 'healthy') {
       return true;
@@ -32,7 +34,33 @@ export async function isContainerHealthy(container: Docker.Container): Promise<b
     if (health === 'unhealthy' || health === 'starting') {
       return false;
     }
-    return details.State?.Status === 'running';
+    
+    // For containers without health checks, verify tunnel process is running
+    if (details.State?.Status === 'running') {
+      try {
+        // Check if VS Code tunnel process is running
+        const exec = await container.exec({
+          Cmd: ['pgrep', '-f', 'code-insiders tunnel'],
+          AttachStdout: true,
+          AttachStderr: true,
+        });
+        const stream = await exec.start({ hijack: false });
+        const output = await new Promise<string>((resolve, reject) => {
+          const chunks: Buffer[] = [];
+          const readable = stream as unknown as NodeJS.ReadableStream;
+          readable.on('data', (chunk: Buffer) => chunks.push(chunk));
+          readable.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+          readable.on('error', reject);
+        });
+        // If pgrep finds the process, it returns the PID (non-empty output)
+        return output.trim().length > 0;
+      } catch {
+        // If exec fails, assume still starting
+        return false;
+      }
+    }
+    
+    return false;
   } catch (error) {
     return false;
   }

@@ -154,17 +154,25 @@
     desktopCopyTimers.set(envId, handle);
   }
 
-  async function loadDeviceAuth(envId: string) {
+  async function loadDeviceAuth(envId: string, retryCount = 0) {
     try {
       const result = await fetchEnvironmentLogs(envId);
       const match = result.logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
       if (match) {
+        console.log('[Device Auth] Found for', envId, ':', match[2]);
         envDeviceAuth = {
           ...envDeviceAuth,
           [envId]: { url: match[1], code: match[2] },
         };
       } else {
-        envDeviceAuth = { ...envDeviceAuth, [envId]: null };
+        // Retry up to 3 times with 2s delay if not found (logs may not be ready yet)
+        if (retryCount < 3) {
+          console.log('[Device Auth] Not found yet for', envId, ', retrying in 2s...');
+          setTimeout(() => loadDeviceAuth(envId, retryCount + 1), 2000);
+        } else {
+          console.log('[Device Auth] Not found for', envId, 'after 3 retries');
+          envDeviceAuth = { ...envDeviceAuth, [envId]: null };
+        }
       }
     } catch (err) {
       console.error('Failed to load device auth', err);
