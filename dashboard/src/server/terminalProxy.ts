@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createProxyServer } from 'http-proxy';
+import httpProxy from 'http-proxy';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 
@@ -58,7 +58,7 @@ async function resolveTerminalProxyTarget(envId: string): Promise<string | null>
 }
 
 export function registerTerminalProxy(fastify: FastifyInstance): void {
-  const terminalProxy = createProxyServer({ ws: true, changeOrigin: true });
+  const terminalProxy = httpProxy.createProxyServer({ ws: true, changeOrigin: true });
 
   terminalProxy.on('error', (error: Error, _req: IncomingMessage, res: ServerResponse | Socket | undefined) => {
     fastify.log.error({ err: error }, 'Terminal proxy error');
