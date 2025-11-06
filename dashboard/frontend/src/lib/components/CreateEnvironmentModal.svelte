@@ -18,6 +18,19 @@
   let sshPath = $state('/home');
   let nameError = $state('');
 
+  // Reset form when modal opens
+  $effect(() => {
+    if (open) {
+      name = '';
+      mode = 'workspace';
+      sshHost = '';
+      sshUser = 'root';
+      sshPassword = '';
+      sshPath = '/home';
+      nameError = '';
+    }
+  });
+
   $effect(() => {
     if (name.length > 20) {
       nameError = 'Name cannot exceed 20 characters (VS Code tunnel limitation)';

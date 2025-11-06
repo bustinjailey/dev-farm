@@ -894,8 +894,12 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         }
 
         const previous = lastKnownStatus.get(envId);
-        if (previous !== displayStatus) {
+        const previousAuthRequired = lastKnownStatus.get(`${envId}:auth`) === 'true';
+        const authStateChanged = previousAuthRequired !== requiresAuth;
+
+        if (previous !== displayStatus || authStateChanged) {
           lastKnownStatus.set(envId, displayStatus);
+          lastKnownStatus.set(`${envId}:auth`, requiresAuth ? 'true' : 'false');
           const workspacePath = getWorkspacePath(record.mode);
           const desktopCommand = buildDesktopCommand(envId, workspacePath);
           sseChannel.broadcast('env-status', {

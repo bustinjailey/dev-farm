@@ -40,6 +40,17 @@
   function toggleCollapsed() {
     collapsed = !collapsed;
   }
+
+  // Check if mobile on mount
+  let isMobile = $state(false);
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      isMobile = window.innerWidth <= 1024;
+      if (isMobile && !collapsed) {
+        collapsed = true;
+      }
+    }
+  });
 </script>
 
 <aside class="sidebar" class:collapsed>
@@ -82,7 +93,7 @@
         <p>Current: {systemStatus?.current_sha || 'N/A'}</p>
         <p>Latest: {systemStatus?.latest_sha || 'N/A'}</p>
         <div class="card-actions">
-          <button onclick={onStartUpdate} disabled={updateInProgress}>
+          <button onclick={onStartUpdate} disabled={updateInProgress || !systemStatus?.updates_available}>
             {updateInProgress ? 'Update Running...' : 'Start Update'}
           </button>
         </div>
@@ -135,6 +146,10 @@
   .sidebar.collapsed {
     width: 60px;
     min-width: 60px;
+    background: transparent;
+    backdrop-filter: none;
+    border-right: none;
+    box-shadow: none;
   }
 
   .sidebar-inner {

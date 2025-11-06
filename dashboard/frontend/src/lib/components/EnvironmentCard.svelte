@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { EnvironmentSummary } from '@shared/types';
+  import type { Snippet } from 'svelte';
 
   interface Props {
     env: EnvironmentSummary;
@@ -16,6 +17,7 @@
     onCopyDeviceCode: () => void;
     monitorOpen: boolean;
     aiOpen: boolean;
+    children?: Snippet;
   }
 
   let {
@@ -33,6 +35,7 @@
     onCopyDeviceCode,
     monitorOpen,
     aiOpen,
+    children,
   }: Props = $props();
 </script>
 
@@ -68,46 +71,73 @@
   </dl>
 
   <div class="actions">
-    {#if env.status === 'running'}
-      {#if env.requiresAuth || deviceAuth}
-        <button class="btn primary" disabled title="Complete GitHub authentication first">
-          🔒 Open Tunnel (Auth Required)
+    {#if env.mode === 'terminal'}
+      <!-- Terminal mode: show start/stop and delete only -->
+      {#if env.status === 'running'}
+        <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Terminal</a>
+        <button class="btn" disabled={actionBusy} onclick={onStop}>
+          ⏸ Stop
         </button>
+      {:else if env.status === 'starting'}
+        <button class="btn" disabled>Starting…</button>
       {:else}
-        <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+        <button class="btn primary" disabled={actionBusy} onclick={onStart}>
+          ▶️ Start
+        </button>
       {/if}
-      <button class="btn secondary" type="button" onclick={onCopyDesktopCommand}>
-        🖥 Copy Desktop Command
+      <button class="btn" disabled={actionBusy} onclick={onOpenLogs}>
+        📝 Logs
       </button>
-      {#if desktopCopyState}
-        <span class="copy-status {desktopCopyState}">
-          {desktopCopyState === 'copied' ? '✓ Copied!' : '⚠ Failed'}
-        </span>
-      {/if}
-      <button class="btn" disabled={actionBusy} onclick={onStop}>
-        ⏸ Stop
+      <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
+        🗑 Delete
       </button>
-    {:else if env.status === 'starting'}
-      <button class="btn" disabled>Starting…</button>
     {:else}
-      <button class="btn primary" disabled={actionBusy} onclick={onStart}>
-        ▶️ Start
+      <!-- Non-terminal modes: show all buttons -->
+      {#if env.status === 'running'}
+        {#if env.requiresAuth || deviceAuth}
+          <button class="btn primary" disabled title="Complete GitHub authentication first">
+            🔒 Open Tunnel (Auth Required)
+          </button>
+        {:else}
+          <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+        {/if}
+        <button class="btn secondary" type="button" onclick={onCopyDesktopCommand}>
+          🖥 Copy Desktop Command
+        </button>
+        {#if desktopCopyState}
+          <span class="copy-status {desktopCopyState}">
+            {desktopCopyState === 'copied' ? '✓ Copied!' : '⚠ Failed'}
+          </span>
+        {/if}
+        <button class="btn" disabled={actionBusy} onclick={onStop}>
+          ⏸ Stop
+        </button>
+      {:else if env.status === 'starting'}
+        <button class="btn" disabled>Starting…</button>
+      {:else}
+        <button class="btn primary" disabled={actionBusy} onclick={onStart}>
+          ▶️ Start
+        </button>
+      {/if}
+
+      <button class="btn" disabled={actionBusy} onclick={onToggleMonitor}>
+        👁 {monitorOpen ? 'Hide Monitor' : 'Monitor'}
+      </button>
+      <button class="btn" disabled={actionBusy} onclick={onToggleAi}>
+        🤖 {aiOpen ? 'Hide AI' : 'AI Assist'}
+      </button>
+      <button class="btn" disabled={actionBusy} onclick={onOpenLogs}>
+        📝 Logs
+      </button>
+      <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
+        🗑 Delete
       </button>
     {/if}
-
-    <button class="btn" disabled={actionBusy} onclick={onToggleMonitor}>
-      👁 {monitorOpen ? 'Hide Monitor' : 'Monitor'}
-    </button>
-    <button class="btn" disabled={actionBusy} onclick={onToggleAi}>
-      🤖 {aiOpen ? 'Hide AI' : 'AI Assist'}
-    </button>
-    <button class="btn" disabled={actionBusy} onclick={onOpenLogs}>
-      📝 Logs
-    </button>
-    <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
-      🗑 Delete
-    </button>
   </div>
+
+  {#if children}
+    {@render children()}
+  {/if}
 </article>
 
 <style>
