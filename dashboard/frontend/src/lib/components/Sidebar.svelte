@@ -40,33 +40,6 @@
   function toggleCollapsed() {
     collapsed = !collapsed;
   }
-
-  // Check if mobile on mount and handle resize
-  let isMobile = $state(false);
-  
-  $effect(() => {
-    if (typeof window === 'undefined') return;
-    
-    function checkMobile() {
-      const wasMobile = isMobile;
-      isMobile = window.innerWidth <= 1024;
-      // Auto-collapse sidebar when entering mobile mode:
-      // - On initial page load (wasMobile=false, isMobile=true)
-      // - When resizing from desktop to mobile (wasMobile=false, isMobile=true)
-      // Does NOT auto-collapse when already on mobile (wasMobile=true, isMobile=true),
-      // allowing users to manually toggle the sidebar without interference
-      if (isMobile && !wasMobile && !collapsed) {
-        collapsed = true;
-      }
-    }
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-    };
-  });
 </script>
 
 <aside class="sidebar" class:collapsed={collapsed}>
