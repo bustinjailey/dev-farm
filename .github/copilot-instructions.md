@@ -1,5 +1,59 @@
 # Dev Farm - AI Coding Agent Instructions
 
+## Testing Requirements
+
+**CRITICAL: All new or changed functionality MUST include tests that verify successful behavior.**
+
+### Test-Driven Development Requirements
+
+1. **Before implementing new features**: Write tests first that define expected behavior
+2. **When modifying existing code**: Update or add tests to cover the changes
+3. **Test coverage expectations**: 
+   - All new functions must have at least one test verifying happy path
+   - Error handling paths should be tested where practical
+   - Integration tests for API endpoints are required
+4. **Running tests**: Always run `npm test` in the `dashboard/` directory before committing
+5. **Test files location**: Place test files adjacent to source files with `.test.ts` extension
+
+### Current Test Infrastructure
+
+- **Framework**: Vitest 4.0.7 with Node environment
+- **Test pattern**: `dashboard/src/**/*.test.ts`
+- **Run command**: `cd dashboard && npm test`
+- **Current coverage**: 99 tests across 8 test suites
+- **Documentation**: See `dashboard/TEST_COVERAGE.md` and `dashboard/TEST_SUITE_SUMMARY.md`
+
+### Test Patterns
+
+```typescript
+// Use temporary directories for file I/O tests
+beforeEach(async () => {
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'test-'));
+  vi.stubEnv('DATA_DIR', tmpDir);
+  vi.resetModules();
+});
+
+// Clean up after tests
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  await fs.rm(tmpDir, { recursive: true, force: true });
+});
+```
+
+### What to Test
+
+✅ **Always test**:
+- New API endpoints (request/response behavior)
+- Business logic functions (input/output validation)
+- Data transformations (environment naming, URL generation)
+- Error handling (expected error cases)
+
+⚠️ **Optional for unit tests** (better suited for integration tests):
+- Complex cross-module file I/O dependencies
+- Docker container orchestration requiring real containers
+- Real GitHub API interactions (use mocks instead)
+
 ## System Architecture
 
 Dev Farm is a **self-hosted development environment orchestrator** running on Proxmox LXC #200 (`eagle.bustinjailey.org`). It manages isolated VS Code Server containers via a Flask dashboard.
