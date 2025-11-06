@@ -176,12 +176,13 @@ export async function removeDeviceCode(): Promise<void> {
 }
 
 export function buildTunnelUrl(envId: string, workspacePath?: string): string {
-  // Use vscode-insiders:// scheme to directly open the workspace
+  // Use https://insiders.vscode.dev for browser access
   if (!workspacePath || workspacePath === '/') {
-    return `vscode-insiders://vscode-remote/tunnel/${envId}`;
+    return `https://insiders.vscode.dev/tunnel/${envId}`;
   }
-  // For workspace mode, open the workspace folder directly
-  return `vscode-insiders://vscode-remote/tunnel/${envId}${workspacePath}`;
+  // For workspace mode, specify the folder to open
+  const encodedPath = encodeURIComponent(workspacePath);
+  return `https://insiders.vscode.dev/tunnel/${envId}?folder=${encodedPath}`;
 }
 
 export function buildProxyUrl(envId: string, workspacePath?: string): string {
