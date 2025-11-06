@@ -177,12 +177,15 @@ export async function removeDeviceCode(): Promise<void> {
 
 export function buildTunnelUrl(envId: string, workspacePath?: string): string {
   // Use https://insiders.vscode.dev for browser access
+  // Format: https://vscode.dev/tunnel/<machine_name>/<folder_name>
+  // Folder path should be part of the URL path, not a query parameter
   if (!workspacePath || workspacePath === '/') {
     return `https://insiders.vscode.dev/tunnel/${envId}`;
   }
-  // For workspace mode, specify the folder to open
-  const encodedPath = encodeURIComponent(workspacePath);
-  return `https://insiders.vscode.dev/tunnel/${envId}?folder=${encodedPath}`;
+  // Remove leading slash and encode each path segment
+  const cleanPath = workspacePath.replace(/^\/+/, '');
+  const encodedPath = cleanPath.split('/').map(encodeURIComponent).join('/');
+  return `https://insiders.vscode.dev/tunnel/${envId}/${encodedPath}`;
 }
 
 export function buildProxyUrl(envId: string, workspacePath?: string): string {

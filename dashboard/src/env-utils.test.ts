@@ -39,10 +39,10 @@ describe('buildTunnelUrl', () => {
 
   it('encodes workspace paths', () => {
     expect(envUtils.buildTunnelUrl('sample', '/workspace')).toBe(
-      'https://insiders.vscode.dev/tunnel/sample?folder=%2Fworkspace'
+      'https://insiders.vscode.dev/tunnel/sample/workspace'
     );
     expect(envUtils.buildTunnelUrl('sample', '/workspace/project')).toBe(
-      'https://insiders.vscode.dev/tunnel/sample?folder=%2Fworkspace%2Fproject'
+      'https://insiders.vscode.dev/tunnel/sample/workspace/project'
     );
   });
 });
