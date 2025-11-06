@@ -448,8 +448,20 @@
         workspacePath: payload.workspacePath,
         ready: payload.status === 'running',
         desktopCommand: payload.desktopCommand,
+        requiresAuth: payload.requiresAuth,
+        deviceAuth: payload.deviceAuth,
       });
-      // Device auth is now broadcast via separate SSE event (device-auth)
+      // Also update envDeviceAuth for backward compatibility
+      if (payload.deviceAuth) {
+        envDeviceAuth = {
+          ...envDeviceAuth,
+          [payload.env_id]: payload.deviceAuth,
+        };
+      } else if (envDeviceAuth[payload.env_id]) {
+        // Clear device auth when it's no longer required
+        const { [payload.env_id]: _, ...rest } = envDeviceAuth;
+        envDeviceAuth = rest;
+      }
     };
     const aiHandler = (payload: any) => {
       const { env_id: envId, response } = payload;

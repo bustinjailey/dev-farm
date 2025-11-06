@@ -56,6 +56,8 @@ export interface EnvironmentSummary {
   desktopCommand: string;
   workspacePath: string;
   mode: EnvironmentMode;
+  requiresAuth?: boolean;
+  deviceAuth?: { code: string; url: string } | null;
 }
 
 export interface ContainerStats {

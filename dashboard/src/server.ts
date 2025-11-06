@@ -148,6 +148,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const ready = await isContainerHealthy(container);
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
         const workspacePath = getWorkspacePath(env.mode);
+        
+        // Check for device auth status
+        const requiresAuth = lastKnownDeviceAuth.has(envId);
+        const deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
+        
         summaries.push({
           name: env.displayName ?? env.name,
           id: envId,
@@ -158,6 +163,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           desktopCommand: buildDesktopCommand(envId, workspacePath),
           workspacePath,
           mode: env.mode,
+          requiresAuth,
+          deviceAuth,
         });
       } catch (error) {
         fastify.log.warn({ envId, err: error }, 'Failed to inspect container');
@@ -842,6 +849,50 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
+        
+        // Check for device auth requirement
+        let requiresAuth = false;
+        let deviceAuthInfo: { code: string; url: string } | null = null;
+        
+        if (displayStatus === 'starting' || displayStatus === 'running') {
+          // Check if we already know about device auth for this env
+          if (lastKnownDeviceAuth.has(envId)) {
+            requiresAuth = true;
+            deviceAuthInfo = lastKnownDeviceAuth.get(envId)!;
+          } else {
+            // Check logs for device auth requirement
+            try {
+              const logs = await getContainerLogs(docker, record.containerId, 100);
+              const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+              if (authMatch) {
+                const deviceAuth = { url: authMatch[1], code: authMatch[2] };
+                lastKnownDeviceAuth.set(envId, deviceAuth);
+                requiresAuth = true;
+                deviceAuthInfo = deviceAuth;
+                fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required');
+                // Still broadcast device-auth for backward compatibility
+                sseChannel.broadcast('device-auth', {
+                  env_id: envId,
+                  url: deviceAuth.url,
+                  code: deviceAuth.code,
+                });
+              } else {
+                // Check if auth completed (tunnel ready message appears after auth)
+                const tunnelReady = logs.includes('Open this link in your browser') || logs.includes('Visual Studio Code Server');
+                if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
+                  // Auth was required but is now complete
+                  lastKnownDeviceAuth.delete(envId);
+                  requiresAuth = false;
+                  deviceAuthInfo = null;
+                  fastify.log.info({ envId }, 'Device auth completed');
+                }
+              }
+            } catch (error) {
+              fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
+            }
+          }
+        }
+        
         const previous = lastKnownStatus.get(envId);
         if (previous !== displayStatus) {
           lastKnownStatus.set(envId, displayStatus);
@@ -855,29 +906,9 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             workspacePath,
             mode: record.mode,
             desktopCommand,
+            requiresAuth,
+            deviceAuth: deviceAuthInfo,
           });
-        }
-
-        // Check for device auth code if not already found
-        if ((displayStatus === 'starting' || displayStatus === 'running') && !lastKnownDeviceAuth.has(envId)) {
-          try {
-            const logs = await getContainerLogs(docker, record.containerId, 100);
-            const match = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-            if (match) {
-              const deviceAuth = { url: match[1], code: match[2] };
-              lastKnownDeviceAuth.set(envId, deviceAuth);
-              fastify.log.info({ envId, code: deviceAuth.code }, 'Broadcasting device-auth SSE event');
-              sseChannel.broadcast('device-auth', {
-                env_id: envId,
-                url: deviceAuth.url,
-                code: deviceAuth.code,
-              });
-            } else {
-              fastify.log.info({ envId, checking: true }, 'Checking for device auth code (none found yet)');
-            }
-          } catch (error) {
-            fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
-          }
         }
       } catch (error) {
         fastify.log.debug({ envId, err: error }, 'Failed to monitor container');

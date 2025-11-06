@@ -69,7 +69,7 @@
 
   <div class="actions">
     {#if env.status === 'running'}
-      {#if deviceAuth}
+      {#if env.requiresAuth || deviceAuth}
         <button class="btn primary" disabled title="Complete GitHub authentication first">
           🔒 Open Tunnel (Auth Required)
         </button>
