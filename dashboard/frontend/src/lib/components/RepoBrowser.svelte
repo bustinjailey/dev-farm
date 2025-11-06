@@ -128,6 +128,7 @@
     border-radius: 12px;
     padding: 0.75rem 1rem;
     background: #f8fafc;
+    color: #1a202c;
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -136,6 +137,7 @@
 
   li button:hover {
     background: #e0e7ff;
+    color: #1a202c;
   }
 
   .badge {
@@ -147,7 +149,7 @@
     font-size: 0.75rem;
   }
 
-  small {
+  li button small {
     color: #64748b;
   }
 

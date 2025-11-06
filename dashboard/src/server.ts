@@ -769,10 +769,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }
 
     try {
+      const workspacePath = getWorkspacePath(context.record.mode);
       const output = await execToString(
         context.container,
         'git log --oneline -10 --format="%H|%an|%ar|%s" 2>/dev/null || echo ""',
-        { workdir: '/workspace' }
+        { workdir: workspacePath }
       );
       const commits = output
         .trim()

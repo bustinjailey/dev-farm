@@ -291,7 +291,7 @@
     line-height: 1.6;
     margin: 0;
     min-height: 300px;
-    max-height: 500px;
+    max-height: 65vh;
   }
 
   .logs-content::-webkit-scrollbar {

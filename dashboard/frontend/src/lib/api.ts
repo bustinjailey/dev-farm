@@ -59,13 +59,13 @@ export async function fetchProcesses(envId: string) {
   );
 }
 
-export async function sendAiMessage(envId: string, message: string, tool: 'aider' | 'copilot') {
+export async function sendAiMessage(envId: string, message: string) {
   return jsonFetch<{ success: boolean; session_id: string; message: string }>(
     `/api/environments/${envId}/ai/chat`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, tool }),
+      body: JSON.stringify({ message }),
     }
   );
 }
