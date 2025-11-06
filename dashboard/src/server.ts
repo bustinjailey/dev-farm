@@ -148,11 +148,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const ready = await isContainerHealthy(container);
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
         const workspacePath = getWorkspacePath(env.mode);
-        
+
         // Check for device auth status
         const requiresAuth = lastKnownDeviceAuth.has(envId);
         const deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
-        
+
         summaries.push({
           name: env.displayName ?? env.name,
           id: envId,
@@ -849,11 +849,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
-        
+
         // Check for device auth requirement
         let requiresAuth = false;
         let deviceAuthInfo: { code: string; url: string } | null = null;
-        
+
         if (displayStatus === 'starting' || displayStatus === 'running') {
           // Check if we already know about device auth for this env
           if (lastKnownDeviceAuth.has(envId)) {
@@ -892,7 +892,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             }
           }
         }
-        
+
         const previous = lastKnownStatus.get(envId);
         if (previous !== displayStatus) {
           lastKnownStatus.set(envId, displayStatus);
