@@ -851,14 +851,17 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             if (match) {
               const deviceAuth = { url: match[1], code: match[2] };
               lastKnownDeviceAuth.set(envId, deviceAuth);
+              fastify.log.info({ envId, code: deviceAuth.code }, 'Broadcasting device-auth SSE event');
               sseChannel.broadcast('device-auth', {
                 env_id: envId,
                 url: deviceAuth.url,
                 code: deviceAuth.code,
               });
+            } else {
+              fastify.log.debug({ envId }, 'No device auth code found in logs yet');
             }
           } catch (error) {
-            // Silently ignore log fetch errors
+            fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
           }
         }
       } catch (error) {
