@@ -8,7 +8,7 @@
 
 1. **Before implementing new features**: Write tests first that define expected behavior
 2. **When modifying existing code**: Update or add tests to cover the changes
-3. **Test coverage expectations**: 
+3. **Test coverage expectations**:
    - All new functions must have at least one test verifying happy path
    - Error handling paths should be tested where practical
    - Integration tests for API endpoints are required
@@ -28,8 +28,8 @@
 ```typescript
 // Use temporary directories for file I/O tests
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'test-'));
-  vi.stubEnv('DATA_DIR', tmpDir);
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
+  vi.stubEnv("DATA_DIR", tmpDir);
   vi.resetModules();
 });
 
@@ -44,12 +44,14 @@ afterEach(async () => {
 ### What to Test
 
 ✅ **Always test**:
+
 - New API endpoints (request/response behavior)
 - Business logic functions (input/output validation)
 - Data transformations (environment naming, URL generation)
 - Error handling (expected error cases)
 
 ⚠️ **Optional for unit tests** (better suited for integration tests):
+
 - Complex cross-module file I/O dependencies
 - Docker container orchestration requiring real containers
 - Real GitHub API interactions (use mocks instead)
