@@ -30,19 +30,19 @@ function generateFunName(): string {
   const MAX_NAME_LENGTH = 20;
   let attempts = 0;
   const MAX_ATTEMPTS = 100;
-  
+
   while (attempts < MAX_ATTEMPTS) {
     const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
     const noun = nouns[Math.floor(Math.random() * nouns.length)];
     const verb = verbs[Math.floor(Math.random() * verbs.length)];
     const name = `${adj}-${noun}-${verb}`;
-    
+
     if (name.length <= MAX_NAME_LENGTH) {
       return name;
     }
     attempts++;
   }
-  
+
   // Fallback: generate a short name using UUID
   return `env-${randomUUID().slice(0, 15)}`;
 }

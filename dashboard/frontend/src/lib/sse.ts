@@ -53,7 +53,7 @@ export class SSEClient {
 
   private registerEventListener(eventType: string) {
     if (!this.source || eventType === 'message') return;
-    
+
     this.source.addEventListener(eventType, (ev) => {
       try {
         const payload = JSON.parse((ev as MessageEvent).data);
