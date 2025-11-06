@@ -11,10 +11,12 @@ export class SSEChannel {
   private replyToId = new WeakMap<FastifyReply, string>();
 
   register(reply: FastifyReply): string {
-    reply.type('text/event-stream');
-    reply.header('Cache-Control', 'no-cache');
-    reply.header('Connection', 'keep-alive');
-    reply.header('X-Accel-Buffering', 'no');
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
 
     const id = randomUUID();
     const client: SSEClient = { id, reply };
@@ -55,10 +57,13 @@ export class SSEChannel {
 export const sseChannel = new SSEChannel();
 
 export const sseHandler = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-  // Don't await - keep connection open indefinitely
+  // Prevent Fastify from automatically sending the response
+  reply.hijack();
+  
   return new Promise((resolve) => {
     const unregister = () => {
       sseChannel.unregister(reply);
+      reply.raw.end();
       resolve();
     };
     
