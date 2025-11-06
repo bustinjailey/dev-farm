@@ -873,6 +873,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   let statusInterval: NodeJS.Timeout | null = null;
   let heartbeatInterval: NodeJS.Timeout | null = null;
 
+  fastify.log.info({ enableBackgroundJobs }, 'Background jobs setting');
   if (enableBackgroundJobs) {
     fastify.log.info('Starting background monitoring threads (status + device auth detection)');
     statusInterval = setInterval(() => {
