@@ -16,6 +16,15 @@
   let sshUser = $state('root');
   let sshPassword = $state('');
   let sshPath = $state('/home');
+  let nameError = $state('');
+
+  $effect(() => {
+    if (name.length > 20) {
+      nameError = 'Name cannot exceed 20 characters (VS Code tunnel limitation)';
+    } else {
+      nameError = '';
+    }
+  });
 
   function resetForm() {
     name = '';
@@ -33,6 +42,10 @@
   }
 
   function submitForm() {
+    if (name.length > 20) {
+      return; // Block submission if name too long
+    }
+
     const payload: CreateEnvironmentPayload = {
       name,
       mode,
@@ -73,7 +86,15 @@
       <section>
         <label>
           <span>Name</span>
-          <input bind:value={name} placeholder="Optional" />
+          <input
+            bind:value={name}
+            placeholder="Optional (max 20 chars)"
+            maxlength="20"
+            class:error={nameError}
+          />
+          {#if nameError}
+            <span class="error-message">{nameError}</span>
+          {/if}
         </label>
 
         <label>
@@ -119,7 +140,7 @@
       </section>
       <footer>
         <button class="secondary" on:click={close}>Cancel</button>
-        <button class="primary" on:click={submitForm}>Create</button>
+        <button class="primary" on:click={submitForm} disabled={!!nameError}>Create</button>
       </footer>
     </div>
   </div>
@@ -172,6 +193,17 @@
     border-radius: 8px;
     border: 1px solid #cbd5f5;
     font-size: 1rem;
+  }
+
+  input.error {
+    border-color: #fc8181;
+    background: #fff5f5;
+  }
+
+  .error-message {
+    color: #c53030;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
   }
 
   .grid {
