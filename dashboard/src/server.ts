@@ -821,6 +821,9 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   });
 
   const lastKnownDeviceAuth = new Map<string, { code: string; url: string }>();
+  
+  // VS Code tunnel log patterns for device auth detection
+  const TUNNEL_READY_PATTERNS = ['Open this link in your browser', 'Visual Studio Code Server'] as const;
 
   async function broadcastStatusChanges(): Promise<void> {
     const registry = await loadRegistry();
@@ -846,7 +849,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             // - First: "log into https://... and use code ABC-XYZ" (auth required)
             // - Later: "Open this link in your browser" or "Visual Studio Code Server" (auth complete)
             // Both messages persist in logs, so we prioritize the completion message
-            const tunnelReady = logs.includes('Open this link in your browser') || logs.includes('Visual Studio Code Server');
+            const tunnelReady = TUNNEL_READY_PATTERNS.some(pattern => logs.includes(pattern));
             
             if (tunnelReady) {
               // Tunnel is ready, auth is complete
