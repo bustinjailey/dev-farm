@@ -845,29 +845,27 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           try {
             const logs = await getContainerLogs(docker, record.containerId, 100);
             
-            // Check for tunnel ready message FIRST - it indicates auth is complete
-            // This check must come before authMatch because container logs accumulate:
-            // - First: "log into https://... and use code ABC-XYZ" (auth required)
-            // - Later: "Open this link in your browser" or "Visual Studio Code Server" (auth complete)
-            // Both messages persist in logs, so we prioritize the completion message
-            const tunnelReady = TUNNEL_READY_PATTERNS.some(pattern => logs.includes(pattern));
+            // Check for device auth requirement FIRST
+            // The pattern "log into https://... and use code XYZ" appears when auth is needed
+            const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
             
-            if (tunnelReady) {
-              // Tunnel is ready, auth is complete
-              if (lastKnownDeviceAuth.has(envId)) {
-                // Auth was previously required but is now complete
-                lastKnownDeviceAuth.delete(envId);
-                fastify.log.info({ envId }, 'Device auth completed');
-              }
-              requiresAuth = false;
-              deviceAuthInfo = null;
-            } else {
-              // Tunnel not ready yet, check if auth is required
-              const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-              if (authMatch) {
-                const deviceAuth = { url: authMatch[1], code: authMatch[2] };
-
-                // Only update cache and broadcast if the code changed
+            if (authMatch) {
+              const deviceAuth = { url: authMatch[1], code: authMatch[2] };
+              
+              // Check if tunnel is ready (authentication complete)
+              // Look for "Open this link in your browser" which appears AFTER successful auth
+              const tunnelReady = logs.includes('Open this link in your browser');
+              
+              if (tunnelReady) {
+                // Tunnel is ready, auth was required but is now complete
+                if (lastKnownDeviceAuth.has(envId)) {
+                  lastKnownDeviceAuth.delete(envId);
+                  fastify.log.info({ envId }, 'Device auth completed');
+                }
+                requiresAuth = false;
+                deviceAuthInfo = null;
+              } else {
+                // Auth is required and not yet complete
                 const cached = lastKnownDeviceAuth.get(envId);
                 if (!cached || cached.code !== deviceAuth.code) {
                   lastKnownDeviceAuth.set(envId, deviceAuth);
@@ -879,10 +877,19 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
                     code: deviceAuth.code,
                   });
                 }
-
                 requiresAuth = true;
                 deviceAuthInfo = deviceAuth;
               }
+            } else {
+              // No device auth pattern found, check if tunnel is ready
+              const tunnelReady = TUNNEL_READY_PATTERNS.some(pattern => logs.includes(pattern));
+              if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
+                // Tunnel ready but we had cached auth (shouldn't happen, but clean up)
+                lastKnownDeviceAuth.delete(envId);
+                fastify.log.info({ envId }, 'Tunnel ready (no auth required)');
+              }
+              requiresAuth = false;
+              deviceAuthInfo = null;
             }
           } catch (error) {
             fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
