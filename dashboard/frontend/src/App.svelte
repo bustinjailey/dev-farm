@@ -429,6 +429,7 @@
     loadEnvironments();
     loadSystemStatus();
     loadGithubInfo();
+    refreshUpdateStatus(); // Check if update is already in progress on page load
     sseClient.connect();
 
     const registryHandler = () => {

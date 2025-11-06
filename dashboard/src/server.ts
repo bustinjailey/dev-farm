@@ -734,24 +734,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     }
   });
 
-  fastify.post('/api/environments/:envId/ai/stop', async (request, reply) => {
-    const { envId } = request.params as { envId: string };
-    const record = await readEnvironment(envId);
-    if (!record) {
-      return reply.code(404).send({ error: 'Environment not found' });
-    }
-    const container = docker.getContainer(record.containerId);
-    await ensureTmuxServer(container);
-
-    try {
-      await execToString(container, 'tmux kill-session -t devfarm-ai 2>/dev/null');
-      aiSessions.set(envId, { active: false, sessionId: randomUUID() });
-      return { success: true };
-    } catch (error) {
-      return reply.code(500).send({ error: (error as Error).message });
-    }
-  });
-
   async function containerFromEnv(envId: string): Promise<{ record: EnvironmentRecord; container: Docker.Container } | null> {
     const record = await readEnvironment(envId);
     if (!record) {
