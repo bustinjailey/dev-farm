@@ -39,6 +39,7 @@ export interface UpdateProgressState {
   stages: UpdateProgressStage[];
   stage: string;
   status: string;
+  cacheBustPending?: boolean;
 }
 
 export interface SSEPayload<T = unknown> {

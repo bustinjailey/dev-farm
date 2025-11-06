@@ -282,8 +282,10 @@
           updatePollTimer = null;
         }
       }
+      return updateStatus;
     } catch (err) {
       console.error('Failed to fetch update status', err);
+      return null;
     }
   }
 
@@ -424,12 +426,20 @@
     showCreateModal = true;
   }
 
-  function setupRealtimeStreams() {
+  async function setupRealtimeStreams() {
     console.log('[App] setupRealtimeStreams start');
     loadEnvironments();
     loadSystemStatus();
     loadGithubInfo();
-    refreshUpdateStatus(); // Check if update is already in progress on page load
+    
+    // Check if update is in progress AND if UI refresh is pending
+    const status = await refreshUpdateStatus();
+    if (status?.cacheBustPending) {
+      console.log('[App] Cache bust pending - reloading UI in 1s');
+      setTimeout(() => window.location.reload(), 1000);
+      return; // Skip setting up other handlers since we're reloading
+    }
+    
     sseClient.connect();
 
     const registryHandler = () => {

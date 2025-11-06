@@ -15,6 +15,7 @@ const UPDATE_PROGRESS: UpdateProgressState = {
   stages: [],
   stage: 'idle',
   status: 'idle',
+  cacheBustPending: false,
 };
 
 function resetProgress() {
@@ -106,13 +107,20 @@ async function runUpdate(docker: Docker) {
 
   appendStage('cache_bust', 'info', 'UI will refresh automatically in 3 seconds');
 
+  // Set flag so reconnecting clients know to refresh
+  UPDATE_PROGRESS.cacheBustPending = true;
+
   // Broadcast cache-bust event to force frontend reload
+  sseChannel.broadcast('cache-bust', {
+    timestamp: Date.now(),
+    message: 'System updated - reloading UI',
+    delay: 3000
+  });
+
+  // Clear flag after grace period
   setTimeout(() => {
-    sseChannel.broadcast('cache-bust', {
-      timestamp: Date.now(),
-      message: 'System updated - reloading UI'
-    });
-  }, 3000); // Wait 3s for dashboard to fully restart
+    UPDATE_PROGRESS.cacheBustPending = false;
+  }, 10000); // 10s grace period for reconnections
 
   appendStage('complete', 'success', 'System update completed successfully');
 }
