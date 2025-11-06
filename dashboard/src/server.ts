@@ -820,6 +820,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
   async function broadcastStatusChanges(): Promise<void> {
     const registry = await loadRegistry();
+    fastify.log.debug({ envCount: Object.keys(registry).length }, 'Checking status changes');
     for (const [envId, record] of Object.entries(registry)) {
       try {
         const container = docker.getContainer(record.containerId);
