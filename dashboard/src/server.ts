@@ -840,34 +840,44 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           // Always check logs to get the current auth code (don't rely on cache)
           try {
             const logs = await getContainerLogs(docker, record.containerId, 100);
-            const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-            if (authMatch) {
-              const deviceAuth = { url: authMatch[1], code: authMatch[2] };
-
-              // Only update cache and broadcast if the code changed
-              const cached = lastKnownDeviceAuth.get(envId);
-              if (!cached || cached.code !== deviceAuth.code) {
-                lastKnownDeviceAuth.set(envId, deviceAuth);
-                fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required (new code)');
-                // Still broadcast device-auth for backward compatibility
-                sseChannel.broadcast('device-auth', {
-                  env_id: envId,
-                  url: deviceAuth.url,
-                  code: deviceAuth.code,
-                });
-              }
-
-              requiresAuth = true;
-              deviceAuthInfo = deviceAuth;
-            } else {
-              // Check if auth completed (tunnel ready message appears after auth)
-              const tunnelReady = logs.includes('Open this link in your browser') || logs.includes('Visual Studio Code Server');
-              if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
-                // Auth was required but is now complete
+            
+            // Check for tunnel ready message FIRST - it indicates auth is complete
+            // This check must come before authMatch because container logs accumulate:
+            // - First: "log into https://... and use code ABC-XYZ" (auth required)
+            // - Later: "Open this link in your browser" or "Visual Studio Code Server" (auth complete)
+            // Both messages persist in logs, so we prioritize the completion message
+            const tunnelReady = logs.includes('Open this link in your browser') || logs.includes('Visual Studio Code Server');
+            
+            if (tunnelReady) {
+              // Tunnel is ready, auth is complete
+              if (lastKnownDeviceAuth.has(envId)) {
+                // Auth was previously required but is now complete
                 lastKnownDeviceAuth.delete(envId);
-                requiresAuth = false;
-                deviceAuthInfo = null;
                 fastify.log.info({ envId }, 'Device auth completed');
+              }
+              requiresAuth = false;
+              deviceAuthInfo = null;
+            } else {
+              // Tunnel not ready yet, check if auth is required
+              const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+              if (authMatch) {
+                const deviceAuth = { url: authMatch[1], code: authMatch[2] };
+
+                // Only update cache and broadcast if the code changed
+                const cached = lastKnownDeviceAuth.get(envId);
+                if (!cached || cached.code !== deviceAuth.code) {
+                  lastKnownDeviceAuth.set(envId, deviceAuth);
+                  fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required (new code)');
+                  // Still broadcast device-auth for backward compatibility
+                  sseChannel.broadcast('device-auth', {
+                    env_id: envId,
+                    url: deviceAuth.url,
+                    code: deviceAuth.code,
+                  });
+                }
+
+                requiresAuth = true;
+                deviceAuthInfo = deviceAuth;
               }
             }
           } catch (error) {
