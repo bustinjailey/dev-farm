@@ -150,7 +150,7 @@ export async function getContainerLogs(docker: Docker, name: string, lines = 200
   const container = docker.getContainer(name);
   const stream = await container.logs({ tail: lines, stdout: true, stderr: true });
   let rawLogs: string;
-  
+
   if (Buffer.isBuffer(stream)) {
     rawLogs = stream.toString('utf-8');
   } else {
@@ -162,7 +162,7 @@ export async function getContainerLogs(docker: Docker, name: string, lines = 200
       readable.on('error', reject);
     });
   }
-  
+
   return stripAnsiCodes(rawLogs);
 }
 

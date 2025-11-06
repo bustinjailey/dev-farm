@@ -83,12 +83,19 @@
 
   function updateEnvironmentStatus(update: Partial<EnvironmentSummary> & { id: string }) {
     const index = environments.findIndex((env) => env.id === update.id);
+    console.log('[UPDATE] Updating env status:', update, 'found at index:', index);
     if (index === -1) {
       // fetch full list if unknown env
+      console.log('[UPDATE] Environment not found, reloading full list');
       loadEnvironments();
       return;
     }
-    environments = environments.map((env, idx) => (idx === index ? { ...env, ...update } : env));
+    // Create new array to ensure Svelte detects the change
+    const oldStatus = environments[index].status;
+    environments = environments.map((env, idx) => 
+      idx === index ? { ...env, ...update } : env
+    );
+    console.log('[UPDATE] Status changed from', oldStatus, 'to', environments[index].status);
   }
 
   async function handleCreate(payload: CreateEnvironmentPayload) {
@@ -435,6 +442,7 @@
       loadEnvironments();
     };
     const statusHandler = (payload: any) => {
+      console.log('[SSE] env-status event:', payload);
       updateEnvironmentStatus({
         id: payload.env_id,
         status: payload.status,
@@ -448,8 +456,6 @@
       if (payload.status === 'starting') {
         loadDeviceAuth(payload.env_id);
       }
-      // Force Svelte reactivity
-      environments = [...environments];
     };
     const aiHandler = (payload: any) => {
       const { env_id: envId, response } = payload;
