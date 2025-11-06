@@ -861,7 +861,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
             const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
             if (authMatch) {
               const deviceAuth = { url: authMatch[1], code: authMatch[2] };
-              
+
               // Only update cache and broadcast if the code changed
               const cached = lastKnownDeviceAuth.get(envId);
               if (!cached || cached.code !== deviceAuth.code) {
@@ -874,7 +874,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
                   code: deviceAuth.code,
                 });
               }
-              
+
               requiresAuth = true;
               deviceAuthInfo = deviceAuth;
             } else {
@@ -935,9 +935,9 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   async function broadcastSystemStatus(): Promise<void> {
     try {
       const status = await getSystemStatus(docker);
-      
+
       // Check if there are changes worth broadcasting
-      const hasChanges = 
+      const hasChanges =
         lastSystemStatus.commits_behind !== status.commits_behind ||
         lastSystemStatus.current_sha !== status.current_sha ||
         lastSystemStatus.latest_sha !== status.latest_sha;
@@ -948,15 +948,15 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
           current_sha: status.current_sha,
           latest_sha: status.latest_sha,
         };
-        
+
         sseChannel.broadcast('system-status', {
           updates_available: status.updates_available,
           commits_behind: status.commits_behind,
           current_sha: status.current_sha,
           latest_sha: status.latest_sha,
         });
-        
-        fastify.log.info({ 
+
+        fastify.log.info({
           commits_behind: status.commits_behind,
           current_sha: status.current_sha,
           latest_sha: status.latest_sha,
