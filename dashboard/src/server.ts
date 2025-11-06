@@ -874,6 +874,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   let heartbeatInterval: NodeJS.Timeout | null = null;
 
   if (enableBackgroundJobs) {
+    fastify.log.info('Starting background monitoring threads (status + device auth detection)');
     statusInterval = setInterval(() => {
       broadcastStatusChanges().catch((error) => fastify.log.debug({ error }, 'Status monitor error'));
     }, 2000);
