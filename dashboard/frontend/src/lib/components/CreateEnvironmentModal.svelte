@@ -47,6 +47,7 @@
     sshUser = 'root';
     sshPassword = '';
     sshPath = '/home';
+    nameError = '';
   }
 
   function close() {
@@ -74,6 +75,8 @@
     }
 
     dispatch('submit', payload);
+    // Reset form after successful submission
+    resetForm();
   }
 
   function handleKeydown(event: KeyboardEvent) {

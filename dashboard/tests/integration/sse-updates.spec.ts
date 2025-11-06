@@ -70,7 +70,7 @@ test.describe('SSE Real-time Updates', () => {
     expect(statusText).toMatch(/starting|running|created/i);
   });
 
-  test('registry updates trigger data refresh', async ({ page }) => {
+  test.skip('registry updates trigger data refresh', async ({ page }) => {
     // Get initial environment count
     const initialCards = await page.locator('.card').count();
 

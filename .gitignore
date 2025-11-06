@@ -47,3 +47,6 @@ dashboard/data/
 *.code-workspace
 
 *.md
+
+**/playwright-report/*
+**/test-results/*
