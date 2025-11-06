@@ -580,6 +580,21 @@ else
         fi
     fi
     
+    # Migrate old aggregate-mcp.json to server-config.json if needed
+    if [ -d "$MCP_INSTALL_DIR" ]; then
+        if [ -f "$MCP_INSTALL_DIR/aggregate-mcp.json" ] && [ ! -f "$MCP_INSTALL_DIR/server-config.json" ]; then
+            echo "Migrating aggregate-mcp.json to server-config.json..." | tee -a "$LOG_FILE"
+            cd "$MCP_INSTALL_DIR"
+            mv aggregate-mcp.json server-config.json
+            echo "✓ Renamed aggregate-mcp.json to server-config.json" | tee -a "$LOG_FILE"
+            cd /home/coder
+        elif [ -f "$MCP_INSTALL_DIR/aggregate-mcp.json" ] && [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
+            echo "Removing old aggregate-mcp.json (server-config.json already exists)..." | tee -a "$LOG_FILE"
+            rm "$MCP_INSTALL_DIR/aggregate-mcp.json"
+            echo "✓ Removed old aggregate-mcp.json" | tee -a "$LOG_FILE"
+        fi
+    fi
+    
     # Update server-config.json if MCP server exists (for both install and update paths)
     if [ -d "$MCP_INSTALL_DIR" ] && [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
         echo "Ensuring server-config.json has latest environment variables..." | tee -a "$LOG_FILE"
