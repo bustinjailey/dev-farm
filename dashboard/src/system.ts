@@ -141,20 +141,29 @@ export async function recoverRegistry(docker: Docker): Promise<{ restored: numbe
   return { restored: Object.keys(registry).length };
 }
 
+function stripAnsiCodes(text: string): string {
+  // Remove ANSI escape codes (colors, formatting, cursor movement, etc.)
+  return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+}
+
 export async function getContainerLogs(docker: Docker, name: string, lines = 200): Promise<string> {
   const container = docker.getContainer(name);
   const stream = await container.logs({ tail: lines, stdout: true, stderr: true });
+  let rawLogs: string;
+  
   if (Buffer.isBuffer(stream)) {
-    return stream.toString('utf-8');
+    rawLogs = stream.toString('utf-8');
+  } else {
+    rawLogs = await new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const readable = stream as unknown as NodeJS.ReadableStream;
+      readable.on('data', (chunk: Buffer) => chunks.push(chunk));
+      readable.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+      readable.on('error', reject);
+    });
   }
-
-  return await new Promise<string>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const readable = stream as unknown as NodeJS.ReadableStream;
-    readable.on('data', (chunk: Buffer) => chunks.push(chunk));
-    readable.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    readable.on('error', reject);
-  });
+  
+  return stripAnsiCodes(rawLogs);
 }
 
 export async function upgradeSystem(): Promise<{ success: boolean; output: string; error?: string | null }> {
