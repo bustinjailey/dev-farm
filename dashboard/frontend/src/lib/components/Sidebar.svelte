@@ -310,14 +310,22 @@
 
   @media (max-width: 1024px) {
     .sidebar {
-      position: relative;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
       width: 100%;
       min-width: 100%;
+      height: auto;
+      max-height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
     }
 
     .sidebar.collapsed {
-      width: 100%;
-      min-width: 100%;
+      width: auto;
+      min-width: auto;
+      height: auto;
     }
 
     .sidebar-content {

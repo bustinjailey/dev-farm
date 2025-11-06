@@ -133,7 +133,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
   const docker = getDocker();
   const lastKnownStatus = new Map<string, string>();
-  const aiSessions = new Map<string, { active: boolean; tool: 'aider' | 'copilot'; sessionId: string }>();
+  const aiSessions = new Map<string, { active: boolean; sessionId: string }>();
   const aiOutputCache = new Map<string, string>();
 
   async function getEnvironmentSummaries(): Promise<EnvironmentSummary[]> {
@@ -661,52 +661,52 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       return reply.code(404).send({ error: 'Environment not found' });
     }
 
-    const { message, tool } = request.body as { message?: string; tool?: 'aider' | 'copilot' };
+    const { message } = request.body as { message?: string };
     if (!message) {
       return reply.code(400).send({ error: 'Message is required' });
     }
 
-    const selectedTool = tool ?? 'copilot';
     const container = docker.getContainer(record.containerId);
 
     await ensureTmuxServer(container);
 
     const sessionId = aiSessions.get(envId)?.sessionId ?? randomUUID();
-    aiSessions.set(envId, { active: true, tool: selectedTool, sessionId });
+    aiSessions.set(envId, { active: true, sessionId });
 
     try {
-      if (selectedTool === 'aider') {
-        const checkOutput = await execToString(container, 'tmux has-session -t devfarm-ai 2>/dev/null || echo "__MISSING__"');
-        if (checkOutput.includes('__MISSING__')) {
-          await execToString(
-            container,
-            'tmux new-session -d -s devfarm-ai "cd /workspace && aider --yes-always --message-file /tmp/aider-input.txt"'
-          );
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
+      // Use GitHub Copilot CLI only
+      const output = await execToString(container, `gh copilot suggest ${JSON.stringify(message)}`, {
+        workdir: '/workspace',
+      });
+      const existing = aiOutputCache.get(envId) ?? '';
+      const combined = `${existing}\n\n> ${message}\n${output}`.trim();
+      aiOutputCache.set(envId, combined);
+      sseChannel.broadcast('ai-response', {
+        env_id: envId,
+        response: output,
+      });
+      return { success: true, session_id: sessionId };
+    } catch (error) {
+      fastify.log.error({ envId, err: error }, 'Failed to send AI message');
+      return reply.code(500).send({ error: (error as Error).message });
+    }
+  });
 
-        await execToString(container, `printf %s ${JSON.stringify(message)} > /tmp/aider-input.txt`);
-        await execToString(container, `tmux send-keys -t devfarm-ai ${JSON.stringify(message)} Enter`);
-      } else {
-        const output = await execToString(container, `gh copilot suggest ${JSON.stringify(message)}`, {
-          workdir: '/workspace',
-        });
-        const existing = aiOutputCache.get(envId) ?? '';
-        const combined = `${existing}\n\n> ${message}\n${output}`.trim();
-        aiOutputCache.set(envId, combined);
-        sseChannel.broadcast('ai-response', {
-          env_id: envId,
-          tool: selectedTool,
-          response: output,
-          timestamp: new Date().toISOString(),
-        });
-      }
+  // Stop AI session
+  fastify.post<{ Params: { envId: string } }>('/api/environments/:envId/ai/stop', async (request, reply) => {
+    const { envId } = request.params;
+    const registry = await loadRegistry();
+    const record = registry[envId];
+    if (!record) {
+      return reply.code(404).send({ error: 'Environment not found' });
+    }
+    const container = docker.getContainer(record.containerId);
+    await ensureTmuxServer(container);
 
-      return {
-        success: true,
-        session_id: sessionId,
-        message: `Message sent to ${selectedTool}`,
-      };
+    try {
+      await execToString(container, 'tmux kill-session -t devfarm-ai 2>/dev/null');
+      aiSessions.set(envId, { active: false, sessionId: randomUUID() });
+      return { success: true };
     } catch (error) {
       return reply.code(500).send({ error: (error as Error).message });
     }
@@ -745,7 +745,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
     try {
       await execToString(container, 'tmux kill-session -t devfarm-ai 2>/dev/null');
-      aiSessions.set(envId, { active: false, tool: 'copilot', sessionId: randomUUID() });
+      aiSessions.set(envId, { active: false, sessionId: randomUUID() });
       return { success: true };
     } catch (error) {
       return reply.code(500).send({ error: (error as Error).message });
@@ -816,7 +816,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     try {
       const output = await execToString(
         context.container,
-        "ps aux | grep -E 'aider|code-insiders|node|python|npm|gh' | grep -v grep"
+        "ps aux | grep -E 'code-insiders|node|python|npm|gh' | grep -v grep"
       );
       const processes = output
         .trim()

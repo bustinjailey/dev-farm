@@ -498,6 +498,13 @@
         };
       }
     };
+    const cacheBustHandler = (payload: any) => {
+      console.log('[SSE] cache-bust event:', payload);
+      // Reload page to get new frontend assets
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    };
 
     sseClient.on('registry-update', registryHandler);
     sseClient.on('env-status', statusHandler);
@@ -506,6 +513,7 @@
     sseClient.on('update-started', updateStartedHandler);
     sseClient.on('device-auth', deviceAuthHandler);
     sseClient.on('system-status', systemStatusHandler);
+    sseClient.on('cache-bust', cacheBustHandler);
 
     return () => {
       sseClient.off('registry-update', registryHandler);
@@ -515,6 +523,7 @@
       sseClient.off('update-started', updateStartedHandler);
       sseClient.off('device-auth', deviceAuthHandler);
       sseClient.off('system-status', systemStatusHandler);
+      sseClient.off('cache-bust', cacheBustHandler);
       sseClient.disconnect();
     };
   }
@@ -733,7 +742,8 @@
   @media (max-width: 1024px) {
     main {
       flex-direction: column;
-      gap: 1.5rem;
+      gap: 0;
+      padding-top: 80px; /* Space for fixed sidebar when collapsed */
     }
   }
 
@@ -780,7 +790,7 @@
 
   @media (max-width: 1024px) {
     .main-content {
-      padding: 2rem 1.5rem 4rem 1.5rem;
+      padding: 1rem 1.5rem 4rem 1.5rem;
     }
   }
 

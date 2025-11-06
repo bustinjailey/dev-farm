@@ -3,7 +3,6 @@
 
   let { envId, open = false, latestSse = null }: { envId: string; open?: boolean; latestSse?: string | null } = $props();
 
-  let tool = $state<'aider' | 'copilot'>('copilot');
   let input = $state('');
   let output = $state('');
   let loading = $state(false);
@@ -40,7 +39,7 @@
     output = `${output}\n\n> ${message}`.trim();
     input = '';
     try {
-      await sendAiMessage(envId, message, tool);
+      await sendAiMessage(envId, message);
       await refreshOutput();
     } catch (err) {
       error = (err as Error).message;
@@ -53,17 +52,7 @@
 {#if open}
   <section class="panel">
     <header>
-      <h3>AI Assistant</h3>
-      <div class="tool-select">
-        <label>
-          <input type="radio" name={`tool-${envId}`} value="copilot" bind:group={tool} />
-          Copilot CLI
-        </label>
-        <label>
-          <input type="radio" name={`tool-${envId}`} value="aider" bind:group={tool} />
-          Aider
-        </label>
-      </div>
+      <h3>AI Assistant (GitHub Copilot CLI)</h3>
     </header>
 
     {#if error}
@@ -104,12 +93,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-  }
-
-  .tool-select {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.9rem;
   }
 
   pre {

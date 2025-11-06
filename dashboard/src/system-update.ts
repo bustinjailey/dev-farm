@@ -104,6 +104,16 @@ async function runUpdate(docker: Docker) {
   }
   appendStage('restart_dashboard', 'success', 'Dashboard service restarted');
 
+  appendStage('cache_bust', 'info', 'UI will refresh automatically in 3 seconds');
+
+  // Broadcast cache-bust event to force frontend reload
+  setTimeout(() => {
+    sseChannel.broadcast('cache-bust', {
+      timestamp: Date.now(),
+      message: 'System updated - reloading UI'
+    });
+  }, 3000); // Wait 3s for dashboard to fully restart
+
   appendStage('complete', 'success', 'System update completed successfully');
 }
 

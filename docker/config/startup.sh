@@ -296,7 +296,7 @@ This environment uses **tmux** for persistent terminal sessions:
 ✅ **Chat history** - Previous Copilot conversations are preserved
 
 💡 **Dev Farm uses VS Code Remote Tunnels** - All extensions run on the server, not in your browser!
-💡 **For terminal-based AI work**: Use agents like `aider` or `gh copilot` in tmux for command-line workflows!
+💡 **For terminal-based AI work**: Use `gh copilot` in tmux for command-line workflows!
 
 ### Tmux Quick Reference
 - Terminals automatically attach to the persistent session
