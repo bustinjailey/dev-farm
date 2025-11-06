@@ -154,15 +154,15 @@
   function startDeviceAuthPolling() {
     if (deviceAuthPollTimer) return; // Already polling
     deviceAuthPollTimer = setInterval(() => {
-      // Check device auth for all starting environments
-      const startingEnvs = environments.filter(e => e.status === 'starting');
-      for (const env of startingEnvs) {
-        if (!envDeviceAuth[env.id]) {
-          loadDeviceAuth(env.id);
-        }
+      // Check device auth for starting or running environments without auth
+      const needsAuth = environments.filter(
+        e => (e.status === 'starting' || e.status === 'running') && !envDeviceAuth[e.id]
+      );
+      for (const env of needsAuth) {
+        loadDeviceAuth(env.id);
       }
-      // Stop polling if no starting environments
-      if (startingEnvs.length === 0) {
+      // Stop polling if no environments need auth
+      if (needsAuth.length === 0) {
         stopDeviceAuthPolling();
       }
     }, 3000);
@@ -493,13 +493,12 @@
         ready: payload.status === 'running',
         desktopCommand: payload.desktopCommand,
       });
-      // Load device auth when starting
-      if (payload.status === 'starting') {
-        loadDeviceAuth(payload.env_id);
-        startDeviceAuthPolling();
-      } else if (payload.status === 'running') {
-        // Stop polling when running
-        stopDeviceAuthPolling();
+      // Load device auth when starting or running (if not already loaded)
+      if (payload.status === 'starting' || payload.status === 'running') {
+        if (!envDeviceAuth[payload.env_id]) {
+          loadDeviceAuth(payload.env_id);
+          startDeviceAuthPolling();
+        }
       }
     };
     const aiHandler = (payload: any) => {

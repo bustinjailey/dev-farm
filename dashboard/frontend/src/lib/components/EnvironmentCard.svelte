@@ -45,7 +45,7 @@
     <span class="badge {env.status}">{env.status}</span>
   </header>
 
-  {#if deviceAuth && env.status === 'starting'}
+  {#if deviceAuth && (env.status === 'starting' || env.status === 'running')}
     <div class="device-auth-banner">
       <p>🔐 GitHub Authentication Required</p>
       <div class="device-code">{deviceAuth.code}</div>
