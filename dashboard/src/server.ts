@@ -257,6 +257,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
       return reply.code(500).send({ error: 'Docker not available' });
     }
     const result = await recoverRegistry(docker);
+    sseChannel.broadcast('registry-update', { timestamp: Date.now() });
     return reply.send(result);
   });
 

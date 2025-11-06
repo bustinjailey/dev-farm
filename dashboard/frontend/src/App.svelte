@@ -104,8 +104,7 @@
       await createEnvironment(payload);
       showCreateModal = false;
       pendingGitUrl = '';
-      await loadEnvironments();
-      await Promise.all([loadSystemStatus(), loadGithubInfo()]);
+      // Don't manually refresh - SSE registry-update event will handle it
     } catch (err) {
       alert(`Failed to create environment: ${(err as Error).message}`);
     } finally {
@@ -119,11 +118,8 @@
       if (action === 'start') await startEnvironment(id);
       else if (action === 'stop') await stopEnvironment(id);
       else await deleteEnvironment(id);
-      if (action === 'delete') {
-        environments = environments.filter((env) => env.id !== id);
-      } else {
-        await loadEnvironments();
-      }
+      // Don't manually update state - rely on SSE events (registry-update, env-status)
+      // to refresh the UI automatically
     } catch (err) {
       alert(`Failed to ${action} environment: ${(err as Error).message}`);
     } finally {
@@ -307,8 +303,7 @@
     orphansBusy = true;
     try {
       await recoverRegistryRequest();
-      await loadSystemStatus();
-      await loadEnvironments();
+      // Don't manually refresh - SSE registry-update event will handle it
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -447,7 +442,11 @@
     sseClient.connect();
 
     const registryHandler = () => {
+      // Refresh all dashboard data when registry changes (create/delete/recover)
       loadEnvironments();
+      loadSystemStatus();
+      loadOrphans();
+      loadImages();
     };
     const statusHandler = (payload: any) => {
       console.log('[SSE] env-status event:', payload);
