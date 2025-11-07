@@ -46,15 +46,7 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Setup git credential helper
     gh auth setup-git >/dev/null 2>&1 || true
     
-    # Setup GitHub Copilot CLI extension and authenticate it
-    gh extension install github/gh-copilot 2>/dev/null || gh extension upgrade gh-copilot 2>/dev/null || true
-    
-    # Authenticate GitHub Copilot CLI with the same token
-    # This allows 'gh copilot' commands to work without re-authentication
-    export GH_TOKEN="${GITHUB_TOKEN}"
-    
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
-    echo "GitHub Copilot CLI is ready!"
 elif [ -f "/data/.github_token" ]; then
     # Try to read token from shared storage file
     echo "Loading GitHub token from shared storage..."
@@ -72,13 +64,8 @@ elif [ -f "/data/.github_token" ]; then
         }
         
         gh auth setup-git >/dev/null 2>&1 || true
-        gh extension install github/gh-copilot 2>/dev/null || gh extension upgrade gh-copilot 2>/dev/null || true
-        
-        # Authenticate GitHub Copilot CLI with the token
-        export GH_TOKEN="${GITHUB_TOKEN}"
         
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
-        echo "GitHub Copilot CLI is ready!"
     else
         echo "Warning: Shared GitHub token file is empty."
     fi
@@ -134,18 +121,26 @@ fi
 WELCOME_PATH="/home/coder/workspace/WELCOME.txt"
 cat > "$WELCOME_PATH" <<'EOWELCOME'
 ╔══════════════════════════════════════════════════════════════╗
-║                   🤖 Terminal Environment                     ║
+║                  🚀 Terminal Environment                      ║
 ║                      Dev Farm CLI Mode                        ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Welcome to your terminal-focused development environment!
 
-🔧 AVAILABLE CLI AI TOOL:
+🤖 GITHUB COPILOT CLI:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  • gh copilot              GitHub Copilot CLI
-    - gh copilot explain    Explain shell commands
-    - gh copilot suggest    Get command suggestions
+  Interactive AI coding assistant in your terminal:
+
+  copilot
+    Launches interactive chat session with AI coding agent
+    First run: Authenticate with /login command
+    
+  Use natural language to:
+    • Build and edit code
+    • Debug and refactor
+    • Understand codebases
+    • Access GitHub repos, issues, and PRs
 
 📁 YOUR WORKSPACE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -157,19 +152,23 @@ Welcome to your terminal-focused development environment!
 💡 TERMINAL TIPS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  • ctrl+a then c           Create new tmux window
-  • ctrl+a then n           Next tmux window
-  • ctrl+a then p           Previous tmux window
-  • ctrl+a then d           Detach from tmux session
-  • ctrl+a then ?           Show all tmux keybindings
+  • Ctrl+A then C           Create new tmux window
+  • Ctrl+A then N           Next tmux window
+  • Ctrl+A then P           Previous tmux window
+  • Ctrl+A then D           Detach from tmux session
+  • Ctrl+A then ?           Show all tmux keybindings
   • ll                      List files (alias for ls -alh)
 
-🚀 GET STARTED:
+🚀 QUICK START:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Try these commands:
-  gh copilot suggest "create a python web server"
-  gh copilot explain "docker compose up -d"
+  copilot
+    Launch the interactive AI assistant
+    
+  Example prompts:
+    "Create a Python web server"
+    "Explain this Docker Compose file"
+    "Help me debug this error"
   
 Happy hacking! 🎉
 

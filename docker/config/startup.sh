@@ -280,11 +280,10 @@ Or use the **Accounts** menu in the bottom left corner (👤 icon)
 
 ### Terminal AI Assistant
 
-Use **GitHub Copilot CLI** for command-line AI assistance:
-- `gh copilot suggest "description of what you want to do"`
-- `gh copilot explain "command to explain"`
-
-Note: The `gh-copilot` extension is deprecated. Use the GitHub Copilot CLI instead.
+Use **GitHub Copilot CLI** for interactive AI coding assistance:
+- Run `copilot` to start an interactive chat session
+- On first run, use `/login` command to authenticate
+- Ask questions in natural language to build, debug, and understand code
 
 ## 📁 Your Workspace
 
@@ -308,7 +307,7 @@ This environment uses **tmux** for persistent terminal sessions:
 ✅ **Chat history** - Previous Copilot conversations are preserved
 
 💡 **Dev Farm uses VS Code Remote Tunnels** - All extensions run on the server, not in your browser!
-💡 **For terminal-based AI work**: Use `gh copilot` in tmux for command-line workflows!
+💡 **For terminal-based AI work**: Run `copilot` in tmux for interactive AI coding assistance!
 
 ### Tmux Quick Reference
 - Terminals automatically attach to the persistent session
@@ -362,17 +361,8 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     gh auth setup-git 2>&1 | tee -a "$LOG_FILE"
     echo "✓ Git configured to use GitHub CLI for authentication" | tee -a "$LOG_FILE"
     
-    # Note: gh CLI and GitHub Copilot both use GITHUB_TOKEN environment variable
-    # No need to set GH_TOKEN separately - it's just an alias gh CLI also checks
-    
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
-    
-    # Install GitHub Copilot CLI extension for terminal-based AI assistance
-    echo "Installing GitHub Copilot CLI extension..." | tee -a "$LOG_FILE"
-    gh extension install github/gh-copilot 2>&1 | tee -a "$LOG_FILE" || \
-        gh extension upgrade gh-copilot 2>&1 | tee -a "$LOG_FILE" || true
-    echo "✓ GitHub Copilot CLI ready (use 'gh copilot' in terminal)" | tee -a "$LOG_FILE"
     
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
@@ -412,15 +402,7 @@ elif [ -f "/data/.github_token" ]; then
         gh auth setup-git 2>&1 | tee -a "$LOG_FILE"
         echo "✓ Git configured to use GitHub CLI for authentication" | tee -a "$LOG_FILE"
         
-        # Note: GITHUB_TOKEN is already set and used by gh CLI and GitHub Copilot
-        
         mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
-        
-        # Install GitHub Copilot CLI extension for terminal-based AI assistance
-        echo "Installing GitHub Copilot CLI extension..." | tee -a "$LOG_FILE"
-        gh extension install github/gh-copilot 2>&1 | tee -a "$LOG_FILE" || \
-            gh extension upgrade gh-copilot 2>&1 | tee -a "$LOG_FILE" || true
-        echo "✓ GitHub Copilot CLI ready (use 'gh copilot' in terminal)" | tee -a "$LOG_FILE"
         
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
     else
@@ -453,6 +435,26 @@ elif [ -n "${GITHUB_TOKEN}" ]; then
     echo "      docker cp devfarm-<env>:/home/coder/.config/github-copilot/hosts.json /opt/dev-farm/data/.github-copilot-hosts.json" | tee -a "$LOG_FILE"
 else
     echo "Note: No GitHub authentication found. Copilot requires interactive sign-in." | tee -a "$LOG_FILE"
+fi
+
+# ============================================================================
+# Install GitHub Copilot CLI (new standalone tool)
+# ============================================================================
+
+echo "Installing GitHub Copilot CLI..." | tee -a "$LOG_FILE"
+
+# Install the new @github/copilot npm package globally
+if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
+    echo "✓ GitHub Copilot CLI installed (run 'copilot' to start)" | tee -a "$LOG_FILE"
+    
+    # Set GITHUB_TOKEN environment variable for automatic authentication
+    if [ -n "${GITHUB_TOKEN}" ]; then
+        echo "✓ GITHUB_TOKEN configured for Copilot CLI authentication" | tee -a "$LOG_FILE"
+    else
+        echo "Note: Run 'copilot' and use /login command to authenticate" | tee -a "$LOG_FILE"
+    fi
+else
+    echo "⚠ Failed to install GitHub Copilot CLI" | tee -a "$LOG_FILE"
 fi
 
 # ============================================================================
