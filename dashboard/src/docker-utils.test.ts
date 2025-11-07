@@ -406,11 +406,38 @@ describe('isContainerHealthy', () => {
 
     expect(healthy).toBe(true);
     expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
-
+    
     getContainerLogsSpy.mockRestore();
   });
 
-  it('returns true when docker is not provided (backward compatibility)', async () => {
+  it('returns false when logs show neither auth pattern nor ready signal', async () => {
+    const getContainerLogsSpy = vi.spyOn(systemModule, 'getContainerLogs').mockResolvedValue(
+      'Starting VS Code Server...\nInitializing...'
+    );
+
+    const container = new MockContainer(
+      {},
+      {
+        Id: 'test-container-123',
+        State: {
+          Status: 'running',
+        },
+      },
+      '12345' // Process is running
+    );
+
+    const mockDocker = {} as Docker;
+
+    const healthy = await isContainerHealthy(
+      container as unknown as Docker.Container,
+      mockDocker
+    );
+
+    expect(healthy).toBe(false);
+    expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
+    
+    getContainerLogsSpy.mockRestore();
+  });  it('returns true when docker is not provided (backward compatibility)', async () => {
     const container = new MockContainer(
       {},
       {

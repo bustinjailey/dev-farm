@@ -66,15 +66,28 @@ export async function isContainerHealthy(container: Docker.Container, docker?: D
             const logs = await getContainerLogs(docker, details.Id, 100);
             const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
 
-            // If auth is required, check if it's complete
+            // Check for definitive "ready" signals
+            const tunnelReady = logs.includes('Open this link in your browser');
+            const vscodeServerReady = logs.includes('Visual Studio Code Server');
+
+            // If auth pattern is found, require completion before marking as healthy
             if (authMatch) {
-              const tunnelReady = logs.includes('Open this link in your browser');
               // Auth required but not complete - keep in "starting" state
               if (!tunnelReady) {
                 return false;
               }
+              // Auth complete
+              return true;
             }
-            // Either no auth required, or auth is complete
+
+            // No auth pattern found - check if we have any ready signal
+            // If neither ready signal is present, the container is still starting
+            // (logs haven't progressed far enough to know if auth is needed)
+            if (!tunnelReady && !vscodeServerReady) {
+              return false;
+            }
+
+            // Ready signal found and no auth required
             return true;
           } catch {
             // If we can't read logs, assume process running = healthy
