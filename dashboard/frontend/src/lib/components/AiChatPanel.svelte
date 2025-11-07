@@ -26,14 +26,17 @@
   });
 
   async function refreshOutput() {
-    error = null;
     try {
       const res = await fetchAiOutput(envId);
       if (res.output) {
         output = res.output;
+        error = null; // Clear error on success
       }
     } catch (err) {
-      error = (err as Error).message;
+      // Only show error if we don't already have output
+      if (!output) {
+        error = (err as Error).message;
+      }
     }
   }
 

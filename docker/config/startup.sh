@@ -21,6 +21,10 @@ run_as_root() {
 # Disable core dumps to prevent large core.* files in workspace
 ulimit -c 0
 
+# Configure locale for proper UTF-8 character display in terminals
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+
 ### Ensure workspace directory exists and is owned by coder
 WORKSPACE_DIR="${CODER_HOME}/workspace"
 REMOTE_DIR="${CODER_HOME}/remote"
@@ -274,6 +278,14 @@ Or use the **Accounts** menu in the bottom left corner (👤 icon)
 - **Copilot Sign In**: `Ctrl+Shift+P` → `GitHub Copilot: Sign In`
 - **Manage Accounts**: Click the **Account icon** (👤) in the bottom-left corner
 
+### Terminal AI Assistant
+
+Use **GitHub Copilot CLI** for command-line AI assistance:
+- `gh copilot suggest "description of what you want to do"`
+- `gh copilot explain "command to explain"`
+
+Note: The `gh-copilot` extension is deprecated. Use the GitHub Copilot CLI instead.
+
 ## 📁 Your Workspace
 
 - **Git Mode**: Your cloned repository is in the `repo/` directory
@@ -356,6 +368,12 @@ if [ -n "${GITHUB_TOKEN}" ]; then
     # Create directory for GitHub extensions if it doesn't exist
     mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
     
+    # Install GitHub Copilot CLI extension for terminal-based AI assistance
+    echo "Installing GitHub Copilot CLI extension..." | tee -a "$LOG_FILE"
+    gh extension install github/gh-copilot 2>&1 | tee -a "$LOG_FILE" || \
+        gh extension upgrade gh-copilot 2>&1 | tee -a "$LOG_FILE" || true
+    echo "✓ GitHub Copilot CLI ready (use 'gh copilot' in terminal)" | tee -a "$LOG_FILE"
+    
     echo "GitHub authentication completed successfully for ${GITHUB_USERNAME}!"
 elif [ -f "/data/.github_token" ]; then
     # Try to read token from shared storage file
@@ -397,6 +415,12 @@ elif [ -f "/data/.github_token" ]; then
         # Note: GITHUB_TOKEN is already set and used by gh CLI and GitHub Copilot
         
         mkdir -p /home/coder/.config/Code/User/globalStorage/github.vscode-pull-request-github
+        
+        # Install GitHub Copilot CLI extension for terminal-based AI assistance
+        echo "Installing GitHub Copilot CLI extension..." | tee -a "$LOG_FILE"
+        gh extension install github/gh-copilot 2>&1 | tee -a "$LOG_FILE" || \
+            gh extension upgrade gh-copilot 2>&1 | tee -a "$LOG_FILE" || true
+        echo "✓ GitHub Copilot CLI ready (use 'gh copilot' in terminal)" | tee -a "$LOG_FILE"
         
         echo "GitHub authentication completed from shared storage for ${GITHUB_USERNAME}!"
     else
@@ -1285,8 +1309,10 @@ set -g mouse on
 # Increase scrollback buffer
 set -g history-limit 50000
 
-# Use 256 colors
+# Use 256 colors with UTF-8 support
 set -g default-terminal "screen-256color"
+set -gq utf8 on
+set -gq status-utf8 on
 
 # Start window numbering at 1
 set -g base-index 1

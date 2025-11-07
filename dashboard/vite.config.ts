@@ -59,6 +59,11 @@ export default defineConfig({
         ws: false,
         changeOrigin: true,
       },
+      '/terminal': {
+        target: 'http://localhost:5000',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
   build: {

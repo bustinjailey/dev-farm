@@ -194,7 +194,8 @@ export function buildProxyUrl(envId: string, workspacePath?: string): string {
 }
 
 export function buildTerminalUrl(envId: string): string {
-  return `${EXTERNAL_URL}/terminal/${envId}`;
+  // Use relative URL for terminal proxy to work in both local and production
+  return `/terminal/${envId}`;
 }
 
 export function buildDesktopCommand(envId: string, workspacePath?: string): string {

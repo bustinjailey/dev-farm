@@ -54,6 +54,31 @@ async function resolveTerminalProxyTarget(envId: string): Promise<string | null>
   if (!record || record.mode !== 'terminal') {
     return null;
   }
+
+  // In production (running in Docker), use container network name
+  // In development (running on host), use container IP directly
+  const isInDocker = process.env.HOST_REPO_PATH !== undefined;
+
+  if (isInDocker) {
+    return `http://devfarm-${envId}:8080`;
+  }
+
+  // Development: need to get container IP from Docker
+  try {
+    const Docker = (await import('dockerode')).default;
+    const docker = new Docker();
+    const container = docker.getContainer(`devfarm-${envId}`);
+    const inspect = await container.inspect();
+    const networks = inspect.NetworkSettings?.Networks;
+    const devfarmNetwork = networks?.devfarm;
+
+    if (devfarmNetwork?.IPAddress) {
+      return `http://${devfarmNetwork.IPAddress}:8080`;
+    }
+  } catch (error) {
+    // Fall back to container name
+  }
+
   return `http://devfarm-${envId}:8080`;
 }
 
