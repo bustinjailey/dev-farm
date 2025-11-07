@@ -740,43 +740,39 @@ Successfully verified connection to your remote host!
 
 ## 🚀 Connect to Remote Host
 
-### Method 1: Using VS Code Remote-SSH (Recommended)
-
-The Remote-SSH extension is already installed and configured for you!
-
-**Steps to Connect:**
-1. Open the **Command Palette**: Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-2. Type: **Remote-SSH: Connect to Host...**
-3. Select: **remote-target**
-4. VS Code will connect and open a new window with the remote filesystem
-
-Your configured remote folder will be your workspace.
-
-### Method 2: Using Terminal
-
-You can also use the integrated terminal to SSH directly:
+Use the integrated terminal to SSH directly to your remote system:
 
 ```bash
 ssh remote-target
 ```
 
-This will connect you to your configured remote host.
+This will connect you to your configured remote host where you can:
+- Run commands on the remote system
+- Edit files using command-line editors (vim, nano, etc.)
+- Execute scripts and manage services
+- Work with your remote filesystem
 
 ## 📁 Connection Details
 
 All connection details are saved in `~/.ssh/config` under the name **remote-target**.
 
-## 💡 Tips
+To view your SSH configuration:
+```bash
+cat ~/.ssh/config
+```
 
-- Remote-SSH will install VS Code Server on the remote host automatically
-- Your extensions will be synced to the remote environment  
-- Files are edited directly on the remote host (no local copies)
-- Changes are saved instantly to the remote filesystem
+## 💡 Working with Remote Files
+
+Once connected via SSH, you can:
+- Use `vim` or `nano` to edit files
+- Transfer files with `scp` from/to the remote
+- Use `git` commands on the remote system
+- Run any commands available on the remote host
 
 ## 🔧 Troubleshooting
 
 If connection fails:
-1. Check network connectivity from this container to your remote host
+1. Check network connectivity: `ping <remote-host>`
 2. Verify SSH credentials are correct
 3. Check remote host firewall settings
 4. View logs in `.devfarm/startup.log`
@@ -790,18 +786,10 @@ for ease of use in development. This means:
 - Suitable for trusted networks and development environments
 - For production use, implement proper host key management
 
-## 🎯 What's Different from SSHFS?
-
-This approach uses VS Code's native Remote-SSH extension instead of SSHFS mounting:
-- **More Reliable**: Works with any SSH server (no SFTP subsystem required)
-- **Better Performance**: Direct SSH connection, no FUSE overhead
-- **Full VS Code Features**: Extensions run on the remote, better integration
-- **No Privileges Required**: Container doesn't need privileged mode
-
 Happy remote coding! 🎉
 EOFSUCCESS
             echo "✅ SSH connection configured successfully" | tee -a "$LOG_FILE"
-            echo "✅ Connection test passed - ready to connect via Remote-SSH" | tee -a "$LOG_FILE"
+            echo "✅ Connection test passed - ready to connect via 'ssh remote-target'" | tee -a "$LOG_FILE"
         else
             # Connection test failed - create error message
             cat > "$WORKSPACE_ROOT/SSH_CONNECTION_ERROR.md" <<'EOFERROR'
@@ -840,14 +828,14 @@ Verify your SSH settings in the dashboard:
 
 ### Test Connection Manually
 
-Open the integrated terminal (Ctrl+`) and try:
+Open the integrated terminal and try:
 
 ```bash
-# Test connection
+# Test connection with saved config
 ssh remote-target
 
-# If that fails, try manually:
-ssh -p PORT USERNAME@HOSTNAME
+# If that fails, try manually with details:
+ssh -p <PORT> <USERNAME>@<HOSTNAME>
 ```
 
 ### View Detailed Logs
