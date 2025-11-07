@@ -388,6 +388,8 @@
   @media (max-width: 600px) {
     .card {
       padding: 1rem;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     dl {
@@ -397,14 +399,20 @@
     .actions {
       flex-direction: column;
       align-items: stretch;
+      width: 100%;
     }
 
     .btn,
     a.btn {
       width: 100%;
+      max-width: 100%;
       text-align: center;
-      padding: 0.5rem 0.5rem;
+      padding: 0.5rem 0.75rem;
       font-size: 0.8rem;
+      box-sizing: border-box;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .btn-text-full {

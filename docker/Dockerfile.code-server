@@ -14,8 +14,6 @@ RUN apt-get update && apt-get install -y \
   build-essential \
   python3 \
   python3-pip \
-  nodejs \
-  npm \
   sshfs \
   fuse3 \
   sshpass \
@@ -26,6 +24,13 @@ RUN apt-get update && apt-get install -y \
   && apt-get clean autoclean \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+# Install Node.js 22.x from NodeSource (required for Copilot CLI)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+  && apt-get install -y nodejs \
+  && apt-get clean autoclean \
+  && apt-get autoremove --yes \
+  && rm -rf /var/lib/apt/lists/*
 
 # Download and install VS Code Insiders + GitHub CLI in one step
 # VS Code postinst script adds Microsoft repo - remove ALL possible repo files before apt-get update

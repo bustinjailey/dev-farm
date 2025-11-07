@@ -74,6 +74,47 @@ else
     echo "You'll need to authenticate manually or use the dashboard to connect GitHub."
 fi
 
+# ============================================================================
+# Install GitHub Copilot CLI (new standalone tool)
+# ============================================================================
+
+echo "Installing GitHub Copilot CLI..." | tee -a "$LOG_FILE"
+
+# Ensure npm prefix is set correctly for global installs
+export NPM_CONFIG_PREFIX=/home/coder/.npm-global
+mkdir -p /home/coder/.npm-global
+export PATH=/home/coder/.npm-global/bin:$PATH
+
+# Add to shell profiles for persistence
+for shell_rc in /home/coder/.zshrc /home/coder/.bashrc; do
+    if [ -f "$shell_rc" ]; then
+        if ! grep -q 'NPM_CONFIG_PREFIX' "$shell_rc"; then
+            echo 'export NPM_CONFIG_PREFIX=/home/coder/.npm-global' >> "$shell_rc"
+            echo 'export PATH=/home/coder/.npm-global/bin:$PATH' >> "$shell_rc"
+        fi
+    fi
+done
+
+# Install the new @github/copilot npm package globally
+if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
+    # Verify installation
+    if command -v copilot >/dev/null 2>&1; then
+        echo "✓ GitHub Copilot CLI installed successfully at $(which copilot)" | tee -a "$LOG_FILE"
+        
+        # Set GITHUB_TOKEN environment variable for automatic authentication
+        if [ -n "${GITHUB_TOKEN}" ]; then
+            echo "✓ GITHUB_TOKEN configured for Copilot CLI authentication" | tee -a "$LOG_FILE"
+        else
+            echo "Note: Run 'copilot' and use /login command to authenticate" | tee -a "$LOG_FILE"
+        fi
+    else
+        echo "⚠ Copilot installed but not found in PATH" | tee -a "$LOG_FILE"
+        echo "  Try: export PATH=/home/coder/.npm-global/bin:\$PATH" | tee -a "$LOG_FILE"
+    fi
+else
+    echo "⚠ Failed to install GitHub Copilot CLI" | tee -a "$LOG_FILE"
+fi
+
 # Handle different development modes
 DEV_MODE="${DEV_MODE:-workspace}"
 echo "Development mode: ${DEV_MODE}"
