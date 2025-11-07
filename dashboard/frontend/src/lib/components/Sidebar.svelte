@@ -154,7 +154,7 @@
     border: none;
     border-radius: 12px;
     padding: 0.75rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--bg-primary-gradient);
     color: white;
     font-weight: 700;
     font-size: 1rem;
@@ -167,6 +167,10 @@
   .toggle:hover {
     transform: scale(1.05);
     box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+  }
+
+  .toggle:active {
+    transform: scale(0.98);
   }
 
   .sidebar-content {
@@ -216,7 +220,7 @@
   }
 
   .badge.success {
-    background: #48bb78;
+    background: var(--color-success);
     color: white;
   }
 
@@ -232,11 +236,11 @@
   }
 
   .card-actions button {
-    border: none;
+    border: 2px solid var(--button-border-secondary);
     border-radius: 999px;
     padding: 0.5rem 1.1rem;
-    background: #edf2f7;
-    color: #1a202c;
+    background: var(--button-bg-secondary);
+    color: var(--button-text-secondary);
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
@@ -245,17 +249,24 @@
   }
 
   .card-actions button:hover:not(:disabled) {
+    background: var(--button-bg-secondary-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
+  .card-actions button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
   .card-actions button.secondary {
-    background: #e2e8f0;
+    background: var(--button-bg-secondary);
+    border-color: var(--button-border-secondary);
   }
 
   .card-actions button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    pointer-events: none;
   }
 
   .image-buttons {
@@ -265,11 +276,11 @@
   }
 
   .image-buttons button {
-    border: none;
+    border: 2px solid #5b21b6;
     border-radius: 999px;
     padding: 0.4rem 0.9rem;
-    background: #e0e7ff;
-    color: #3730a3;
+    background: #ede9fe;
+    color: #5b21b6;
     font-weight: 600;
     font-size: 0.8rem;
     cursor: pointer;
@@ -278,13 +289,19 @@
   }
 
   .image-buttons button:hover:not(:disabled) {
+    background: #ddd6fe;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(91, 33, 182, 0.15);
+  }
+
+  .image-buttons button:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
   .image-buttons button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    pointer-events: none;
   }
 
   @media (max-width: 1024px) {

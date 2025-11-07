@@ -244,7 +244,7 @@
 
   .copy-code-btn,
   .device-actions .btn {
-    border: none;
+    border: 2px solid var(--color-primary);
     border-radius: 999px;
     padding: 0.6rem 1.5rem;
     font-weight: 600;
@@ -252,22 +252,35 @@
     font-size: 0.95rem;
     text-decoration: none;
     display: inline-block;
+    transition: all 0.15s ease;
   }
 
   .copy-code-btn {
     background: white;
-    color: #667eea;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
   }
 
   .device-actions .btn.primary {
-    background: #48bb78;
+    background: var(--color-success);
     color: white;
+    border-color: transparent;
   }
 
   .copy-code-btn:hover,
   .device-actions .btn:hover {
-    opacity: 0.9;
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  }
+
+  .copy-code-btn:active,
+  .device-actions .btn:active {
+    transform: scale(0.98);
+  }
+
+  .device-actions .btn.primary:hover {
+    opacity: 0.95;
+    box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
   }
 
   .logs-content {
@@ -317,31 +330,42 @@
   }
 
   footer button {
-    border: none;
+    border: 2px solid var(--button-border-secondary);
     border-radius: 999px;
     padding: 0.6rem 1.5rem;
-    background: #e2e8f0;
+    background: var(--button-bg-secondary);
+    color: var(--button-text-secondary);
     font-weight: 600;
     cursor: pointer;
     line-height: 1.4;
+    transition: all 0.15s ease;
   }
 
   footer button:hover:not(:disabled) {
-    background: #cbd5e0;
+    background: var(--button-bg-secondary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  footer button:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
   footer button:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+    pointer-events: none;
   }
 
   footer .btn-copy {
     background: #4c51bf;
     color: white;
+    border-color: transparent;
   }
 
   footer .btn-copy:hover:not(:disabled) {
-    background: #434190;
+    opacity: 0.95;
+    box-shadow: 0 4px 12px rgba(76, 81, 191, 0.3);
   }
 
   footer small {

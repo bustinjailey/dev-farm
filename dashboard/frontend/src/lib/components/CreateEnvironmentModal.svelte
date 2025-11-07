@@ -240,11 +240,22 @@
   .browse {
     border: none;
     border-radius: 8px;
-    background: #667eea;
+    background: var(--color-primary);
     color: white;
     padding: 0.6rem 1rem;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .browse:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .browse:active {
+    transform: scale(0.98);
   }
 
   footer {
@@ -254,21 +265,48 @@
   }
 
   button {
-    border: none;
+    border: 2px solid var(--button-border-secondary);
     border-radius: 999px;
     padding: 0.6rem 1.4rem;
     font-weight: 600;
     cursor: pointer;
+    background: var(--button-bg-secondary);
+    color: var(--button-text-secondary);
+    transition: all 0.15s ease;
+  }
+
+  button:hover:not(:disabled) {
+    background: var(--button-bg-secondary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--bg-primary-gradient);
     color: white;
+    border-color: transparent;
+  }
+
+  .primary:hover:not(:disabled) {
+    background: var(--bg-primary-gradient);
+    opacity: 0.95;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   }
 
   .secondary {
-    background: #e2e8f0;
-    color: #1a202c;
+    background: var(--button-bg-secondary);
+    color: var(--button-text-secondary);
+    border-color: var(--button-border-secondary);
   }
 
   @media (max-width: 600px) {

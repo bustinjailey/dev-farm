@@ -159,11 +159,23 @@
 
   .close {
     margin-top: 1rem;
-    background: #e2e8f0;
-    border: none;
+    background: var(--button-bg-secondary);
+    border: 2px solid var(--button-border-secondary);
     border-radius: 999px;
     padding: 0.5rem 1.5rem;
+    color: var(--button-text-secondary);
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .close:hover {
+    background: var(--button-bg-secondary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .close:active {
+    transform: scale(0.98);
   }
 </style>

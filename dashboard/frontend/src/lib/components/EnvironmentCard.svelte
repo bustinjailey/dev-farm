@@ -308,11 +308,11 @@
 
   .btn,
   a.btn {
-    border: none;
+    border: 2px solid var(--button-border-secondary);
     border-radius: 999px;
     padding: 0.5rem 1.1rem;
-    background: #edf2f7;
-    color: #1a202c;
+    background: var(--button-bg-secondary);
+    color: var(--button-text-secondary);
     font-weight: 600;
     cursor: pointer;
     font-size: 0.85rem;
@@ -324,28 +324,45 @@
 
   .btn.primary,
   a.btn.primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--bg-primary-gradient);
     color: white;
+    border-color: transparent;
   }
 
   .btn.secondary {
-    background: #e2e8f0;
+    background: var(--button-bg-secondary);
+    border-color: var(--button-border-secondary);
   }
 
   .btn.danger {
-    background: #fee2e2;
-    color: #c53030;
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+    border-color: var(--color-danger);
   }
 
   .btn:hover:not(:disabled),
   a.btn:hover {
+    background: var(--button-bg-secondary-hover);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn.primary:hover:not(:disabled),
+  a.btn.primary:hover {
+    background: var(--bg-primary-gradient);
+    opacity: 0.95;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .btn:active:not(:disabled),
+  a.btn:active {
+    transform: scale(0.98);
   }
 
   .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    pointer-events: none;
   }
 
   .copy-status {
