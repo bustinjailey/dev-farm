@@ -65,7 +65,8 @@
   let systemActionResetTimer = $state<ReturnType<typeof setTimeout> | null>(null);
   let deviceCodeCopyState = $state<'copied' | 'failed' | ''>('');
   let deviceCodeCopyTimer = $state<ReturnType<typeof setTimeout> | null>(null);
-  let sidebarCollapsed = $state(false);
+  // Start with sidebar collapsed on mobile devices
+  let sidebarCollapsed = $state(typeof window !== 'undefined' && window.innerWidth <= 768);
   let logsModalEnvId = $state('');
   let logsModalOpen = $state(false);
   let envDeviceAuth = $state<Record<string, { code: string; url: string } | null>>({});

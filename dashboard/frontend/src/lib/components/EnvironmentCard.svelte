@@ -74,7 +74,10 @@
     {#if env.mode === 'terminal'}
       <!-- Terminal mode: show start/stop and delete only -->
       {#if env.status === 'running'}
-        <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Terminal</a>
+        <a class="btn primary" href={env.url} target="_blank" rel="noopener">
+          <span class="btn-text-full">Open Terminal</span>
+          <span class="btn-text-short">Terminal</span>
+        </a>
         <button class="btn" disabled={actionBusy} onclick={onStop}>
           ⏸ Stop
         </button>
@@ -401,5 +404,22 @@
       width: 100%;
       text-align: center;
     }
+
+    .btn-text-full {
+      display: none;
+    }
+
+    .btn-text-short {
+      display: inline;
+    }
+  }
+
+  /* Show full text on larger screens, short text on mobile */
+  .btn-text-full {
+    display: inline;
+  }
+
+  .btn-text-short {
+    display: none;
   }
 </style>
