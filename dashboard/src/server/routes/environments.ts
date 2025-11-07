@@ -94,7 +94,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         const container = docker.getContainer(env.containerId);
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
-        const ready = await isContainerHealthy(container);
+        const ready = await isContainerHealthy(container, docker);
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
         const workspacePath = getWorkspacePath(env.mode);
         const summaryUrl = env.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
@@ -128,7 +128,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
     for (const [envId, record] of Object.entries(registry)) {
       try {
         const container = docker.getContainer(record.containerId);
-        const ready = await isContainerHealthy(container);
+        const ready = await isContainerHealthy(container, docker);
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
         const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
@@ -522,7 +522,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         const container = docker.getContainer(record.containerId);
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
-        const ready = await isContainerHealthy(container);
+        const ready = await isContainerHealthy(container, docker);
         const stats = status === 'running' ? await getContainerStats(container) : undefined;
         return {
           status: ready ? 'running' : status === 'running' ? 'starting' : status,

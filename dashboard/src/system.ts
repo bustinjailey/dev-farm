@@ -275,6 +275,20 @@ export async function ensureUpdaterContainer(docker: Docker) {
   try {
     const container = docker.getContainer('devfarm-updater');
     const inspect = await container.inspect();
+
+    // Check if the container has the correct mount for HOST_REPO_PATH
+    const mounts = inspect.Mounts || [];
+    const hasCorrectMount = mounts.some(
+      (mount: any) => mount.Source === HOST_REPO_PATH && mount.Destination === HOST_REPO_PATH
+    );
+
+    // If mount is wrong (e.g., production container in dev mode), recreate it
+    if (!hasCorrectMount) {
+      console.log(`Updater container has wrong mount. Recreating with ${HOST_REPO_PATH}...`);
+      await container.remove({ force: true });
+      throw { statusCode: 404 }; // Trigger recreation
+    }
+
     if (inspect.State?.Running !== true) {
       await container.start();
     }

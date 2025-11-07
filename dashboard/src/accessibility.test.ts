@@ -46,9 +46,9 @@ describe('Button Accessibility - Color Contrast', () => {
   it('should have visible border for secondary buttons (contrast documented)', () => {
     const buttonBorder = hexToRgb('#cbd5e0'); // --button-border-secondary (gray-400)
     const whiteBackground = hexToRgb('#ffffff');
-    
+
     const contrastRatio = getContrastRatio(buttonBorder, whiteBackground);
-    
+
     // NOTE: Gray-400 border (#cbd5e0) has contrast of ~1.49:1 against white
     // This is intentional as the button uses white background with a subtle border
     // The actual clickable area contrast comes from the dark text (#1a202c) on white
@@ -59,9 +59,9 @@ describe('Button Accessibility - Color Contrast', () => {
   it('should have WCAG AA compliant contrast for secondary button text against white button background', () => {
     const buttonText = hexToRgb('#1a202c'); // --button-text-secondary (gray-900)
     const buttonBg = hexToRgb('#ffffff'); // --button-bg-secondary
-    
+
     const contrastRatio = getContrastRatio(buttonText, buttonBg);
-    
+
     // WCAG AA requires 4.5:1 for normal text
     expect(contrastRatio).toBeGreaterThanOrEqual(4.5);
   });
@@ -70,9 +70,9 @@ describe('Button Accessibility - Color Contrast', () => {
     // Using the lighter end of gradient (#667eea) as worst case
     const primaryBg = hexToRgb('#667eea'); // --color-primary
     const whiteText = hexToRgb('#ffffff');
-    
+
     const contrastRatio = getContrastRatio(whiteText, primaryBg);
-    
+
     // WCAG AA requires 3:1 for large text (14pt bold = ~18.5px which buttons use)
     // Our ratio is 3.66:1 which meets large text requirements
     // Note: For AA compliance with normal text, we'd need 4.5:1
@@ -82,9 +82,9 @@ describe('Button Accessibility - Color Contrast', () => {
   it('should have acceptable contrast for danger button text (WCAG AA Large Text)', () => {
     const dangerText = hexToRgb('#c53030'); // --color-danger
     const dangerBg = hexToRgb('#fee2e2'); // --color-danger-light
-    
+
     const contrastRatio = getContrastRatio(dangerText, dangerBg);
-    
+
     // WCAG AA requires 3:1 for large text (buttons use bold 14px+ font)
     // Our ratio is 4.48:1 which meets large text requirements
     // Note: Just shy of 4.5:1 needed for normal text AA compliance
@@ -94,9 +94,9 @@ describe('Button Accessibility - Color Contrast', () => {
   it('should have WCAG AA compliant contrast for danger button border against white background', () => {
     const dangerBorder = hexToRgb('#c53030'); // --color-danger
     const whiteBackground = hexToRgb('#ffffff');
-    
+
     const contrastRatio = getContrastRatio(dangerBorder, whiteBackground);
-    
+
     // WCAG AA requires 3:1 for UI components
     expect(contrastRatio).toBeGreaterThanOrEqual(3.0);
   });
@@ -104,15 +104,15 @@ describe('Button Accessibility - Color Contrast', () => {
   it('should document success button contrast for future improvement', () => {
     const successBg = hexToRgb('#48bb78'); // --color-success
     const whiteText = hexToRgb('#ffffff');
-    
+
     const contrastRatio = getContrastRatio(whiteText, successBg);
-    
+
     // Current ratio is 2.43:1 which doesn't meet WCAG AA requirements
     // This is a known issue - success buttons should use darker green
     // or add a border for better visual distinction
     // For now, documenting the current state
     expect(contrastRatio).toBeGreaterThan(2.0);
-    
+
     // TODO: Consider using #38a169 (green-600) which provides 3.04:1 for large text
     // or #2f855a (green-700) which provides 4.53:1 for normal text
   });
@@ -121,13 +121,13 @@ describe('Button Accessibility - Color Contrast', () => {
     // Old problematic color
     const oldGray = hexToRgb('#e2e8f0'); // Old secondary button background
     const whiteBackground = hexToRgb('#ffffff');
-    
+
     const oldContrastRatio = getContrastRatio(oldGray, whiteBackground);
-    
+
     // Verify the old color had insufficient contrast (< 3:1)
     // This demonstrates the improvement made
     expect(oldContrastRatio).toBeLessThan(3.0);
-    
+
     // New design uses white with border instead, which provides better visual distinction
   });
 });
@@ -138,12 +138,12 @@ describe('Button Accessibility - Focus Indicators', () => {
     const expectedFocusColor = '#667eea';
     const expectedFocusWidth = '2px';
     const expectedFocusOffset = '2px';
-    
+
     // Verify our documented standards
     expect(expectedFocusColor).toBe('#667eea');
     expect(expectedFocusWidth).toBe('2px');
     expect(expectedFocusOffset).toBe('2px');
-    
+
     // Note: CSS custom properties are:
     // --focus-outline-color: #667eea
     // --focus-outline-width: 2px
@@ -200,7 +200,7 @@ describe('Button Accessibility - Disabled State Consistency', () => {
     // This is a documentation test - the implementation should use opacity: 0.6
     // for all disabled buttons as standardized in the updates
     const expectedDisabledOpacity = 0.6;
-    
+
     // Verify this is the standard we've implemented
     expect(expectedDisabledOpacity).toBe(0.6);
   });
@@ -209,7 +209,7 @@ describe('Button Accessibility - Disabled State Consistency', () => {
     // This is a documentation test - all disabled buttons should have
     // pointer-events: none to prevent interaction
     const expectedPointerEvents = 'none';
-    
+
     // Verify this is the standard we've implemented
     expect(expectedPointerEvents).toBe('none');
   });
@@ -218,7 +218,7 @@ describe('Button Accessibility - Disabled State Consistency', () => {
     // This is a documentation test - all disabled buttons should have
     // cursor: not-allowed for better UX
     const expectedCursor = 'not-allowed';
-    
+
     // Verify this is the standard we've implemented
     expect(expectedCursor).toBe('not-allowed');
   });

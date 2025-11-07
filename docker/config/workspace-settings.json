@@ -37,5 +37,13 @@
   "editor.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
   "workbench.editor.restoreViewState": false,
-  "workbench.editor.enablePreview": false
+  "workbench.editor.enablePreview": false,
+  "github.copilot.enable": {
+    "*": true
+  },
+  "github.copilot.advanced": {},
+  "chat.experimental.offerLanguageModelAccess": "always",
+  "chat.experimental.languageModelAccess": {
+    "github.copilot": "always"
+  }
 }

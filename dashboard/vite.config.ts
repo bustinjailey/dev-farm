@@ -19,7 +19,7 @@ export default defineConfig({
     port: 5173,
     host: true,
     watch: {
-      // Ignore files that don't need watching to prevent ENOSPC errors
+      // Aggressive ignore list to prevent ENOSPC errors
       ignored: [
         '**/node_modules/**',
         '**/dist/**',
@@ -29,7 +29,24 @@ export default defineConfig({
         '**/*.log',
         '**/docker/**',
         '**/docs/**',
+        '**/.config/**',
+        '**/test-results/**',
+        '**/playwright-report/**',
+        '**/coverage/**',
+        '**/.vscode/**',
+        '**/.idea/**',
+        '**/tmp/**',
+        '**/temp/**',
+        '**/.DS_Store',
+        '**/Thumbs.db',
+        // Ignore parent workspace node_modules
+        '../../node_modules/**',
+        '../node_modules/**',
       ],
+      // Use polling as fallback if needed (less efficient but more reliable)
+      usePolling: false,
+      // Reduce file watch depth
+      depth: 3,
     },
     proxy: {
       '/api': 'http://localhost:5000',

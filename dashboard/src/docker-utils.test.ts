@@ -1,7 +1,8 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest';
 import { getContainerStats, isContainerHealthy } from './docker-utils.js';
 import type Docker from 'dockerode';
 import { EventEmitter } from 'events';
+import * as systemModule from './system.js';
 
 class MockReadableStream extends EventEmitter {
   constructor(private data: string) {
@@ -320,5 +321,137 @@ describe('isContainerHealthy', () => {
     const healthy = await isContainerHealthy(container as unknown as Docker.Container);
 
     expect(healthy).toBe(true);
+  });
+
+  it('returns false when auth is required but not complete', async () => {
+    const getContainerLogsSpy = vi.spyOn(systemModule, 'getContainerLogs').mockResolvedValue(
+      'Please log into https://github.com/login/device and use code ABCD-1234'
+    );
+
+    const container = new MockContainer(
+      {},
+      {
+        Id: 'test-container-123',
+        State: {
+          Status: 'running',
+        },
+      },
+      '12345' // Process is running
+    );
+
+    const mockDocker = {} as Docker;
+
+    const healthy = await isContainerHealthy(
+      container as unknown as Docker.Container,
+      mockDocker
+    );
+
+    expect(healthy).toBe(false);
+    expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
+
+    getContainerLogsSpy.mockRestore();
+  });
+
+  it('returns true when auth is complete', async () => {
+    const getContainerLogsSpy = vi.spyOn(systemModule, 'getContainerLogs').mockResolvedValue(
+      'Please log into https://github.com/login/device and use code ABCD-1234\nOpen this link in your browser https://vscode.dev/tunnel/test'
+    );
+
+    const container = new MockContainer(
+      {},
+      {
+        Id: 'test-container-123',
+        State: {
+          Status: 'running',
+        },
+      },
+      '12345' // Process is running
+    );
+
+    const mockDocker = {} as Docker;
+
+    const healthy = await isContainerHealthy(
+      container as unknown as Docker.Container,
+      mockDocker
+    );
+
+    expect(healthy).toBe(true);
+    expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
+
+    getContainerLogsSpy.mockRestore();
+  });
+
+  it('returns true when no auth is required', async () => {
+    const getContainerLogsSpy = vi.spyOn(systemModule, 'getContainerLogs').mockResolvedValue(
+      'Visual Studio Code Server\nOpen this link in your browser https://vscode.dev/tunnel/test'
+    );
+
+    const container = new MockContainer(
+      {},
+      {
+        Id: 'test-container-123',
+        State: {
+          Status: 'running',
+        },
+      },
+      '12345' // Process is running
+    );
+
+    const mockDocker = {} as Docker;
+
+    const healthy = await isContainerHealthy(
+      container as unknown as Docker.Container,
+      mockDocker
+    );
+
+    expect(healthy).toBe(true);
+    expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
+
+    getContainerLogsSpy.mockRestore();
+  });
+
+  it('returns true when docker is not provided (backward compatibility)', async () => {
+    const container = new MockContainer(
+      {},
+      {
+        State: {
+          Status: 'running',
+        },
+      },
+      '12345' // Process is running
+    );
+
+    const healthy = await isContainerHealthy(container as unknown as Docker.Container);
+
+    expect(healthy).toBe(true);
+  });
+
+  it('returns true when log reading fails', async () => {
+    const getContainerLogsSpy = vi.spyOn(systemModule, 'getContainerLogs').mockRejectedValue(
+      new Error('Failed to read logs')
+    );
+
+    const container = new MockContainer(
+      {},
+      {
+        Id: 'test-container-123',
+        State: {
+          Status: 'running',
+        },
+      },
+      '12345' // Process is running
+    );
+
+    const mockDocker = {} as Docker;
+
+    const healthy = await isContainerHealthy(
+      container as unknown as Docker.Container,
+      mockDocker
+    );
+
+    // Should fall back to assuming healthy if we can't read logs
+    expect(healthy).toBe(true);
+
+    getContainerLogsSpy.mockRestore();
   });
 });

@@ -3,14 +3,9 @@
     "aggregate-mcp-server": {
       "type": "stdio",
       "command": "node",
-      "args": [
-        "/home/coder/.local/bin/aggregate-mcp-server/dist/index.js",
-        "--config",
-        "/home/coder/.local/bin/aggregate-mcp-server/server-config.json"
-      ],
+      "args": ["/home/coder/.local/bin/aggregate-mcp-server/dist/index.js"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
-        "WORKSPACE_ROOT": "${WORKSPACE_ROOT}",
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       }
     }

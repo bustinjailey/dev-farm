@@ -1,5 +1,6 @@
 import type Docker from 'dockerode';
 import type { ContainerStats } from './types.js';
+import { getContainerLogs } from './system.js';
 
 export async function getContainerStats(container: Docker.Container): Promise<ContainerStats> {
   try {
@@ -22,7 +23,7 @@ export async function getContainerStats(container: Docker.Container): Promise<Co
   }
 }
 
-export async function isContainerHealthy(container: Docker.Container): Promise<boolean> {
+export async function isContainerHealthy(container: Docker.Container, docker?: Docker): Promise<boolean> {
   try {
     const details = await container.inspect();
 
@@ -53,7 +54,35 @@ export async function isContainerHealthy(container: Docker.Container): Promise<b
           readable.on('error', reject);
         });
         // If pgrep finds the process, it returns the PID (non-empty output)
-        return output.trim().length > 0;
+        const processRunning = output.trim().length > 0;
+
+        if (!processRunning) {
+          return false;
+        }
+
+        // Process is running, but we need to check if auth is required and complete
+        if (docker) {
+          try {
+            const logs = await getContainerLogs(docker, details.Id, 100);
+            const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+
+            // If auth is required, check if it's complete
+            if (authMatch) {
+              const tunnelReady = logs.includes('Open this link in your browser');
+              // Auth required but not complete - keep in "starting" state
+              if (!tunnelReady) {
+                return false;
+              }
+            }
+            // Either no auth required, or auth is complete
+            return true;
+          } catch {
+            // If we can't read logs, assume process running = healthy
+            return true;
+          }
+        }
+
+        return true;
       } catch {
         // If exec fails, assume still starting
         return false;

@@ -6,7 +6,7 @@
 
   let { open = false }: { open?: boolean } = $props();
 
-  let repos = $state<{ name: string; https_url: string; private: boolean; description: string | null }[]>([]);
+  let repos = $state<{ name: string; https_url: string; private: boolean; description: string | null; updated: string }[]>([]);
   let loading = $state(false);
   let error = $state<string | null>(null);
 
@@ -16,7 +16,8 @@
     try {
       const result: any = await listGithubRepos();
       if (Array.isArray(result)) {
-        repos = result;
+        // Sort by updated date, most recent first
+        repos = result.sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
       } else {
         repos = [];
         error = result?.error ?? 'Failed to load repositories';

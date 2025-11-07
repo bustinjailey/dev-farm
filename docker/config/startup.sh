@@ -489,14 +489,6 @@ else
                     
                     if [ "$UPDATE_SUCCESS" = true ]; then
                         echo "✓ Aggregate MCP server updated successfully" | tee -a "$LOG_FILE"
-                        
-                        # Substitute environment variables directly into server-config.json
-                        echo "Configuring server-config.json with environment variables..." | tee -a "$LOG_FILE"
-                        if [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
-                            sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-                            sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-                            echo "✓ Configured server-config.json with secrets" | tee -a "$LOG_FILE"
-                        fi
                     else
                         echo "✗ Failed to build aggregate MCP server update" | tee -a "$LOG_FILE"
                         echo "   Check the logs above for npm/pnpm errors" | tee -a "$LOG_FILE"
@@ -506,17 +498,6 @@ else
                 fi
             else
                 echo "✓ Aggregate MCP server already up to date" | tee -a "$LOG_FILE"
-                
-                # Still update config in case environment variables changed
-                echo "Updating server-config.json with latest environment variables..." | tee -a "$LOG_FILE"
-                if [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
-                    # Reset to template version first
-                    git checkout server-config.json 2>/dev/null || true
-                    # Substitute current environment variables
-                    sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-                    sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-                    echo "✓ Updated server-config.json with current secrets" | tee -a "$LOG_FILE"
-                fi
             fi
         else
             echo "⚠ Failed to fetch aggregate MCP server updates" | tee -a "$LOG_FILE"
@@ -557,16 +538,6 @@ else
             
             if [ "$INSTALL_SUCCESS" = true ]; then
                 echo "✓ Aggregate MCP server installed successfully" | tee -a "$LOG_FILE"
-                
-                # Substitute environment variables directly into server-config.json
-                echo "Configuring server-config.json with environment variables..." | tee -a "$LOG_FILE"
-                if [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
-                    sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-                    sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-                    echo "✓ Configured server-config.json with secrets" | tee -a "$LOG_FILE"
-                else
-                    echo "⚠ server-config.json not found in repository" | tee -a "$LOG_FILE"
-                fi
             else
                 echo "✗ Failed to build aggregate MCP server" | tee -a "$LOG_FILE"
                 echo "   Check the logs above for npm/pnpm errors" | tee -a "$LOG_FILE"
@@ -578,21 +549,6 @@ else
             echo "   This requires GITHUB_TOKEN with 'repo' scope for private repos" | tee -a "$LOG_FILE"
             echo "   Check authentication: gh auth status" | tee -a "$LOG_FILE"
         fi
-    fi
-    
-    # Update server-config.json if MCP server exists (for both install and update paths)
-    if [ -d "$MCP_INSTALL_DIR" ] && [ -f "$MCP_INSTALL_DIR/server-config.json" ]; then
-        echo "Ensuring server-config.json has latest environment variables..." | tee -a "$LOG_FILE"
-        # Reset to template version first (in case env vars changed)
-        if [ -f "$MCP_INSTALL_DIR/.git/config" ]; then
-            cd "$MCP_INSTALL_DIR"
-            git checkout server-config.json 2>/dev/null || true
-            cd /home/coder
-        fi
-        # Substitute current environment variables
-        sed -i "s|\${BRAVE_API_KEY}|${BRAVE_API_KEY:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-        sed -i "s|\${GITHUB_PERSONAL_ACCESS_TOKEN}|${GITHUB_PERSONAL_ACCESS_TOKEN:-}|g" "$MCP_INSTALL_DIR/server-config.json"
-        echo "✓ Updated server-config.json with current secrets" | tee -a "$LOG_FILE"
     fi
 fi
 
@@ -1016,16 +972,26 @@ if os.path.exists(settings_path):
 else:
     settings = {}
 
-# Only add the access control setting, not the servers themselves
-# The servers will be read from .vscode/mcp.json automatically
+# Enable MCP servers
 settings["chat.mcp.access"] = "all"  # Allow all MCP servers
+
+# Enable Copilot language model access (required for Chat to work)
+settings["chat.experimental.offerLanguageModelAccess"] = "always"
+settings["chat.experimental.languageModelAccess"] = {
+    "github.copilot": "always"
+}
+
+# Enable Copilot globally
+settings["github.copilot.enable"] = {
+    "*": True
+}
 
 # Write back
 os.makedirs(os.path.dirname(settings_path), exist_ok=True)
 with open(settings_path, 'w') as f:
     json.dump(settings, f, indent=2)
 
-print("✓ MCP access enabled in Machine settings")
+print("✓ MCP access and Copilot language model enabled in Machine settings")
 PYEOF
     
 else
@@ -1034,26 +1000,30 @@ fi
 
 echo "MCP configuration complete" | tee -a "$LOG_FILE"
 echo "Note: MCP servers are in isolated .vscode directory (symlinked to workspace)" | tee -a "$LOG_FILE"
-echo "Note: aggregate-mcp-server uses server-config.json with substituted environment variables" | tee -a "$LOG_FILE"
 
 # Create workspace-specific .gitignore based on mode
 # This prevents .vscode symlink and other dev-farm files from being committed
 if [ "${DEV_MODE}" = "git" ]; then
-    # In git mode, user has cloned repo - add .gitignore to prevent committing our .vscode symlink
-    echo "Creating .gitignore for git mode to exclude dev-farm files..." | tee -a "$LOG_FILE"
-    cat > "${WORKSPACE_ROOT}/.gitignore.devfarm" <<'GITIGNORE'
-# Dev Farm managed files (auto-generated)
-# Add these entries to your .gitignore if needed
+    # In git mode, user has cloned repo - append to .gitignore to prevent committing our .vscode symlink
+    echo "Adding dev-farm exclusions to .gitignore in git mode..." | tee -a "$LOG_FILE"
+    GITIGNORE_PATH="${WORKSPACE_ROOT}/.gitignore"
+    
+    # Check if .gitignore exists and if it already has devfarm section
+    if [ -f "$GITIGNORE_PATH" ] && grep -q "# Dev Farm" "$GITIGNORE_PATH"; then
+        echo "  Dev Farm section already exists in .gitignore" | tee -a "$LOG_FILE"
+    else
+        # Append dev-farm exclusions to .gitignore
+        cat >> "$GITIGNORE_PATH" <<'GITIGNORE'
+
+# Dev Farm managed files (auto-generated - do not commit)
 .vscode/
 .devfarm/
 core.*
 *.core
 vgcore.*
-.DS_Store
-Thumbs.db
 GITIGNORE
-    echo "✓ Created ${WORKSPACE_ROOT}/.gitignore.devfarm (reference file)" | tee -a "$LOG_FILE"
-    echo "  Add these entries to your repository's .gitignore if needed" | tee -a "$LOG_FILE"
+        echo "✓ Added Dev Farm exclusions to ${GITIGNORE_PATH}" | tee -a "$LOG_FILE"
+    fi
 elif [ "${DEV_MODE}" = "workspace" ]; then
     # In workspace mode, create .gitignore to keep workspace clean
     echo "Creating .gitignore for workspace mode..." | tee -a "$LOG_FILE"
