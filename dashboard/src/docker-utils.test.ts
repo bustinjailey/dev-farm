@@ -406,7 +406,7 @@ describe('isContainerHealthy', () => {
 
     expect(healthy).toBe(true);
     expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
-    
+
     getContainerLogsSpy.mockRestore();
   });
 
@@ -435,9 +435,9 @@ describe('isContainerHealthy', () => {
 
     expect(healthy).toBe(false);
     expect(getContainerLogsSpy).toHaveBeenCalledWith(mockDocker, 'test-container-123', 100);
-    
+
     getContainerLogsSpy.mockRestore();
-  });  it('returns true when docker is not provided (backward compatibility)', async () => {
+  }); it('returns true when docker is not provided (backward compatibility)', async () => {
     const container = new MockContainer(
       {},
       {

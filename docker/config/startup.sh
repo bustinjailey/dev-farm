@@ -975,12 +975,6 @@ else:
 # Enable MCP servers
 settings["chat.mcp.access"] = "all"  # Allow all MCP servers
 
-# Enable Copilot language model access (required for Chat to work)
-settings["chat.experimental.offerLanguageModelAccess"] = "always"
-settings["chat.experimental.languageModelAccess"] = {
-    "github.copilot": "always"
-}
-
 # Enable Copilot globally
 settings["github.copilot.enable"] = {
     "*": True
