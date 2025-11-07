@@ -403,6 +403,8 @@
     a.btn {
       width: 100%;
       text-align: center;
+      padding: 0.5rem 0.5rem;
+      font-size: 0.8rem;
     }
 
     .btn-text-full {
