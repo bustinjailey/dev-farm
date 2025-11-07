@@ -13,6 +13,7 @@
     onGithubManage: () => void;
     onGithubDisconnect: () => void;
     onStartUpdate: () => void;
+    onViewUpdateProgress: () => void;
     onCleanupOrphans: () => void;
     onRecoverRegistry: () => void;
     onImageBuild: (type: 'code-server' | 'terminal' | 'dashboard') => void;
@@ -32,6 +33,7 @@
     onGithubManage,
     onGithubDisconnect,
     onStartUpdate,
+    onViewUpdateProgress,
     onCleanupOrphans,
     onRecoverRegistry,
     onImageBuild,
@@ -75,7 +77,14 @@
       <div class="status-card">
         <header>
           <h3>System Version</h3>
-          <span class="badge {updateInProgress ? 'warn' : systemStatus?.updates_available ? 'warn' : 'success'}">
+          <span 
+            class="badge {updateInProgress ? 'warn' : systemStatus?.updates_available ? 'warn' : 'success'}" 
+            class:clickable={updateInProgress}
+            onclick={updateInProgress ? onViewUpdateProgress : undefined}
+            role={updateInProgress ? 'button' : undefined}
+            tabindex={updateInProgress ? 0 : undefined}
+            title={updateInProgress ? 'Click to view update progress' : undefined}
+          >
             {updateInProgress ? 'Updating...' : systemStatus?.updates_available ? `${systemStatus.commits_behind} behind` : 'Up to date'}
           </span>
         </header>
@@ -217,6 +226,15 @@
     border-radius: 999px;
     font-weight: 600;
     font-size: 0.75rem;
+  }
+
+  .badge.clickable {
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .badge.clickable:hover {
+    opacity: 0.8;
   }
 
   .badge.success {

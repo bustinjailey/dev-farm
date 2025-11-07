@@ -53,6 +53,7 @@
   let deviceFlow = $state<any>(null);
   let devicePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let updatePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
+  let updateInitiatedLocally = $state(false);
   let repoBrowserOpen = $state(false);
   let pendingGitUrl = $state('');
   let imagesInfo = $state<any>(null);
@@ -253,6 +254,7 @@
         alert(result.message ?? 'Update already running');
         return;
       }
+      updateInitiatedLocally = true;
       openUpdateModal();
       await refreshUpdateStatus();
     } catch (err) {
@@ -265,6 +267,7 @@
     // Don't clear updateStatus - keep polling if update is still running
     if (!updateStatus?.running) {
       updateStatus = null;
+      updateInitiatedLocally = false;
       if (updatePollTimer) {
         clearInterval(updatePollTimer);
         updatePollTimer = null;
@@ -280,6 +283,11 @@
     if (!updatePollTimer) {
       updatePollTimer = setInterval(refreshUpdateStatus, 3000);
     }
+  }
+
+  function handleViewUpdateProgress() {
+    openUpdateModal();
+    refreshUpdateStatus();
   }
 
   async function refreshUpdateStatus() {
@@ -489,7 +497,11 @@
       };
 
       const updateHandler = () => {
-        openUpdateModal();
+        // Only auto-open modal on the device that initiated the update
+        if (updateInitiatedLocally) {
+          openUpdateModal();
+        }
+        // Always refresh status to keep UI updated
         refreshUpdateStatus();
       };
 
@@ -600,6 +612,7 @@
     onGithubManage={() => (showGithubModal = true)}
     onGithubDisconnect={disconnectGithubAccount}
     onStartUpdate={handleStartUpdate}
+    onViewUpdateProgress={handleViewUpdateProgress}
     onCleanupOrphans={handleCleanupOrphans}
     onRecoverRegistry={handleRecoverRegistry}
     onImageBuild={handleImageBuild}
