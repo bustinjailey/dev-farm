@@ -90,4 +90,24 @@ describe('Terminal Mode Backend Integration', () => {
     // Check for fallback to gh copilot
     expect(routes).toContain('gh copilot');
   });
+
+  it('should pass dashboard PAT to terminal environments', () => {
+    const routesPath = join(__dirname, 'server/routes/environments.ts');
+    const routes = readFileSync(routesPath, 'utf-8');
+    
+    // Check that GitHub token is loaded and passed to environment
+    expect(routes).toContain('loadGitHubToken');
+    expect(routes).toContain('githubToken');
+    expect(routes).toContain('GITHUB_TOKEN');
+  });
+
+  it('should use GITHUB_TOKEN in terminal startup', () => {
+    const scriptPath = join(__dirname, '../../docker/config/startup-terminal.sh');
+    const script = readFileSync(scriptPath, 'utf-8');
+    
+    // Check that startup script uses GITHUB_TOKEN environment variable
+    expect(script).toContain('GITHUB_TOKEN');
+    expect(script).toContain('gh auth login --with-token');
+    expect(script).toContain('GitHub authentication completed successfully');
+  });
 });

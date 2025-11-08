@@ -749,9 +749,7 @@
           <h3>💡 Recommended: Personal Access Token</h3>
           <p class="hint">
             Easier for terminal environments - no device flow needed!<br>
-            <a href="https://github.com/settings/tokens/new?description=Dev%20Farm&scopes=repo,workflow,read:org,gist" target="_blank" rel="noopener">
-              Create a token →
-            </a> (requires: repo, workflow, read:org, gist scopes)
+            Requires: repo, workflow, read:org, gist scopes
           </p>
           <label>
             <span>Personal Access Token</span>
