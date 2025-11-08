@@ -78,9 +78,11 @@ RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
   echo 'echo "  • gh copilot suggest <task>"' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc
 
-# Create startup script
+# Create startup script, custom ttyd HTML, and copilot chat wrapper
 COPY --chown=coder:coder config/startup-terminal.sh /home/coder/startup.sh
-RUN chmod +x /home/coder/startup.sh
+COPY --chown=coder:coder config/ttyd-index.html /home/coder/ttyd-index.html
+COPY --chown=coder:coder config/copilot-chat.sh /home/coder/copilot-chat.sh
+RUN chmod +x /home/coder/startup.sh /home/coder/copilot-chat.sh
 
 EXPOSE 8080
 
