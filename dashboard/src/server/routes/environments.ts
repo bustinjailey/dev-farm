@@ -156,26 +156,50 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           try {
             // Check for terminal mode Copilot device auth first
             if (record.mode === 'terminal') {
-              const copilotAuth = await readCopilotDeviceAuth(container);
-              if (copilotAuth) {
-                const cached = lastKnownDeviceAuth.get(envId);
-                if (!cached || cached.code !== copilotAuth.code) {
-                  lastKnownDeviceAuth.set(envId, copilotAuth);
-                  fastify.log.info({ envId, code: copilotAuth.code }, 'Copilot device auth detected (terminal mode)');
-                  sseChannel.broadcast('device-auth', {
+              // Check auth status file first
+              const authStatus = await execToString(
+                container,
+                'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
+              ).catch(() => 'unknown');
+
+              if (authStatus.trim() === 'authenticated') {
+                // Authentication completed - clear device auth state
+                if (lastKnownDeviceAuth.has(envId)) {
+                  lastKnownDeviceAuth.delete(envId);
+                  fastify.log.info({ envId }, 'Copilot authenticated successfully (terminal mode)');
+                  sseChannel.broadcast('copilot-ready', {
                     env_id: envId,
-                    url: copilotAuth.url,
-                    code: copilotAuth.code,
+                    status: 'ready',
                   });
                 }
-                requiresAuth = true;
-                deviceAuthInfo = copilotAuth;
-              } else if (lastKnownDeviceAuth.has(envId)) {
-                // Auth file removed or authentication completed
-                lastKnownDeviceAuth.delete(envId);
-                fastify.log.info({ envId }, 'Copilot device auth completed (terminal mode)');
                 requiresAuth = false;
                 deviceAuthInfo = null;
+              } else if (authStatus.trim() === 'timeout') {
+                // Authentication timed out
+                requiresAuth = true;
+                deviceAuthInfo = { code: 'TIMEOUT', url: '' };
+              } else {
+                // Check for device auth file (pending state)
+                const copilotAuth = await readCopilotDeviceAuth(container);
+                if (copilotAuth && authStatus.trim() === 'pending') {
+                  const cached = lastKnownDeviceAuth.get(envId);
+                  if (!cached || cached.code !== copilotAuth.code) {
+                    lastKnownDeviceAuth.set(envId, copilotAuth);
+                    fastify.log.info({ envId, code: copilotAuth.code }, 'Copilot device auth detected (terminal mode)');
+                    sseChannel.broadcast('device-auth', {
+                      env_id: envId,
+                      url: copilotAuth.url,
+                      code: copilotAuth.code,
+                    });
+                  }
+                  requiresAuth = true;
+                  deviceAuthInfo = copilotAuth;
+                } else if (!copilotAuth && lastKnownDeviceAuth.has(envId)) {
+                  // Auth file removed but status not yet authenticated
+                  // Keep checking for authenticated status
+                  requiresAuth = true;
+                  deviceAuthInfo = lastKnownDeviceAuth.get(envId) ?? null;
+                }
               }
             } else {
               // Tunnel mode: check logs for device auth

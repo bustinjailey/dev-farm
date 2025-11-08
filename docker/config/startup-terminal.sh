@@ -107,45 +107,62 @@ if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         
         # Create a state file for device auth info
         DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
+        AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
         
-        # Run copilot with /login command in non-interactive mode to get device code
-        # The copilot CLI will output the device code and URL when authentication is needed
-        (
-            echo "/login" | timeout 20s copilot 2>&1 || true
-        ) | tee -a "$LOG_FILE" | grep -E "Enter one time code:|https://github.com/login/device" | tee /tmp/copilot-auth-output.txt || true
-        
-        # Parse device code and URL from output
-        if [ -f /tmp/copilot-auth-output.txt ] && grep -q "github.com/login/device" /tmp/copilot-auth-output.txt; then
-            DEVICE_CODE=$(grep -oP "Enter one time code: \K[A-Z0-9-]+" /tmp/copilot-auth-output.txt || echo "")
-            DEVICE_URL=$(grep -oP "https://github.com/login/device[^\s]*" /tmp/copilot-auth-output.txt || echo "https://github.com/login/device")
+        # Create tmux session for copilot auth
+        if tmux new-session -d -s copilot-auth -c /home/coder/workspace 2>/dev/null; then
+            echo "✓ Created tmux session for copilot auth" | tee -a "$LOG_FILE"
             
-            if [ -n "$DEVICE_CODE" ]; then
-                echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
-                echo "✓ Auth URL: $DEVICE_URL" | tee -a "$LOG_FILE"
+            # Start copilot in that session
+            tmux send-keys -t copilot-auth "export PATH=/home/coder/.npm-global/bin:\$PATH" C-m
+            sleep 2
+            tmux send-keys -t copilot-auth "copilot" C-m
+            sleep 3
+            
+            # Capture output to get device code
+            OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+            
+            # Parse device code and URL from output
+            if echo "$OUTPUT" | grep -q "github.com/login/device"; then
+                DEVICE_CODE=$(echo "$OUTPUT" | grep -oP "Enter one time code: \K[A-Z0-9-]+" || echo "")
+                DEVICE_URL=$(echo "$OUTPUT" | grep -oP "https://github.com/login/device[^\s]*" || echo "https://github.com/login/device")
                 
-                # Write device auth info to file for dashboard to read
-                cat > "$DEVICE_AUTH_FILE" <<EOF
+                if [ -n "$DEVICE_CODE" ]; then
+                    echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
+                    echo "✓ Auth URL: $DEVICE_URL" | tee -a "$LOG_FILE"
+                    
+                    # Write device auth info to file for dashboard to read
+                    cat > "$DEVICE_AUTH_FILE" <<EOF
 {
   "code": "$DEVICE_CODE",
   "url": "$DEVICE_URL",
   "timestamp": "$(date -Iseconds)"
 }
 EOF
-                echo "✓ Device auth info saved to $DEVICE_AUTH_FILE" | tee -a "$LOG_FILE"
+                    echo "✓ Device auth info saved to $DEVICE_AUTH_FILE" | tee -a "$LOG_FILE"
+                    
+                    # Start background auth monitor
+                    echo "✓ Starting authentication monitor" | tee -a "$LOG_FILE"
+                    nohup /home/coder/copilot-auth-monitor.sh >> "$LOG_FILE" 2>&1 &
+                    echo "✓ Authentication monitor running in background" | tee -a "$LOG_FILE"
+                else
+                    echo "⚠ Could not parse device code from copilot output" | tee -a "$LOG_FILE"
+                fi
             else
-                echo "⚠ Could not parse device code from copilot output" | tee -a "$LOG_FILE"
+                # Check if already authenticated
+                if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do"; then
+                    echo "✓ Copilot CLI already authenticated" | tee -a "$LOG_FILE"
+                    echo "authenticated" > "$AUTH_STATUS_FILE"
+                    # Kill the auth session since we don't need it
+                    tmux kill-session -t copilot-auth 2>/dev/null || true
+                else
+                    echo "⚠ Device flow initiation did not produce expected output" | tee -a "$LOG_FILE"
+                    echo "⚠ Output: $OUTPUT" | tee -a "$LOG_FILE"
+                fi
             fi
         else
-            # Check if already authenticated
-            if copilot --version >/dev/null 2>&1; then
-                echo "✓ Copilot CLI may already be authenticated" | tee -a "$LOG_FILE"
-            else
-                echo "⚠ Device flow initiation did not produce expected output" | tee -a "$LOG_FILE"
-            fi
+            echo "⚠ Failed to create tmux session for copilot auth" | tee -a "$LOG_FILE"
         fi
-        
-        # Clean up temp file
-        rm -f /tmp/copilot-auth-output.txt
     else
         echo "⚠ Copilot installed but not found in PATH" | tee -a "$LOG_FILE"
         echo "  Try: export PATH=/home/coder/.npm-global/bin:\$PATH" | tee -a "$LOG_FILE"

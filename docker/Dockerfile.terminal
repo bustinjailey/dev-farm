@@ -79,12 +79,13 @@ RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
   echo 'echo "  • gh copilot suggest <task>"' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc
 
-# Create startup script, terminal server, and copilot chat wrapper
+# Create startup script, terminal server, copilot chat wrapper, and auth monitor
 COPY --chown=coder:coder config/startup-terminal.sh /home/coder/startup.sh
 COPY --chown=coder:coder config/terminal-server.js /home/coder/terminal-server.js
 COPY --chown=coder:coder config/terminal.html /home/coder/terminal.html
 COPY --chown=coder:coder config/copilot-chat.sh /home/coder/copilot-chat.sh
-RUN chmod +x /home/coder/startup.sh /home/coder/terminal-server.js /home/coder/copilot-chat.sh
+COPY --chown=coder:coder config/copilot-auth-monitor.sh /home/coder/copilot-auth-monitor.sh
+RUN chmod +x /home/coder/startup.sh /home/coder/terminal-server.js /home/coder/copilot-chat.sh /home/coder/copilot-auth-monitor.sh
 
 EXPOSE 8080
 

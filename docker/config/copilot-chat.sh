@@ -14,20 +14,30 @@ if ! command -v copilot >/dev/null 2>&1; then
     exit 1
 fi
 
-# Check if authentication is needed
+# Check authentication status
+AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
 DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
-if [ -f "$DEVICE_AUTH_FILE" ]; then
-    # Device auth file exists - authentication is pending
-    eval $(jq -r '@sh "DEVICE_CODE=\(.code // \"\") DEVICE_URL=\(.url // \"\")"' "$DEVICE_AUTH_FILE" 2>/dev/null || echo 'DEVICE_CODE="" DEVICE_URL=""')
+
+# Check authentication status
+if [ -f "$AUTH_STATUS_FILE" ]; then
+    AUTH_STATUS=$(cat "$AUTH_STATUS_FILE")
     
-    if [ -n "$DEVICE_CODE" ]; then
-        echo "⚠️  Copilot authentication required!"
+    if [ "$AUTH_STATUS" = "pending" ] && [ -f "$DEVICE_AUTH_FILE" ]; then
+        # Still waiting for authentication
+        DEVICE_CODE=$(jq -r '.code // ""' "$DEVICE_AUTH_FILE" 2>/dev/null)
+        DEVICE_URL=$(jq -r '.url // ""' "$DEVICE_AUTH_FILE" 2>/dev/null)
+        
+        echo "⚠️  Copilot authentication in progress"
         echo "📱 Visit: $DEVICE_URL"
-        echo "🔑 Enter code: $DEVICE_CODE"
+        echo "🔑 Code: $DEVICE_CODE"
         echo ""
-        echo "Once authenticated, try your message again."
+        echo "Waiting for you to complete authentication on GitHub..."
+        exit 1
+    elif [ "$AUTH_STATUS" = "timeout" ]; then
+        echo "❌ Authentication timeout. Please restart the environment."
         exit 1
     fi
+    # If "authenticated", proceed with chat
 fi
 
 # Function to send a message to copilot and get response using tmux
