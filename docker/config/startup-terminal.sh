@@ -101,12 +101,51 @@ if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
     if command -v copilot >/dev/null 2>&1; then
         echo "✓ GitHub Copilot CLI installed successfully at $(which copilot)" | tee -a "$LOG_FILE"
         
-        # Set GITHUB_TOKEN environment variable for automatic authentication
-        if [ -n "${GITHUB_TOKEN}" ]; then
-            echo "✓ GITHUB_TOKEN configured for Copilot CLI authentication" | tee -a "$LOG_FILE"
+        # Initiate device flow authentication for Copilot CLI
+        # This captures the device code and URL for dashboard display
+        echo "Initiating GitHub Copilot device flow authentication..." | tee -a "$LOG_FILE"
+        
+        # Create a state file for device auth info
+        DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
+        
+        # Run copilot with /login command in non-interactive mode to get device code
+        # The copilot CLI will output the device code and URL when authentication is needed
+        (
+            echo "/login" | timeout 10s copilot 2>&1 || true
+        ) | tee -a "$LOG_FILE" | grep -E "Enter one time code:|https://github.com/login/device" | tee /tmp/copilot-auth-output.txt || true
+        
+        # Parse device code and URL from output
+        if [ -f /tmp/copilot-auth-output.txt ] && grep -q "github.com/login/device" /tmp/copilot-auth-output.txt; then
+            DEVICE_CODE=$(grep -oP "Enter one time code: \K[A-Z0-9-]+" /tmp/copilot-auth-output.txt || echo "")
+            DEVICE_URL=$(grep -oP "https://github.com/login/device[^\s]*" /tmp/copilot-auth-output.txt || echo "https://github.com/login/device")
+            
+            if [ -n "$DEVICE_CODE" ]; then
+                echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
+                echo "✓ Auth URL: $DEVICE_URL" | tee -a "$LOG_FILE"
+                
+                # Write device auth info to file for dashboard to read
+                cat > "$DEVICE_AUTH_FILE" <<EOF
+{
+  "code": "$DEVICE_CODE",
+  "url": "$DEVICE_URL",
+  "timestamp": "$(date -Iseconds)"
+}
+EOF
+                echo "✓ Device auth info saved to $DEVICE_AUTH_FILE" | tee -a "$LOG_FILE"
+            else
+                echo "⚠ Could not parse device code from copilot output" | tee -a "$LOG_FILE"
+            fi
         else
-            echo "Note: Run 'copilot' and use /login command to authenticate" | tee -a "$LOG_FILE"
+            # Check if already authenticated
+            if copilot --version >/dev/null 2>&1; then
+                echo "✓ Copilot CLI may already be authenticated" | tee -a "$LOG_FILE"
+            else
+                echo "⚠ Device flow initiation did not produce expected output" | tee -a "$LOG_FILE"
+            fi
         fi
+        
+        # Clean up temp file
+        rm -f /tmp/copilot-auth-output.txt
     else
         echo "⚠ Copilot installed but not found in PATH" | tee -a "$LOG_FILE"
         echo "  Try: export PATH=/home/coder/.npm-global/bin:\$PATH" | tee -a "$LOG_FILE"
