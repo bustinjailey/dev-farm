@@ -72,12 +72,15 @@
 
   <div class="actions">
     {#if env.mode === 'terminal'}
-      <!-- Terminal mode: show start/stop and delete only -->
+      <!-- Terminal mode: show terminal controls with AI chat -->
       {#if env.status === 'running'}
         <a class="btn primary" href={env.url} target="_blank" rel="noopener">
           <span class="btn-text-full">Open Terminal</span>
           <span class="btn-text-short">Terminal</span>
         </a>
+        <button class="btn" disabled={actionBusy} onclick={onToggleAi}>
+          🤖 {aiOpen ? 'Hide Copilot' : 'Copilot Chat'}
+        </button>
         <button class="btn" disabled={actionBusy} onclick={onStop}>
           ⏸ Stop
         </button>

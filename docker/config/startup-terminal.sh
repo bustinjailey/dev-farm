@@ -264,8 +264,29 @@ fi
 # --port 8080: Listen on port 8080
 # --interface 0.0.0.0: Bind to all interfaces
 # -2: Force 256 color mode for better tmux rendering
+# -t options: Client-side terminal configuration for better mobile experience
+#   fontSize: Larger font for mobile readability
+#   fontFamily: Use system monospace fonts
+#   cursorBlink: Improve cursor visibility
+#   bellStyle: Visual bell instead of audio
 if [ "$TMUX_READY" = true ]; then
-    exec /usr/local/bin/ttyd --writable --port 8080 --interface 0.0.0.0 tmux -2 attach-session -t dev-farm
+    exec /usr/local/bin/ttyd \
+        --writable \
+        --port 8080 \
+        --interface 0.0.0.0 \
+        -t fontSize=16 \
+        -t fontFamily="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace" \
+        -t cursorBlink=true \
+        -t bellStyle=visual \
+        tmux -2 attach-session -t dev-farm
 else
-    exec /usr/local/bin/ttyd --writable --port 8080 --interface 0.0.0.0 /bin/zsh
+    exec /usr/local/bin/ttyd \
+        --writable \
+        --port 8080 \
+        --interface 0.0.0.0 \
+        -t fontSize=16 \
+        -t fontFamily="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace" \
+        -t cursorBlink=true \
+        -t bellStyle=visual \
+        /bin/zsh
 fi
