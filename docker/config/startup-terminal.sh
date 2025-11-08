@@ -259,10 +259,15 @@ else
     TMUX_READY=false
 fi
 
+# Copy custom ttyd HTML to a writable location
+mkdir -p /tmp/ttyd-custom
+cp /home/coder/ttyd-index.html /tmp/ttyd-custom/index.html 2>/dev/null || true
+
 # Start ttyd (web-based terminal) with tmux or zsh fallback
 # --writable: Allow input
 # --port 8080: Listen on port 8080
 # --interface 0.0.0.0: Bind to all interfaces
+# -I: Custom index.html with copy button for better mobile text selection
 # -2: Force 256 color mode for better tmux rendering
 # -t options: Client-side terminal configuration for better mobile experience
 #   fontSize: Larger font for mobile readability
@@ -274,6 +279,7 @@ if [ "$TMUX_READY" = true ]; then
         --writable \
         --port 8080 \
         --interface 0.0.0.0 \
+        -I /tmp/ttyd-custom/index.html \
         -t fontSize=16 \
         -t fontFamily="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace" \
         -t cursorBlink=true \
@@ -284,6 +290,7 @@ else
         --writable \
         --port 8080 \
         --interface 0.0.0.0 \
+        -I /tmp/ttyd-custom/index.html \
         -t fontSize=16 \
         -t fontFamily="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace" \
         -t cursorBlink=true \

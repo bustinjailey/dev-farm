@@ -555,9 +555,26 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       aiSessions.set(envId, { active: true, sessionId });
 
       try {
-        const output = await execToString(container, `gh copilot suggest ${JSON.stringify(message)}`, {
-          workdir: '/workspace',
-        });
+        let output: string;
+        
+        // Use different commands based on environment mode
+        if (record.mode === 'terminal') {
+          // Terminal mode: Use the new copilot CLI via wrapper script
+          output = await execToString(container, `/home/coder/copilot-chat.sh ${JSON.stringify(message)}`, {
+            workdir: '/home/coder/workspace',
+          });
+        } else {
+          // Other modes: Use gh copilot for now (may need update later)
+          try {
+            output = await execToString(container, `gh copilot suggest ${JSON.stringify(message)}`, {
+              workdir: '/workspace',
+            });
+          } catch (ghError) {
+            // If gh copilot fails (deprecated), provide helpful message
+            output = `Note: gh copilot is deprecated. For terminal environments, the new @github/copilot CLI is used.\n\nOriginal error: ${(ghError as Error).message}`;
+          }
+        }
+        
         const existing = aiOutputCache.get(envId) ?? '';
         const combined = `${existing}\n\n> ${message}\n${output}`.trim();
         aiOutputCache.set(envId, combined);
