@@ -18,8 +18,7 @@ fi
 DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
 if [ -f "$DEVICE_AUTH_FILE" ]; then
     # Device auth file exists - authentication is pending
-    DEVICE_CODE=$(jq -r '.code // empty' "$DEVICE_AUTH_FILE" 2>/dev/null || echo "")
-    DEVICE_URL=$(jq -r '.url // empty' "$DEVICE_AUTH_FILE" 2>/dev/null || echo "")
+    eval $(jq -r '@sh "DEVICE_CODE=\(.code // \"\") DEVICE_URL=\(.url // \"\")"' "$DEVICE_AUTH_FILE" 2>/dev/null || echo 'DEVICE_CODE="" DEVICE_URL=""')
     
     if [ -n "$DEVICE_CODE" ]; then
         echo "⚠️  Copilot authentication required!"
@@ -47,16 +46,7 @@ copilot_chat_tmux() {
     # Wait for copilot to initialize
     sleep 2
     
-    # Check if we need to authenticate first
-    sleep 1
-    OUTPUT=$(tmux capture-pane -t "$session_name" -p -S -50 2>/dev/null || echo "")
-    
-    if echo "$OUTPUT" | grep -qi "login\|authenticate\|device code"; then
-        echo "⚠️  Copilot requires authentication"
-        echo "Please authenticate via the dashboard banner or run 'copilot' manually in terminal"
-        tmux kill-session -t "$session_name" 2>/dev/null || true
-        return 1
-    fi
+    # Authentication is checked via device auth file above - no need for output grep
     
     # Send the message
     tmux send-keys -t "$session_name" "$message" C-m

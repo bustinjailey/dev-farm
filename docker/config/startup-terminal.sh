@@ -111,7 +111,7 @@ if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         # Run copilot with /login command in non-interactive mode to get device code
         # The copilot CLI will output the device code and URL when authentication is needed
         (
-            echo "/login" | timeout 10s copilot 2>&1 || true
+            echo "/login" | timeout 20s copilot 2>&1 || true
         ) | tee -a "$LOG_FILE" | grep -E "Enter one time code:|https://github.com/login/device" | tee /tmp/copilot-auth-output.txt || true
         
         # Parse device code and URL from output

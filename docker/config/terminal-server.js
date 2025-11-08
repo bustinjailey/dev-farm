@@ -10,6 +10,7 @@ const expressWs = require('express-ws');
 const pty = require('node-pty');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 expressWs(app);
@@ -63,7 +64,7 @@ app.ws('/terminal', (ws, req) => {
       termArgs = ['-2', 'attach-session', '-t', 'dev-farm'];
       console.log('Created and attaching to new tmux session: dev-farm');
     } catch (tmuxError) {
-      console.log('Tmux not available, using direct shell');
+      console.log('Tmux not available:', tmuxError.message);
     }
   }
   
