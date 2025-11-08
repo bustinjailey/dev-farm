@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Terminal</title>
+    
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1e1e1e;
+        }
+        
+        #terminal-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px;
+        }
+        
+        #terminal {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Ensure text is selectable */
+        .xterm {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+        }
+        
+        .xterm-selection {
+            background-color: rgba(255, 255, 255, 0.3) !important;
+        }
+        
+        /* Floating copy button that appears when text is selected */
+        #copy-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease;
+            pointer-events: none;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        #copy-button.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        
+        #copy-button.success {
+            background: linear-gradient(135deg, #48bb78 0%, #38b2ac 100%);
+        }
+        
+        #copy-button:active {
+            transform: scale(0.95);
+        }
+        
+        /* Connection status indicator */
+        #status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #48bb78;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 999;
+            display: none;
+        }
+        
+        #status.disconnected {
+            color: #f56565;
+        }
+        
+        @media (max-width: 768px) {
+            #terminal-container {
+                padding: 5px;
+            }
+            
+            #copy-button {
+                bottom: 80px; /* Higher on mobile to avoid keyboard overlap */
+                right: 16px;
+                padding: 14px 28px;
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Connected</div>
+    <div id="terminal-container">
+        <div id="terminal"></div>
+    </div>
+    <button id="copy-button" aria-label="Copy selected text">
+        <span id="copy-icon">📋</span>
+        <span id="copy-text">Copy</span>
+    </button>
+    
+    <!-- xterm.js and addons -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+    
+    <script>
+        (function() {
+            'use strict';
+            
+            // Initialize xterm.js
+            const term = new Terminal({
+                cursorBlink: true,
+                fontSize: 14,
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, "source-code-pro", monospace',
+                theme: {
+                    background: '#1e1e1e',
+                    foreground: '#f8f8f2',
+                    cursor: '#f8f8f2',
+                    selection: 'rgba(255, 255, 255, 0.3)',
+                    black: '#000000',
+                    red: '#ff5555',
+                    green: '#50fa7b',
+                    yellow: '#f1fa8c',
+                    blue: '#bd93f9',
+                    magenta: '#ff79c6',
+                    cyan: '#8be9fd',
+                    white: '#bbbbbb',
+                    brightBlack: '#555555',
+                    brightRed: '#ff5555',
+                    brightGreen: '#50fa7b',
+                    brightYellow: '#f1fa8c',
+                    brightBlue: '#bd93f9',
+                    brightMagenta: '#ff79c6',
+                    brightCyan: '#8be9fd',
+                    brightWhite: '#ffffff'
+                },
+                scrollback: 10000,
+                allowTransparency: false,
+                convertEol: false,
+            });
+            
+            // Add fit addon for responsive sizing
+            const fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            
+            // Add web links addon for clickable URLs
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            term.loadAddon(webLinksAddon);
+            
+            // Open terminal in container
+            const terminalElement = document.getElementById('terminal');
+            term.open(terminalElement);
+            
+            // Fit terminal to container
+            fitAddon.fit();
+            
+            // Handle window resize
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    fitAddon.fit();
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'resize',
+                            cols: term.cols,
+                            rows: term.rows
+                        }));
+                    }
+                }, 100);
+            });
+            
+            // WebSocket connection
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/terminal`;
+            let ws = null;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            const statusElement = document.getElementById('status');
+            
+            function connect() {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    reconnectAttempts = 0;
+                    statusElement.textContent = 'Connected';
+                    statusElement.classList.remove('disconnected');
+                    statusElement.style.display = 'none';
+                    
+                    // Send initial size
+                    ws.send(JSON.stringify({
+                        type: 'resize',
+                        cols: term.cols,
+                        rows: term.rows
+                    }));
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        if (message.type === 'output' && message.data) {
+                            term.write(message.data);
+                        }
+                    } catch (error) {
+                        console.error('Error processing message:', error);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    statusElement.textContent = 'Connection Error';
+                    statusElement.classList.add('disconnected');
+                    statusElement.style.display = 'block';
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    statusElement.textContent = 'Disconnected';
+                    statusElement.classList.add('disconnected');
+                    statusElement.style.display = 'block';
+                    
+                    // Attempt to reconnect
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        reconnectAttempts++;
+                        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+                        console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+                        setTimeout(connect, delay);
+                    } else {
+                        statusElement.textContent = 'Connection Lost';
+                        term.write('\r\n\x1b[1;31mConnection lost. Please refresh the page.\x1b[0m\r\n');
+                    }
+                };
+            }
+            
+            // Send input to backend
+            term.onData((data) => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'input', data }));
+                }
+            });
+            
+            // Connect to backend
+            connect();
+            
+            // Copy button functionality
+            let selectedText = '';
+            let selectionTimeout = null;
+            const copyButton = document.getElementById('copy-button');
+            const copyIcon = document.getElementById('copy-icon');
+            const copyText = document.getElementById('copy-text');
+            
+            // Handle terminal selection
+            term.onSelectionChange(() => {
+                const selection = term.getSelection();
+                if (selection && selection.trim().length > 0) {
+                    selectedText = selection;
+                    copyButton.classList.add('visible');
+                    copyButton.classList.remove('success');
+                    copyIcon.textContent = '📋';
+                    copyText.textContent = 'Copy';
+                    
+                    // Keep button visible for a while
+                    clearTimeout(selectionTimeout);
+                    selectionTimeout = setTimeout(() => {
+                        if (!term.hasSelection()) {
+                            if (!copyButton.classList.contains('success')) {
+                                copyButton.classList.remove('visible');
+                            }
+                        }
+                    }, 500);
+                } else if (!copyButton.classList.contains('success')) {
+                    clearTimeout(selectionTimeout);
+                    selectionTimeout = setTimeout(() => {
+                        copyButton.classList.remove('visible');
+                    }, 800);
+                }
+            });
+            
+            // Copy button click handler
+            copyButton.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const textToCopy = selectedText || term.getSelection();
+                
+                if (!textToCopy) {
+                    return;
+                }
+                
+                try {
+                    // Try modern Clipboard API first
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(textToCopy);
+                        showSuccess();
+                    } else {
+                        // Fallback for older browsers
+                        const textarea = document.createElement('textarea');
+                        textarea.value = textToCopy;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        const success = document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        
+                        if (success) {
+                            showSuccess();
+                        } else {
+                            throw new Error('Copy failed');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Copy failed:', err);
+                    // Fallback: show a prompt
+                    prompt('Copy this text:', textToCopy);
+                }
+            });
+            
+            function showSuccess() {
+                copyButton.classList.add('success');
+                copyIcon.textContent = '✓';
+                copyText.textContent = 'Copied!';
+                
+                // Hide after success
+                setTimeout(() => {
+                    copyButton.classList.remove('visible');
+                    setTimeout(() => {
+                        copyButton.classList.remove('success');
+                        copyIcon.textContent = '📋';
+                        copyText.textContent = 'Copy';
+                    }, 300);
+                }, 1500);
+            }
+            
+            // Prevent copy button from stealing focus
+            copyButton.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+            });
+            
+            copyButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+            
+            // Focus terminal on page load
+            term.focus();
+        })();
+    </script>
+</body>
+</html>

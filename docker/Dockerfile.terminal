@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
   locales \
   tmux \
   zsh \
+  jq \
   && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
   && locale-gen \
   && apt-get clean autoclean \
@@ -39,12 +40,12 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
   apt-get install -y gh && \
   rm -rf /var/lib/apt/lists/*
 
-# Install ttyd (web-based terminal)
-RUN wget https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -O /usr/local/bin/ttyd && \
-  chmod +x /usr/local/bin/ttyd
-
+# Note: ttyd removed - replaced with custom xterm.js terminal server for better text selection
 # Note: aichat removed - installation was unreliable and GitHub Copilot CLI provides similar functionality
 # GitHub Copilot CLI extension is installed at runtime via startup-terminal.sh
+
+# Install terminal server dependencies (express, express-ws, node-pty)
+RUN npm install -g express@4.18.2 express-ws@5.0.2 node-pty@1.0.0
 
 # Create a non-root user 'coder'
 RUN useradd -m -s /bin/zsh coder \
@@ -78,17 +79,18 @@ RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
   echo 'echo "  • gh copilot suggest <task>"' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc
 
-# Create startup script, custom ttyd HTML, and copilot chat wrapper
+# Create startup script, terminal server, and copilot chat wrapper
 COPY --chown=coder:coder config/startup-terminal.sh /home/coder/startup.sh
-COPY --chown=coder:coder config/ttyd-index.html /home/coder/ttyd-index.html
+COPY --chown=coder:coder config/terminal-server.js /home/coder/terminal-server.js
+COPY --chown=coder:coder config/terminal.html /home/coder/terminal.html
 COPY --chown=coder:coder config/copilot-chat.sh /home/coder/copilot-chat.sh
-RUN chmod +x /home/coder/startup.sh /home/coder/copilot-chat.sh
+RUN chmod +x /home/coder/startup.sh /home/coder/terminal-server.js /home/coder/copilot-chat.sh
 
 EXPOSE 8080
 
-# Health check for ttyd web terminal
+# Health check for custom terminal server
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080/ || exit 1
+  CMD curl -f http://localhost:8080/health || exit 1
 
 # Override the entrypoint to use our startup script
 ENTRYPOINT []
