@@ -744,14 +744,36 @@
         <header>
           <h2>GitHub Connection</h2>
         </header>
-        <label>
-          <span>Personal Access Token</span>
-          <input type="text" bind:value={githubPatInput} placeholder="ghp_..." />
-        </label>
-        <div class="modal-actions">
-          <button on:click={saveGithubPat}>Save</button>
-          <button class="secondary" on:click={disconnectGithubAccount}>Disconnect</button>
+        
+        <div class="auth-method-section">
+          <h3>💡 Recommended: Personal Access Token</h3>
+          <p class="hint">
+            Easier for terminal environments - no device flow needed!<br>
+            <a href="https://github.com/settings/tokens/new?description=Dev%20Farm&scopes=repo,workflow,read:org,gist" target="_blank" rel="noopener">
+              Create a token →
+            </a> (requires: repo, workflow, read:org, gist scopes)
+          </p>
+          <label>
+            <span>Personal Access Token</span>
+            <input type="text" bind:value={githubPatInput} placeholder="ghp_..." />
+          </label>
+          <button class="primary-action" on:click={saveGithubPat} disabled={!githubPatInput.trim()}>
+            Save Token
+          </button>
+        </div>
+
+        <div class="divider">
+          <span>OR</span>
+        </div>
+
+        <div class="auth-method-section">
+          <h3>OAuth Device Flow</h3>
+          <p class="hint">Browser-based authentication (requires opening links)</p>
           <button class="secondary" on:click={beginDeviceFlow}>Start Device Flow</button>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary danger-text" on:click={disconnectGithubAccount}>Disconnect</button>
         </div>
         {#if deviceFlow}
           <div class="device-info">
@@ -1077,6 +1099,57 @@
     color: #15803d;
   }
 
+  .github-modal .auth-method-section {
+    padding: 1.25rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+  }
+
+  .github-modal .auth-method-section h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #1e293b;
+  }
+
+  .github-modal .auth-method-section .hint {
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  .github-modal .auth-method-section .hint a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .github-modal .auth-method-section .hint a:hover {
+    text-decoration: underline;
+  }
+
+  .github-modal .divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 0.5rem 0;
+  }
+
+  .github-modal .divider::before,
+  .github-modal .divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .github-modal .divider span {
+    padding: 0 1rem;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
   .github-modal label {
     display: flex;
     flex-direction: column;
@@ -1090,10 +1163,27 @@
     font-size: 1rem;
   }
 
+  .github-modal .primary-action {
+    width: 100%;
+    margin-top: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    border: none !important;
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem !important;
+  }
+
+  .github-modal .danger-text {
+    color: #dc2626 !important;
+  }
+
   .github-modal .modal-actions {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
   }
 
   .github-modal button,
