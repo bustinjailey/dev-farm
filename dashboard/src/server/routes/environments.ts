@@ -85,6 +85,22 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
     return { record, container: docker.getContainer(record.containerId) };
   }
 
+  async function readCopilotDeviceAuth(container: Docker.Container): Promise<{ code: string; url: string } | null> {
+    try {
+      const output = await execToString(container, 'cat /home/coder/workspace/.copilot-device-auth.json 2>/dev/null || echo ""');
+      if (!output || output.trim() === '') {
+        return null;
+      }
+      const parsed = JSON.parse(output.trim());
+      if (parsed.code && parsed.url) {
+        return { code: parsed.code, url: parsed.url };
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   async function getEnvironmentSummaries(): Promise<EnvironmentSummary[]> {
     const registry = await loadRegistry();
     const summaries: EnvironmentSummary[] = [];
@@ -138,47 +154,73 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
 
         if (displayStatus === 'starting' || displayStatus === 'running') {
           try {
-            const logs = await getContainerLogs(docker, record.containerId, 100);
-            const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
-
-            if (authMatch) {
-              const deviceAuth = { url: authMatch[1], code: authMatch[2] };
-              const tunnelReady = logs.includes('Open this link in your browser');
-
-              if (tunnelReady) {
-                if (lastKnownDeviceAuth.has(envId)) {
-                  lastKnownDeviceAuth.delete(envId);
-                  fastify.log.info({ envId }, 'Device auth completed');
-                }
-                requiresAuth = false;
-                deviceAuthInfo = null;
-              } else {
+            // Check for terminal mode Copilot device auth first
+            if (record.mode === 'terminal') {
+              const copilotAuth = await readCopilotDeviceAuth(container);
+              if (copilotAuth) {
                 const cached = lastKnownDeviceAuth.get(envId);
-                if (!cached || cached.code !== deviceAuth.code) {
-                  lastKnownDeviceAuth.set(envId, deviceAuth);
-                  fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required (new code)');
+                if (!cached || cached.code !== copilotAuth.code) {
+                  lastKnownDeviceAuth.set(envId, copilotAuth);
+                  fastify.log.info({ envId, code: copilotAuth.code }, 'Copilot device auth detected (terminal mode)');
                   sseChannel.broadcast('device-auth', {
                     env_id: envId,
-                    url: deviceAuth.url,
-                    code: deviceAuth.code,
+                    url: copilotAuth.url,
+                    code: copilotAuth.code,
                   });
                 }
                 requiresAuth = true;
-                deviceAuthInfo = deviceAuth;
+                deviceAuthInfo = copilotAuth;
+              } else if (lastKnownDeviceAuth.has(envId)) {
+                // Auth file removed or authentication completed
+                lastKnownDeviceAuth.delete(envId);
+                fastify.log.info({ envId }, 'Copilot device auth completed (terminal mode)');
+                requiresAuth = false;
+                deviceAuthInfo = null;
               }
             } else {
-              const tunnelReady = ['Open this link in your browser', 'Visual Studio Code Server'].some((pattern) =>
-                logs.includes(pattern)
-              );
-              if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
-                lastKnownDeviceAuth.delete(envId);
-                fastify.log.info({ envId }, 'Tunnel ready (no auth required)');
+              // Tunnel mode: check logs for device auth
+              const logs = await getContainerLogs(docker, record.containerId, 100);
+              const authMatch = logs.match(/log into (https:\/\/[^\s]+) and use code ([A-Z0-9-]+)/);
+
+              if (authMatch) {
+                const deviceAuth = { url: authMatch[1], code: authMatch[2] };
+                const tunnelReady = logs.includes('Open this link in your browser');
+
+                if (tunnelReady) {
+                  if (lastKnownDeviceAuth.has(envId)) {
+                    lastKnownDeviceAuth.delete(envId);
+                    fastify.log.info({ envId }, 'Device auth completed');
+                  }
+                  requiresAuth = false;
+                  deviceAuthInfo = null;
+                } else {
+                  const cached = lastKnownDeviceAuth.get(envId);
+                  if (!cached || cached.code !== deviceAuth.code) {
+                    lastKnownDeviceAuth.set(envId, deviceAuth);
+                    fastify.log.info({ envId, code: deviceAuth.code }, 'Device auth required (new code)');
+                    sseChannel.broadcast('device-auth', {
+                      env_id: envId,
+                      url: deviceAuth.url,
+                      code: deviceAuth.code,
+                    });
+                  }
+                  requiresAuth = true;
+                  deviceAuthInfo = deviceAuth;
+                }
+              } else {
+                const tunnelReady = ['Open this link in your browser', 'Visual Studio Code Server'].some((pattern) =>
+                  logs.includes(pattern)
+                );
+                if (tunnelReady && lastKnownDeviceAuth.has(envId)) {
+                  lastKnownDeviceAuth.delete(envId);
+                  fastify.log.info({ envId }, 'Tunnel ready (no auth required)');
+                }
+                requiresAuth = false;
+                deviceAuthInfo = null;
               }
-              requiresAuth = false;
-              deviceAuthInfo = null;
             }
           } catch (error) {
-            fastify.log.warn({ envId, err: error }, 'Failed to fetch logs for device auth detection');
+            fastify.log.warn({ envId, err: error }, 'Failed to fetch device auth info');
           }
         } else if (lastKnownDeviceAuth.has(envId)) {
           lastKnownDeviceAuth.delete(envId);

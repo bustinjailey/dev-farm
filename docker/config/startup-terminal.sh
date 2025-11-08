@@ -101,12 +101,51 @@ if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
     if command -v copilot >/dev/null 2>&1; then
         echo "✓ GitHub Copilot CLI installed successfully at $(which copilot)" | tee -a "$LOG_FILE"
         
-        # Set GITHUB_TOKEN environment variable for automatic authentication
-        if [ -n "${GITHUB_TOKEN}" ]; then
-            echo "✓ GITHUB_TOKEN configured for Copilot CLI authentication" | tee -a "$LOG_FILE"
+        # Initiate device flow authentication for Copilot CLI
+        # This captures the device code and URL for dashboard display
+        echo "Initiating GitHub Copilot device flow authentication..." | tee -a "$LOG_FILE"
+        
+        # Create a state file for device auth info
+        DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
+        
+        # Run copilot with /login command in non-interactive mode to get device code
+        # The copilot CLI will output the device code and URL when authentication is needed
+        (
+            echo "/login" | timeout 20s copilot 2>&1 || true
+        ) | tee -a "$LOG_FILE" | grep -E "Enter one time code:|https://github.com/login/device" | tee /tmp/copilot-auth-output.txt || true
+        
+        # Parse device code and URL from output
+        if [ -f /tmp/copilot-auth-output.txt ] && grep -q "github.com/login/device" /tmp/copilot-auth-output.txt; then
+            DEVICE_CODE=$(grep -oP "Enter one time code: \K[A-Z0-9-]+" /tmp/copilot-auth-output.txt || echo "")
+            DEVICE_URL=$(grep -oP "https://github.com/login/device[^\s]*" /tmp/copilot-auth-output.txt || echo "https://github.com/login/device")
+            
+            if [ -n "$DEVICE_CODE" ]; then
+                echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
+                echo "✓ Auth URL: $DEVICE_URL" | tee -a "$LOG_FILE"
+                
+                # Write device auth info to file for dashboard to read
+                cat > "$DEVICE_AUTH_FILE" <<EOF
+{
+  "code": "$DEVICE_CODE",
+  "url": "$DEVICE_URL",
+  "timestamp": "$(date -Iseconds)"
+}
+EOF
+                echo "✓ Device auth info saved to $DEVICE_AUTH_FILE" | tee -a "$LOG_FILE"
+            else
+                echo "⚠ Could not parse device code from copilot output" | tee -a "$LOG_FILE"
+            fi
         else
-            echo "Note: Run 'copilot' and use /login command to authenticate" | tee -a "$LOG_FILE"
+            # Check if already authenticated
+            if copilot --version >/dev/null 2>&1; then
+                echo "✓ Copilot CLI may already be authenticated" | tee -a "$LOG_FILE"
+            else
+                echo "⚠ Device flow initiation did not produce expected output" | tee -a "$LOG_FILE"
+            fi
         fi
+        
+        # Clean up temp file
+        rm -f /tmp/copilot-auth-output.txt
     else
         echo "⚠ Copilot installed but not found in PATH" | tee -a "$LOG_FILE"
         echo "  Try: export PATH=/home/coder/.npm-global/bin:\$PATH" | tee -a "$LOG_FILE"
@@ -259,41 +298,20 @@ else
     TMUX_READY=false
 fi
 
-# Copy custom ttyd HTML to a writable location
-mkdir -p /tmp/ttyd-custom
-cp /home/coder/ttyd-index.html /tmp/ttyd-custom/index.html 2>/dev/null || true
+# Start custom terminal server with xterm.js
+# This provides better text selection and copy support than ttyd
+echo "Starting custom terminal server..." | tee -a "$LOG_FILE"
 
-# Start ttyd (web-based terminal) with tmux or zsh fallback
-# --writable: Allow input
-# --port 8080: Listen on port 8080
-# --interface 0.0.0.0: Bind to all interfaces
-# -I: Custom index.html with copy button for better mobile text selection
-# -2: Force 256 color mode for better tmux rendering
-# -t options: Client-side terminal configuration for better mobile experience
-#   fontSize: Larger font for mobile readability
-#   fontFamily: Use system monospace fonts
-#   cursorBlink: Improve cursor visibility
-#   bellStyle: Visual bell instead of audio
-if [ "$TMUX_READY" = true ]; then
-    exec /usr/local/bin/ttyd \
-        --writable \
-        --port 8080 \
-        --interface 0.0.0.0 \
-        -I /tmp/ttyd-custom/index.html \
-        -t fontSize=16 \
-        -t fontFamily="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace" \
-        -t cursorBlink=true \
-        -t bellStyle=visual \
-        tmux -2 attach-session -t dev-farm
-else
-    exec /usr/local/bin/ttyd \
-        --writable \
-        --port 8080 \
-        --interface 0.0.0.0 \
-        -I /tmp/ttyd-custom/index.html \
-        -t fontSize=16 \
-        -t fontFamily="'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace" \
-        -t cursorBlink=true \
-        -t bellStyle=visual \
-        /bin/zsh
-fi
+# Set up terminal server environment
+export PORT=8080
+export HOME=/home/coder
+export SHELL=/bin/zsh
+
+# Create public directory for terminal server static files
+mkdir -p /home/coder/terminal-public
+cp /home/coder/terminal.html /home/coder/terminal-public/index.html
+
+# Start terminal server
+# The server will spawn tmux session automatically via node-pty
+cd /home/coder/terminal-public
+exec /usr/bin/node /home/coder/terminal-server.js

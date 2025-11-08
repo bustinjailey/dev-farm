@@ -1,6 +1,7 @@
 #!/bin/bash
 # Wrapper script to interact with GitHub Copilot CLI programmatically
 # This enables dashboard integration with the interactive copilot command
+# Updated to work with device flow authentication
 
 set -e
 
@@ -13,61 +14,58 @@ if ! command -v copilot >/dev/null 2>&1; then
     exit 1
 fi
 
-# Function to send a message to copilot and get response
-# This uses script command to create a PTY for the interactive copilot CLI
-copilot_chat() {
-    local message="$1"
-    local session_file="/tmp/copilot_session_$$.txt"
+# Check if authentication is needed
+DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
+if [ -f "$DEVICE_AUTH_FILE" ]; then
+    # Device auth file exists - authentication is pending
+    eval $(jq -r '@sh "DEVICE_CODE=\(.code // \"\") DEVICE_URL=\(.url // \"\")"' "$DEVICE_AUTH_FILE" 2>/dev/null || echo 'DEVICE_CODE="" DEVICE_URL=""')
     
-    # Create a script that feeds input to copilot
-    cat > /tmp/copilot_input_$$.sh << 'INPUT_SCRIPT'
-#!/bin/bash
-sleep 1
-echo "$MESSAGE"
-sleep 5
-echo "/exit"
-sleep 1
-INPUT_SCRIPT
-    
-    chmod +x /tmp/copilot_input_$$.sh
-    
-    # Use script command to create a PTY and run copilot
-    # Feed the message and capture output
-    MESSAGE="$message" timeout 30s script -qfc "bash -c 'export MESSAGE=\"$message\"; (sleep 1; echo \"\$MESSAGE\"; sleep 8; echo \"/exit\") | copilot 2>&1'" /dev/null 2>&1 || true
-    
-    # Clean up
-    rm -f /tmp/copilot_input_$$.sh /tmp/copilot_session_$$.txt
-}
+    if [ -n "$DEVICE_CODE" ]; then
+        echo "⚠️  Copilot authentication required!"
+        echo "📱 Visit: $DEVICE_URL"
+        echo "🔑 Enter code: $DEVICE_CODE"
+        echo ""
+        echo "Once authenticated, try your message again."
+        exit 1
+    fi
+fi
 
-# Alternative: Use tmux to manage copilot session
+# Function to send a message to copilot and get response using tmux
 copilot_chat_tmux() {
     local message="$1"
-    local session_name="copilot-api-$$"
+    local session_name="copilot-dashboard-$$"
+    local timeout=15
     
-    # Create a new tmux session with copilot
-    tmux new-session -d -s "$session_name" "copilot" 2>/dev/null || {
-        echo "Failed to start copilot session" >&2
+    # Create a new detached tmux session with copilot
+    if ! tmux new-session -d -s "$session_name" "copilot" 2>/dev/null; then
+        echo "Error: Failed to start copilot session" >&2
+        echo "This may be due to authentication issues. Check if you need to authenticate." >&2
         return 1
-    }
+    fi
     
-    # Wait for copilot to start
+    # Wait for copilot to initialize
     sleep 2
+    
+    # Authentication is checked via device auth file above - no need for output grep
     
     # Send the message
     tmux send-keys -t "$session_name" "$message" C-m
     
-    # Wait for response
-    sleep 6
+    # Wait for response (increase timeout for complex queries)
+    sleep $timeout
     
-    # Capture the pane content
-    tmux capture-pane -t "$session_name" -p -S -100
+    # Capture the full pane content
+    OUTPUT=$(tmux capture-pane -t "$session_name" -p -S -200 2>/dev/null || echo "No output captured")
     
-    # Exit copilot
+    # Exit copilot gracefully
     tmux send-keys -t "$session_name" "/exit" C-m
     sleep 1
     
     # Kill the session
     tmux kill-session -t "$session_name" 2>/dev/null || true
+    
+    # Output the captured text
+    echo "$OUTPUT"
 }
 
 # Main execution
@@ -77,5 +75,5 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# Use tmux-based approach (more reliable)
+# Use tmux-based approach with authentication checking
 copilot_chat_tmux "$1"
