@@ -11,6 +11,7 @@ const pty = require('node-pty');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 expressWs(app);
@@ -34,8 +35,8 @@ app.get('/health', (req, res) => {
 app.ws('/terminal', (ws, req) => {
   console.log('New WebSocket connection established');
   
-  // Create a unique session ID
-  const sessionId = Math.random().toString(36).substring(2, 15);
+  // Create a unique session ID using cryptographically secure random
+  const sessionId = crypto.randomBytes(8).toString('hex');
   
   // Spawn a new pty process
   const shell = SHELL;
@@ -109,17 +110,25 @@ app.ws('/terminal', (ws, req) => {
       
       switch (message.type) {
         case 'input':
-          // Send input to pty
-          if (term && !term.killed) {
+          // Send input to pty - this is safe as term.write() sends data to the PTY stdin
+          // The data is processed by the shell/program running in the PTY, not executed by Node.js
+          // This is the expected behavior for a terminal emulator
+          // CodeQL false positive: term.write() writes to PTY stdin, not eval/exec
+          if (term && !term.killed && typeof message.data === 'string') {
             term.write(message.data);
           }
           break;
           
         case 'resize':
-          // Resize pty
+          // Resize pty with validation
           if (term && !term.killed && message.cols && message.rows) {
-            console.log(`Resizing terminal ${sessionId} to ${message.cols}x${message.rows}`);
-            term.resize(message.cols, message.rows);
+            const cols = parseInt(message.cols, 10);
+            const rows = parseInt(message.rows, 10);
+            // Validate dimensions are reasonable (1-1000)
+            if (cols > 0 && cols <= 1000 && rows > 0 && rows <= 1000) {
+              console.log(`Resizing terminal ${sessionId} to ${cols}x${rows}`);
+              term.resize(cols, rows);
+            }
           }
           break;
           
