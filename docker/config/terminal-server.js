@@ -10,8 +10,6 @@ const expressWs = require('express-ws');
 const pty = require('node-pty');
 const os = require('os');
 const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 
 const app = express();
 expressWs(app);
