@@ -117,8 +117,8 @@ cd dev-farm
 
 ```bash
 # Build all images and start services
-npm run docker:build
-npm run docker:up
+pnpm docker:build
+pnpm docker:up
 
 # Or use docker compose directly:
 docker compose up -d --build
@@ -182,22 +182,22 @@ export GITHUB_TOKEN="your_github_token_here"
 
 ```bash
 # Build all images (first time only)
-npm run docker:build
+pnpm docker:build
 
 # Start the dashboard
-npm run docker:up
+pnpm docker:up
 # or: docker compose up -d
 
 # Stop the dashboard
-npm run docker:down
+pnpm docker:down
 # or: docker compose down
 
 # View logs
-npm run docker:logs
+pnpm docker:logs
 # or: docker compose logs -f
 
 # Restart services
-npm run docker:restart
+pnpm docker:restart
 # or: docker compose restart
 ```
 
@@ -205,45 +205,45 @@ npm run docker:restart
 
 ```bash
 # Start both frontend and backend dev servers
-npm run dev
+pnpm dev
 
 # Start only the backend API
-npm run dev:server
+pnpm dev:server
 
 # Start only the frontend (Vite)
-npm run dev:client
+pnpm dev:client
 ```
 
 ## 🧑‍💻 Local Development Workflow
 
-Dev Farm uses npm workspaces for managing the monorepo:
+Dev Farm uses **pnpm workspaces** for managing the monorepo:
 
 ```bash
 # Install all dependencies (from project root)
-npm install
+pnpm install
 
 # Start development servers (both frontend + backend)
-npm run dev          # Runs both servers concurrently
-npm run dev:server   # Backend only (http://localhost:5000)
-npm run dev:client   # Frontend only (http://localhost:5173)
+pnpm dev          # Runs both servers concurrently
+pnpm dev:server   # Backend only (http://localhost:5000)
+pnpm dev:client   # Frontend only (http://localhost:5173)
 
 # Build for production
-npm run build        # Build all packages
-npm run build:server # Build backend only
-npm run build:client # Build frontend only
+pnpm build        # Build all packages
+pnpm build:server # Build backend only
+pnpm build:client # Build frontend only
 
 # Quality checks
-npm run lint         # Lint all code
-npm run check        # TypeScript + Svelte checks
-npm test             # Run all tests
+pnpm lint         # Lint all code
+pnpm check        # TypeScript + Svelte checks
+pnpm test         # Run all tests
 
 # Docker operations
-npm run docker:build # Build Docker images
-npm run docker:up    # Start services
-npm run docker:down  # Stop services
+pnpm docker:build # Build Docker images
+pnpm docker:up    # Start services
+pnpm docker:down  # Stop services
 ```
 
-The project structure uses workspaces for `dashboard` and `docker` packages.
+The project structure uses pnpm workspaces for `dashboard` and `docker` packages.
 
 ## 🎛️ Configuration
 
@@ -353,7 +353,7 @@ Modify `docker/Dockerfile.code-server` to add:
 Then rebuild:
 
 ```bash
-npm run docker:build:code-server
+pnpm docker:build:code-server
 # or: docker build -t dev-farm/code-server:latest -f docker/Dockerfile.code-server docker/
 ```
 
@@ -411,7 +411,7 @@ MIT License - feel free to use for personal or commercial projects.
 docker info
 
 # View logs
-npm run docker:logs
+pnpm docker:logs
 # or: docker compose logs -f dashboard
 ```
 
