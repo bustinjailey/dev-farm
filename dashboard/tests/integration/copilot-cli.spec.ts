@@ -20,7 +20,7 @@ test.describe('Copilot CLI Installation', () => {
     // Fill in the form for terminal mode
     testEnvId = `copilot-test-${Date.now()}`;
     await page.fill('input[placeholder="My Project"]', testEnvId);
-    
+
     // Select terminal mode
     const terminalRadio = page.locator('input[type="radio"][value="terminal"]');
     await terminalRadio.click();
@@ -39,14 +39,14 @@ test.describe('Copilot CLI Installation', () => {
     // Wait for container to be running (up to 2 minutes)
     let containerRunning = false;
     let container;
-    
+
     for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(5000);
-      
+
       // Check container status
       const containers = await docker.listContainers({ all: true });
       container = containers.find(c => c.Names.some(n => n.includes(testEnvId.replace(/[^a-z0-9-]/gi, '-').toLowerCase())));
-      
+
       if (container && container.State === 'running') {
         containerRunning = true;
         break;
@@ -65,7 +65,7 @@ test.describe('Copilot CLI Installation', () => {
 
     // Exec into container and check copilot installation
     const containerInstance = docker.getContainer(container.Id);
-    
+
     // Wait a bit for startup script to complete
     await page.waitForTimeout(10000);
 
@@ -78,13 +78,13 @@ test.describe('Copilot CLI Installation', () => {
 
     const streamWhich = await execWhich.start({ Detach: false });
     let whichOutput = '';
-    
+
     streamWhich.on('data', (chunk: Buffer) => {
       whichOutput += chunk.toString();
     });
 
     await new Promise((resolve) => streamWhich.on('end', resolve));
-    
+
     console.log('which copilot output:', whichOutput);
 
     // Check PATH
@@ -96,13 +96,13 @@ test.describe('Copilot CLI Installation', () => {
 
     const streamPath = await execPath.start({ Detach: false });
     let pathOutput = '';
-    
+
     streamPath.on('data', (chunk: Buffer) => {
       pathOutput += chunk.toString();
     });
 
     await new Promise((resolve) => streamPath.on('end', resolve));
-    
+
     console.log('PATH:', pathOutput);
 
     // Check npm global location
@@ -114,13 +114,13 @@ test.describe('Copilot CLI Installation', () => {
 
     const streamNpmRoot = await execNpmRoot.start({ Detach: false });
     let npmRootOutput = '';
-    
+
     streamNpmRoot.on('data', (chunk: Buffer) => {
       npmRootOutput += chunk.toString();
     });
 
     await new Promise((resolve) => streamNpmRoot.on('end', resolve));
-    
+
     console.log('npm root -g:', npmRootOutput);
 
     // Check if copilot is installed in npm global
@@ -132,13 +132,13 @@ test.describe('Copilot CLI Installation', () => {
 
     const streamNpmList = await execNpmList.start({ Detach: false });
     let npmListOutput = '';
-    
+
     streamNpmList.on('data', (chunk: Buffer) => {
       npmListOutput += chunk.toString();
     });
 
     await new Promise((resolve) => streamNpmList.on('end', resolve));
-    
+
     console.log('npm list copilot:', npmListOutput);
 
     // Check startup log
@@ -150,13 +150,13 @@ test.describe('Copilot CLI Installation', () => {
 
     const streamLog = await execLog.start({ Detach: false });
     let logOutput = '';
-    
+
     streamLog.on('data', (chunk: Buffer) => {
       logOutput += chunk.toString();
     });
 
     await new Promise((resolve) => streamLog.on('end', resolve));
-    
+
     console.log('Startup log (last 100 lines):\n', logOutput);
 
     // Try running copilot --version
@@ -168,13 +168,13 @@ test.describe('Copilot CLI Installation', () => {
 
     const streamVersion = await execVersion.start({ Detach: false });
     let versionOutput = '';
-    
+
     streamVersion.on('data', (chunk: Buffer) => {
       versionOutput += chunk.toString();
     });
 
     await new Promise((resolve) => streamVersion.on('end', resolve));
-    
+
     console.log('copilot --version:', versionOutput);
 
     // Verify copilot is accessible
@@ -186,14 +186,14 @@ test.describe('Copilot CLI Installation', () => {
     if (testEnvId) {
       try {
         const containers = await docker.listContainers({ all: true });
-        const container = containers.find(c => 
+        const container = containers.find(c =>
           c.Names.some(n => n.includes(testEnvId.replace(/[^a-z0-9-]/gi, '-').toLowerCase()))
         );
-        
+
         if (container) {
           const containerInstance = docker.getContainer(container.Id);
-          await containerInstance.stop().catch(() => {});
-          await containerInstance.remove().catch(() => {});
+          await containerInstance.stop().catch(() => { });
+          await containerInstance.remove().catch(() => { });
         }
       } catch (error) {
         console.error('Cleanup error:', error);
