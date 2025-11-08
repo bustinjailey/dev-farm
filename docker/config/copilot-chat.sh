@@ -40,44 +40,6 @@ if [ -f "$AUTH_STATUS_FILE" ]; then
     # If "authenticated", proceed with chat
 fi
 
-# Function to send a message to copilot and get response using tmux
-copilot_chat_tmux() {
-    local message="$1"
-    local session_name="copilot-dashboard-$$"
-    local timeout=15
-    
-    # Create a new detached tmux session with copilot
-    if ! tmux new-session -d -s "$session_name" "copilot" 2>/dev/null; then
-        echo "Error: Failed to start copilot session" >&2
-        echo "This may be due to authentication issues. Check if you need to authenticate." >&2
-        return 1
-    fi
-    
-    # Wait for copilot to initialize
-    sleep 2
-    
-    # Authentication is checked via device auth file above - no need for output grep
-    
-    # Send the message
-    tmux send-keys -t "$session_name" "$message" C-m
-    
-    # Wait for response (increase timeout for complex queries)
-    sleep $timeout
-    
-    # Capture the full pane content
-    OUTPUT=$(tmux capture-pane -t "$session_name" -p -S -200 2>/dev/null || echo "No output captured")
-    
-    # Exit copilot gracefully
-    tmux send-keys -t "$session_name" "/exit" C-m
-    sleep 1
-    
-    # Kill the session
-    tmux kill-session -t "$session_name" 2>/dev/null || true
-    
-    # Output the captured text
-    echo "$OUTPUT"
-}
-
 # Main execution
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <message>" >&2
@@ -85,5 +47,5 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# Use tmux-based approach with authentication checking
-copilot_chat_tmux "$1"
+# Use session manager for persistent session
+/home/coder/copilot-session-manager.sh send "$1"

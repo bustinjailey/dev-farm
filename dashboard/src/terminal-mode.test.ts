@@ -48,16 +48,16 @@ describe('Terminal Mode Configuration', () => {
     const scriptPath = join(__dirname, '../../docker/config/copilot-chat.sh');
     const script = readFileSync(scriptPath, 'utf-8');
     
-    // Check for copilot command
-    expect(script).toContain('copilot');
-    expect(script).toContain('tmux');
+    // Check for authentication status checking
+    expect(script).toContain('.copilot-auth-status');
+    expect(script).toContain('AUTH_STATUS_FILE');
     
     // Check for device auth detection
     expect(script).toContain('.copilot-device-auth.json');
     expect(script).toContain('DEVICE_AUTH_FILE');
     
-    // Check for message handling
-    expect(script).toContain('copilot_chat');
+    // Check that it uses session manager
+    expect(script).toContain('copilot-session-manager.sh');
     
     // Check for proper error handling
     expect(script).toContain('exit 1');
