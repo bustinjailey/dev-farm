@@ -1,0 +1,11 @@
+{
+  "name": "dev-farm-terminal-server",
+  "version": "1.0.0",
+  "description": "Terminal server for dev-farm",
+  "private": true,
+  "dependencies": {
+    "express": "4.18.2",
+    "express-ws": "5.0.2",
+    "node-pty": "1.0.0"
+  }
+}

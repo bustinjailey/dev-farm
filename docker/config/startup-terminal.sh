@@ -80,23 +80,23 @@ fi
 
 echo "Installing GitHub Copilot CLI..." | tee -a "$LOG_FILE"
 
-# Ensure npm prefix is set correctly for global installs
-export NPM_CONFIG_PREFIX=/home/coder/.npm-global
-mkdir -p /home/coder/.npm-global
-export PATH=/home/coder/.npm-global/bin:$PATH
+# Ensure pnpm global bin is in PATH
+export PNPM_HOME=/home/coder/.local/share/pnpm
+mkdir -p "$PNPM_HOME"
+export PATH="$PNPM_HOME:$PATH"
 
 # Add to shell profiles for persistence
 for shell_rc in /home/coder/.zshrc /home/coder/.bashrc; do
     if [ -f "$shell_rc" ]; then
         if ! grep -q 'NPM_CONFIG_PREFIX' "$shell_rc"; then
-            echo 'export NPM_CONFIG_PREFIX=/home/coder/.npm-global' >> "$shell_rc"
-            echo 'export PATH=/home/coder/.npm-global/bin:$PATH' >> "$shell_rc"
+            echo 'export PNPM_HOME=/home/coder/.local/share/pnpm' >> "$shell_rc"
+            echo 'export PATH="$PNPM_HOME:$PATH"' >> "$shell_rc"
         fi
     fi
 done
 
-# Install the new @github/copilot npm package globally
-if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
+# Install the new @github/copilot package globally using pnpm
+if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
     # Verify installation
     if command -v copilot >/dev/null 2>&1; then
         echo "✓ GitHub Copilot CLI installed successfully at $(which copilot)" | tee -a "$LOG_FILE"
@@ -114,7 +114,7 @@ if npm install -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             echo "✓ Created tmux session for copilot auth" | tee -a "$LOG_FILE"
             
             # Start copilot in that session
-            tmux send-keys -t copilot-auth "export PATH=/home/coder/.npm-global/bin:\$PATH" C-m
+            tmux send-keys -t copilot-auth "export PATH=$PNPM_HOME:\$PATH" C-m
             sleep 2
             tmux send-keys -t copilot-auth "copilot" C-m
             sleep 3
@@ -165,7 +165,7 @@ EOF
         fi
     else
         echo "⚠ Copilot installed but not found in PATH" | tee -a "$LOG_FILE"
-        echo "  Try: export PATH=/home/coder/.npm-global/bin:\$PATH" | tee -a "$LOG_FILE"
+        echo "  Try: export PATH=$PNPM_HOME:\$PATH" | tee -a "$LOG_FILE"
     fi
 else
     echo "⚠ Failed to install GitHub Copilot CLI" | tee -a "$LOG_FILE"

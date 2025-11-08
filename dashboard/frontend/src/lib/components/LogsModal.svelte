@@ -34,7 +34,12 @@
 
   function scrollToBottom() {
     if (logsContainer) {
-      logsContainer.scrollTop = logsContainer.scrollHeight;
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        if (logsContainer) {
+          logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+      });
     }
   }
 
@@ -364,7 +369,7 @@
   }
 
   footer .btn-copy:hover:not(:disabled) {
-    opacity: 0.95;
+    background: #5b63d3;
     box-shadow: 0 4px 12px rgba(76, 81, 191, 0.3);
   }
 

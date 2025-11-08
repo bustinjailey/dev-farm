@@ -66,9 +66,8 @@ send_message() {
         return 1
     fi
     
-    # Clear screen for clean capture (optional)
-    # tmux send-keys -t "$SESSION_NAME" "C-l" 2>/dev/null
-    # sleep 0.5
+    # Capture current pane content before sending (to establish baseline)
+    local before_lines=$(tmux capture-pane -t "$SESSION_NAME" -p 2>/dev/null | wc -l)
     
     # Send the message
     tmux send-keys -t "$SESSION_NAME" "$message" C-m 2>/dev/null
@@ -79,11 +78,57 @@ send_message() {
         timeout=30
     fi
     
-    # Wait for response
-    sleep "$timeout"
+    # Wait for response with polling
+    local elapsed=0
+    local check_interval=2
+    local max_wait=$timeout
+    local response_complete=false
     
-    # Capture response (last 100 lines should be enough)
-    tmux capture-pane -t "$SESSION_NAME" -p -S -100 2>/dev/null || echo "Error: Could not capture response"
+    while [ $elapsed -lt $max_wait ]; do
+        sleep $check_interval
+        elapsed=$((elapsed + check_interval))
+        
+        # Capture current state
+        local current_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -50 2>/dev/null)
+        
+        # Check if we see a prompt indicator (copilot is ready for next input)
+        # The copilot CLI typically shows "> " when ready
+        if echo "$current_output" | tail -n 3 | grep -qE "^>\s*$"; then
+            response_complete=true
+            break
+        fi
+    done
+    
+    # Capture final response
+    local full_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -100 2>/dev/null)
+    
+    # Parse output to extract only Copilot's response (not the echoed input)
+    # Look for content between our message and the next prompt
+    echo "$full_output" | awk -v msg="$message" '
+        BEGIN { capturing=0; response="" }
+        # Skip lines until we find our sent message
+        $0 ~ msg { capturing=1; next }
+        # Start capturing after the message
+        capturing == 1 {
+            # Stop if we hit the prompt
+            if ($0 ~ /^>\s*$/) {
+                capturing=0
+                next
+            }
+            # Accumulate response
+            if (NR > 0) response = response "\n" $0
+        }
+        END {
+            # Clean up and print
+            gsub(/^\n+/, "", response)
+            gsub(/\n+$/, "", response)
+            if (length(response) > 0) {
+                print response
+            } else {
+                print "No response captured from Copilot"
+            }
+        }
+    '
 }
 
 # Function to check session health

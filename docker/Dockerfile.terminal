@@ -32,6 +32,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/apt/lists/*
 
+# Install pnpm globally and configure it
+RUN npm install -g pnpm@latest && \
+    mkdir -p /root/.local/share/pnpm && \
+    pnpm config set global-bin-dir /usr/local/bin && \
+    pnpm config set store-dir /root/.local/share/pnpm/store
+
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
   chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
@@ -43,9 +49,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Note: ttyd removed - replaced with custom xterm.js terminal server for better text selection
 # Note: aichat removed - installation was unreliable and GitHub Copilot CLI provides similar functionality
 # GitHub Copilot CLI extension is installed at runtime via startup-terminal.sh
-
-# Install terminal server dependencies (express, express-ws, node-pty)
-RUN npm install -g express@4.18.2 express-ws@5.0.2 node-pty@1.0.0
 
 # Create a non-root user 'coder'
 RUN useradd -m -s /bin/zsh coder \
@@ -61,6 +64,16 @@ USER coder
 
 # Set the home directory for the non-root user
 ENV HOME=/home/coder
+WORKDIR /home/coder
+
+# Copy package.json for terminal server dependencies
+COPY --chown=coder:coder config/package.json /home/coder/package.json
+
+# Install terminal server dependencies locally using pnpm
+# Allow node-pty to build its native module
+RUN pnpm config set enable-pre-post-scripts true && \
+    pnpm install --prod
+
 WORKDIR /home/coder/workspace
 
 # Install Oh My Zsh for better terminal experience

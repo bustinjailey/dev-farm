@@ -656,7 +656,12 @@
           onOpenLogs={() => openLogs(env.id)}
         >
           <MonitorPanel envId={env.id} open={monitorOpen[env.id] || false} />
-          <AiChatPanel envId={env.id} open={aiOpen[env.id] || false} latestSse={aiSseMessages[env.id] || null} />
+          <AiChatPanel
+            envId={env.id}
+            open={aiOpen[env.id] || false}
+            latestSse={aiSseMessages[env.id] || null}
+            deviceAuth={envDeviceAuth[env.id] || null}
+          />
         </EnvironmentCard>
       {/each}
     </section>

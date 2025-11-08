@@ -25,10 +25,10 @@
         
         #terminal-container {
             position: absolute;
-            top: 0;
+            top: 50px; /* Space for toolbar */
             left: 0;
             right: 0;
-            bottom: 0;
+            bottom: 60px; /* Space for action bar on mobile */
             padding: 10px;
         }
         
@@ -48,10 +48,138 @@
             background-color: rgba(255, 255, 255, 0.3) !important;
         }
         
-        /* Floating copy button that appears when text is selected */
+        /* Top toolbar with status */
+        #toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: rgba(30, 30, 30, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        #toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        #toolbar-title {
+            color: #f8f8f2;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        /* Connection & Auth status indicators */
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        #connection-status {
+            background: rgba(72, 187, 120, 0.2);
+            color: #48bb78;
+            border: 1px solid rgba(72, 187, 120, 0.4);
+        }
+        
+        #connection-status.disconnected {
+            background: rgba(245, 101, 101, 0.2);
+            color: #f56565;
+            border: 1px solid rgba(245, 101, 101, 0.4);
+        }
+        
+        #auth-status {
+            background: rgba(251, 191, 36, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        #auth-status:hover {
+            background: rgba(251, 191, 36, 0.3);
+        }
+        
+        #auth-status.ready {
+            background: rgba(72, 187, 120, 0.2);
+            color: #48bb78;
+            border: 1px solid rgba(72, 187, 120, 0.4);
+        }
+        
+        #auth-status.hidden {
+            display: none;
+        }
+        
+        /* Bottom action bar for mobile */
+        #action-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(30, 30, 30, 0.95);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 8px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .action-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 60px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .action-button:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .action-button-icon {
+            font-size: 20px;
+        }
+        
+        .action-button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .action-button.primary:active {
+            background: linear-gradient(135deg, #5568d3 0%, #653d8a 100%);
+        }
+        
+        /* Floating copy button (appears when text selected) */
         #copy-button {
             position: fixed;
-            bottom: 20px;
+            bottom: 80px;
             right: 20px;
             padding: 12px 24px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -66,7 +194,7 @@
             transform: translateY(10px);
             transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease;
             pointer-events: none;
-            z-index: 1000;
+            z-index: 1001;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -88,47 +216,267 @@
             transform: scale(0.95);
         }
         
-        /* Connection status indicator */
-        #status {
+        /* Help overlay */
+        #help-overlay {
             position: fixed;
-            top: 10px;
-            right: 10px;
-            padding: 6px 12px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #48bb78;
-            border-radius: 12px;
-            font-size: 12px;
-            z-index: 999;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
             display: none;
+            overflow-y: auto;
+            padding: 20px;
         }
         
-        #status.disconnected {
-            color: #f56565;
+        #help-overlay.visible {
+            display: block;
         }
         
-        @media (max-width: 768px) {
+        #help-content {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            border-radius: 16px;
+            padding: 24px;
+            color: #f8f8f2;
+        }
+        
+        #help-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        #help-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        #help-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        #help-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .help-section {
+            margin-bottom: 20px;
+        }
+        
+        .help-section h3 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+        
+        .help-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        
+        .help-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .help-text {
+            flex: 1;
+        }
+        
+        .help-text strong {
+            display: block;
+            color: white;
+            margin-bottom: 4px;
+        }
+        
+        .help-text span {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        /* Desktop adjustments */
+        @media (min-width: 769px) {
             #terminal-container {
-                padding: 5px;
+                bottom: 0; /* No action bar on desktop */
+            }
+            
+            #action-bar {
+                display: none; /* Hide on desktop */
             }
             
             #copy-button {
-                bottom: 80px; /* Higher on mobile to avoid keyboard overlap */
-                right: 16px;
+                bottom: 20px; /* Lower on desktop */
+            }
+            
+            #toolbar {
+                padding: 0 20px;
+            }
+        }
+        
+        /* Mobile specific */
+        @media (max-width: 768px) {
+            #terminal-container {
+                padding: 5px;
+                top: 50px;
+                bottom: 60px;
+            }
+            
+            #toolbar-title {
+                font-size: 14px;
+            }
+            
+            .status-badge {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+            
+            #copy-button {
                 padding: 14px 28px;
                 font-size: 18px;
+                bottom: 70px; /* Above action bar */
             }
         }
     </style>
 </head>
 <body>
-    <div id="status">Connected</div>
+    <!-- Top toolbar -->
+    <div id="toolbar">
+        <div id="toolbar-left">
+            <div id="toolbar-title">Terminal</div>
+            <div id="connection-status" class="status-badge">
+                <span>●</span>
+                <span>Connected</span>
+            </div>
+            <div id="auth-status" class="status-badge hidden" title="Click to check auth status">
+                <span>🔐</span>
+                <span id="auth-status-text">Auth</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Terminal container -->
     <div id="terminal-container">
         <div id="terminal"></div>
     </div>
+    
+    <!-- Floating copy button -->
     <button id="copy-button" aria-label="Copy selected text">
         <span id="copy-icon">📋</span>
         <span id="copy-text">Copy</span>
     </button>
+    
+    <!-- Bottom action bar (mobile only) -->
+    <div id="action-bar">
+        <button class="action-button" id="action-copilot" aria-label="Launch Copilot">
+            <span class="action-button-icon">🤖</span>
+            <span>Copilot</span>
+        </button>
+        <button class="action-button" id="action-clear" aria-label="Clear terminal">
+            <span class="action-button-icon">🗑️</span>
+            <span>Clear</span>
+        </button>
+        <button class="action-button" id="action-auth" aria-label="Check auth">
+            <span class="action-button-icon">🔐</span>
+            <span>Auth</span>
+        </button>
+        <button class="action-button" id="action-help" aria-label="Show help">
+            <span class="action-button-icon">❓</span>
+            <span>Help</span>
+        </button>
+    </div>
+    
+    <!-- Help overlay -->
+    <div id="help-overlay">
+        <div id="help-content">
+            <div id="help-header">
+                <h2 id="help-title">Terminal Help</h2>
+                <button id="help-close" aria-label="Close help">×</button>
+            </div>
+            
+            <div class="help-section">
+                <h3>Quick Actions</h3>
+                <div class="help-item">
+                    <span class="help-icon">🤖</span>
+                    <div class="help-text">
+                        <strong>Copilot</strong>
+                        <span>Launch GitHub Copilot CLI interactive mode</span>
+                    </div>
+                </div>
+                <div class="help-item">
+                    <span class="help-icon">🗑️</span>
+                    <div class="help-text">
+                        <strong>Clear</strong>
+                        <span>Clear terminal screen (Ctrl+L also works)</span>
+                    </div>
+                </div>
+                <div class="help-item">
+                    <span class="help-icon">🔐</span>
+                    <div class="help-text">
+                        <strong>Auth</strong>
+                        <span>Check GitHub Copilot authentication status</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="help-section">
+                <h3>Copilot Commands</h3>
+                <div class="help-item">
+                    <span class="help-icon">💬</span>
+                    <div class="help-text">
+                        <strong>copilot</strong>
+                        <span>Start interactive chat with Copilot</span>
+                    </div>
+                </div>
+                <div class="help-item">
+                    <span class="help-icon">⚡</span>
+                    <div class="help-text">
+                        <strong>copilot --help</strong>
+                        <span>Show all available Copilot commands</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="help-section">
+                <h3>Tips</h3>
+                <div class="help-item">
+                    <span class="help-icon">📋</span>
+                    <div class="help-text">
+                        <strong>Copy Text</strong>
+                        <span>Select text to show copy button, or long-press on mobile</span>
+                    </div>
+                </div>
+                <div class="help-item">
+                    <span class="help-icon">🔗</span>
+                    <div class="help-text">
+                        <strong>Clickable Links</strong>
+                        <span>URLs in terminal are automatically clickable</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <!-- xterm.js and addons -->
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -208,7 +556,7 @@
             let ws = null;
             let reconnectAttempts = 0;
             const maxReconnectAttempts = 5;
-            const statusElement = document.getElementById('status');
+            const connectionStatus = document.getElementById('connection-status');
             
             function connect() {
                 ws = new WebSocket(wsUrl);
@@ -216,9 +564,8 @@
                 ws.onopen = () => {
                     console.log('WebSocket connected');
                     reconnectAttempts = 0;
-                    statusElement.textContent = 'Connected';
-                    statusElement.classList.remove('disconnected');
-                    statusElement.style.display = 'none';
+                    connectionStatus.innerHTML = '<span>●</span><span>Connected</span>';
+                    connectionStatus.classList.remove('disconnected');
                     
                     // Send initial size
                     ws.send(JSON.stringify({
@@ -226,6 +573,9 @@
                         cols: term.cols,
                         rows: term.rows
                     }));
+                    
+                    // Check auth status after connection
+                    checkAuthStatus();
                 };
                 
                 ws.onmessage = (event) => {
@@ -241,16 +591,14 @@
                 
                 ws.onerror = (error) => {
                     console.error('WebSocket error:', error);
-                    statusElement.textContent = 'Connection Error';
-                    statusElement.classList.add('disconnected');
-                    statusElement.style.display = 'block';
+                    connectionStatus.innerHTML = '<span>●</span><span>Error</span>';
+                    connectionStatus.classList.add('disconnected');
                 };
                 
                 ws.onclose = () => {
                     console.log('WebSocket disconnected');
-                    statusElement.textContent = 'Disconnected';
-                    statusElement.classList.add('disconnected');
-                    statusElement.style.display = 'block';
+                    connectionStatus.innerHTML = '<span>●</span><span>Disconnected</span>';
+                    connectionStatus.classList.add('disconnected');
                     
                     // Attempt to reconnect
                     if (reconnectAttempts < maxReconnectAttempts) {
@@ -259,7 +607,7 @@
                         console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
                         setTimeout(connect, delay);
                     } else {
-                        statusElement.textContent = 'Connection Lost';
+                        connectionStatus.innerHTML = '<span>●</span><span>Lost</span>';
                         term.write('\r\n\x1b[1;31mConnection lost. Please refresh the page.\x1b[0m\r\n');
                     }
                 };
@@ -274,6 +622,80 @@
             
             // Connect to backend
             connect();
+            
+            // Auth status management
+            const authStatus = document.getElementById('auth-status');
+            const authStatusText = document.getElementById('auth-status-text');
+            
+            function checkAuthStatus() {
+                // Try to read auth status file
+                sendCommand('cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"');
+                
+                // Also update UI based on file existence
+                setTimeout(() => {
+                    sendCommand('if [ -f /home/coder/workspace/.copilot-auth-status ]; then cat /home/coder/workspace/.copilot-auth-status; else echo "unknown"; fi', true);
+                }, 1000);
+            }
+            
+            function sendCommand(command, silent = false) {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    if (!silent) {
+                        term.write('\r\n');
+                    }
+                    ws.send(JSON.stringify({ type: 'input', data: command + '\n' }));
+                }
+            }
+            
+            // Parse terminal output to detect auth status
+            let outputBuffer = '';
+            term.onData((data) => {
+                outputBuffer += data;
+                
+                // Check for auth status in output
+                if (outputBuffer.includes('authenticated')) {
+                    authStatus.classList.remove('hidden');
+                    authStatus.classList.add('ready');
+                    authStatusText.textContent = 'Ready';
+                    outputBuffer = '';
+                } else if (outputBuffer.includes('pending')) {
+                    authStatus.classList.remove('hidden');
+                    authStatus.classList.remove('ready');
+                    authStatusText.textContent = 'Pending';
+                    outputBuffer = '';
+                } else if (outputBuffer.length > 1000) {
+                    // Clear buffer if too large
+                    outputBuffer = outputBuffer.slice(-500);
+                }
+            });
+            
+            // Action button handlers
+            document.getElementById('action-copilot').addEventListener('click', () => {
+                sendCommand('copilot');
+            });
+            
+            document.getElementById('action-clear').addEventListener('click', () => {
+                term.clear();
+            });
+            
+            document.getElementById('action-auth').addEventListener('click', checkAuthStatus);
+            
+            document.getElementById('action-help').addEventListener('click', () => {
+                document.getElementById('help-overlay').classList.add('visible');
+            });
+            
+            document.getElementById('help-close').addEventListener('click', () => {
+                document.getElementById('help-overlay').classList.remove('visible');
+            });
+            
+            // Close help on overlay click
+            document.getElementById('help-overlay').addEventListener('click', (e) => {
+                if (e.target.id === 'help-overlay') {
+                    document.getElementById('help-overlay').classList.remove('visible');
+                }
+            });
+            
+            // Auth status click handler
+            authStatus.addEventListener('click', checkAuthStatus);
             
             // Copy button functionality
             let selectedText = '';
@@ -373,6 +795,9 @@
             copyButton.addEventListener('touchstart', (e) => {
                 e.preventDefault();
             }, { passive: false });
+            
+            // Check auth status periodically
+            setInterval(checkAuthStatus, 30000); // Every 30 seconds
             
             // Focus terminal on page load
             term.focus();
