@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Set UTF-8 locale for proper emoji and unicode rendering
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+export LANGUAGE=en_US:en
+
 # Disable core dumps to prevent large core.* files in workspace
 ulimit -c 0
 

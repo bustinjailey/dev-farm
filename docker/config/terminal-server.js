@@ -73,7 +73,13 @@ app.ws('/terminal', (ws, req) => {
     cols: cols,
     rows: rows,
     cwd: process.env.HOME || '/home/coder/workspace',
-    env: process.env
+    env: {
+      ...process.env,
+      LANG: 'en_US.UTF-8',
+      LC_ALL: 'en_US.UTF-8',
+      LANGUAGE: 'en_US:en'
+    },
+    encoding: 'utf8'
   });
   
   terminals.set(sessionId, term);
