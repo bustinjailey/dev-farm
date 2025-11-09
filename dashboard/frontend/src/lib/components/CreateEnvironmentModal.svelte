@@ -11,7 +11,7 @@
   }>();
 
   let name = $state('');
-  let mode = $state<CreateEnvironmentPayload['mode']>('workspace');
+  let mode = $state<CreateEnvironmentPayload['mode']>('terminal');
   let sshHost = $state('');
   let sshUser = $state('root');
   let sshPassword = $state('');
@@ -22,7 +22,7 @@
   $effect(() => {
     if (open) {
       name = '';
-      mode = 'workspace';
+      mode = 'terminal';
       sshHost = '';
       sshUser = 'root';
       sshPassword = '';
@@ -41,7 +41,7 @@
 
   function resetForm() {
     name = '';
-    mode = 'workspace';
+    mode = 'terminal';
     gitUrl = '';
     sshHost = '';
     sshUser = 'root';

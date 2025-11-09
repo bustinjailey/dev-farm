@@ -69,10 +69,15 @@ WORKDIR /home/coder
 # Copy package.json for terminal server dependencies
 COPY --chown=coder:coder config/package.json /home/coder/package.json
 
-# Install terminal server dependencies locally using pnpm
-# Allow node-pty to build its native module
-RUN pnpm config set enable-pre-post-scripts true && \
-    pnpm install --prod
+# Install terminal server dependencies
+# Use npm instead of pnpm for node-pty to avoid pnpm 10.x build script restrictions
+USER coder
+RUN cd /home/coder && \
+    npm install && \
+    echo '=== Checking node-pty build ===' && \
+    ls -la /home/coder/node_modules/node-pty/build/
+
+USER root
 
 WORKDIR /home/coder/workspace
 
