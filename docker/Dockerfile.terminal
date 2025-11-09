@@ -89,12 +89,8 @@ RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
   echo 'alias ll="ls -alh"' >> ~/.zshrc && \
   echo 'alias gs="git status"' >> ~/.zshrc && \
   echo 'alias gp="git pull"' >> ~/.zshrc && \
-  echo 'echo "🤖 CLI AI Tools Available:"' >> ~/.zshrc && \
-  echo 'echo "  • gh copilot - GitHub Copilot CLI"' >> ~/.zshrc && \
-  echo 'echo ""' >> ~/.zshrc && \
-  echo 'echo "💡 Type commands for help:"' >> ~/.zshrc && \
-  echo 'echo "  • gh copilot explain <command>"' >> ~/.zshrc && \
-  echo 'echo "  • gh copilot suggest <task>"' >> ~/.zshrc && \
+  echo 'echo "🤖 Copilot AI Assistant Ready!"' >> ~/.zshrc && \
+  echo 'echo "  Use the AI Assistant panel in the dashboard to chat"' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc
 
 # Create startup script, terminal server, copilot chat wrapper, auth monitor, and session manager

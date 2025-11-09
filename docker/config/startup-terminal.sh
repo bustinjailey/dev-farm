@@ -113,10 +113,10 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         if tmux new-session -d -s copilot-auth -c /home/coder/workspace 2>/dev/null; then
             echo "✓ Created tmux session for copilot auth" | tee -a "$LOG_FILE"
             
-            # Start copilot in that session
+            # Start copilot in that session with --allow-all-tools flag
             tmux send-keys -t copilot-auth "export PATH=$PNPM_HOME:\$PATH" C-m
             sleep 2
-            tmux send-keys -t copilot-auth "copilot" C-m
+            tmux send-keys -t copilot-auth "copilot --allow-all-tools" C-m
             sleep 3
             
             # Capture output to get device code
@@ -224,20 +224,21 @@ cat > "$WELCOME_PATH" <<'EOWELCOME'
 
 Welcome to your terminal-focused development environment!
 
-🤖 GITHUB COPILOT CLI:
+🤖 COPILOT AI ASSISTANT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Interactive AI coding assistant in your terminal:
-
-  copilot
-    Launches interactive chat session with AI coding agent
-    First run: Authenticate with /login command
+  GitHub Copilot CLI is ready to use from the dashboard AI chat panel!
+  
+  The copilot command runs automatically in this terminal with:
+    • --allow-all-tools flag for full functionality
+    • Interactive chat for code assistance
+    • Direct access to GitHub repos and issues
     
   Use natural language to:
-    • Build and edit code
+    • Write and edit code
     • Debug and refactor
     • Understand codebases
-    • Access GitHub repos, issues, and PRs
+    • Execute terminal commands
 
 📁 YOUR WORKSPACE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -256,12 +257,14 @@ Welcome to your terminal-focused development environment!
   • Ctrl+A then ?           Show all tmux keybindings
   • ll                      List files (alias for ls -alh)
 
-🚀 QUICK START:
+🚀 USING THE AI ASSISTANT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  copilot
-    Launch the interactive AI assistant
-    
+  This terminal opens with copilot already running!
+  
+  Use the dashboard's AI Assistant panel to chat with Copilot.
+  All your conversations are saved per environment.
+  
   Example prompts:
     "Create a Python web server"
     "Explain this Docker Compose file"
@@ -306,9 +309,16 @@ set -g status-right '%Y-%m-%d %H:%M'
 setw -g window-status-current-style bg=white,fg=blue,bold
 TMUXCONF
 
-# Start tmux server with initial session
-if tmux new-session -d -s dev-farm -c /home/coder/workspace /bin/zsh 2>&1 | tee -a "$LOG_FILE"; then
+# Start tmux server with initial session running copilot
+if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>&1 | tee -a "$LOG_FILE"; then
     echo "✓ Tmux session 'dev-farm' created successfully" | tee -a "$LOG_FILE"
+    
+    # Start copilot with --allow-all-tools in the main terminal session
+    echo "✓ Starting copilot CLI in terminal session..." | tee -a "$LOG_FILE"
+    tmux send-keys -t dev-farm "export PATH=$PNPM_HOME:\$PATH" C-m
+    sleep 1
+    tmux send-keys -t dev-farm "copilot --allow-all-tools" C-m
+    
     TMUX_READY=true
 else
     echo "⚠ Failed to create tmux session, falling back to direct zsh" | tee -a "$LOG_FILE"
