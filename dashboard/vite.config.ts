@@ -43,10 +43,13 @@ export default defineConfig({
         '../../node_modules/**',
         '../node_modules/**',
       ],
-      // Use polling as fallback if needed (less efficient but more reliable)
+      // Use native watching for best performance
       usePolling: false,
       // Reduce file watch depth
-      depth: 3,
+      depth: 2, // Reduced from 3
+    },
+    fs: {
+      strict: false, // Allow serving files outside root
     },
     proxy: {
       '/api': 'http://localhost:5000',

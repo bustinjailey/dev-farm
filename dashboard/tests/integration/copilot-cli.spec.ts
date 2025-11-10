@@ -10,7 +10,7 @@ test.describe('Copilot CLI Installation', () => {
   });
 
   test('creates terminal environment and verifies copilot CLI is installed', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Open create modal

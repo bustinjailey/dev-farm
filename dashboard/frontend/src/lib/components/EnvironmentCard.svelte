@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { EnvironmentSummary } from '@shared/types';
-  import type { Snippet } from 'svelte';
+  import type { EnvironmentSummary } from "@shared/types";
+  import type { Snippet } from "svelte";
 
   interface Props {
     env: EnvironmentSummary;
     actionBusy: boolean;
-    desktopCopyState: '' | 'copied' | 'failed';
+    desktopCopyState: "" | "copied" | "failed";
     deviceAuth: { code: string; url: string } | null;
     onStart: () => void;
     onStop: () => void;
@@ -37,6 +37,11 @@
     aiOpen,
     children,
   }: Props = $props();
+
+  // Derived values for button text (workaround for Svelte 5 compiler issue)
+  let copilotButtonText = $derived(aiOpen ? "Hide Copilot" : "Copilot Chat");
+  let aiAssistButtonText = $derived(aiOpen ? "Hide AI" : "AI Assist");
+  let monitorButtonText = $derived(monitorOpen ? "Hide Monitor" : "Monitor");
 </script>
 
 <article class="card" data-status={env.status}>
@@ -48,13 +53,17 @@
     <span class="badge {env.status}">{env.status}</span>
   </header>
 
-  {#if deviceAuth && (env.status === 'starting' || env.status === 'running')}
+  {#if deviceAuth && (env.status === "starting" || env.status === "running")}
     <div class="device-auth-banner">
       <p>🔐 GitHub Authentication Required</p>
       <div class="device-code">{deviceAuth.code}</div>
       <div class="device-actions">
-        <button class="btn-copy-code" onclick={onCopyDeviceCode}>📋 Copy Code</button>
-        <a href={deviceAuth.url} target="_blank" rel="noopener" class="btn-auth">Open GitHub Auth →</a>
+        <button class="btn-copy-code" onclick={onCopyDeviceCode}
+          >📋 Copy Code</button
+        >
+        <a href={deviceAuth.url} target="_blank" rel="noopener" class="btn-auth"
+          >Open GitHub Auth →</a
+        >
       </div>
     </div>
   {/if}
@@ -71,20 +80,25 @@
   </dl>
 
   <div class="actions">
-    {#if env.mode === 'terminal'}
+    {#if env.mode === "terminal"}
       <!-- Terminal mode: show terminal controls with AI chat -->
-      {#if env.status === 'running'}
+      {#if env.status === "running"}
         <a class="btn primary" href={env.url} target="_blank" rel="noopener">
           <span class="btn-text-full">Open Terminal</span>
           <span class="btn-text-short">Terminal</span>
         </a>
-        <button class="btn" disabled={actionBusy} onclick={onToggleAi}>
-          🤖 {aiOpen ? 'Hide Copilot' : 'Copilot Chat'}
+        <button
+          class="btn"
+          disabled={actionBusy}
+          onclick={onToggleAi}
+          data-testid="copilot-chat-button"
+        >
+          🤖 Copilot Chat
         </button>
         <button class="btn" disabled={actionBusy} onclick={onStop}>
           ⏸ Stop
         </button>
-      {:else if env.status === 'starting'}
+      {:else if env.status === "starting"}
         <button class="btn" disabled>Starting…</button>
       {:else}
         <button class="btn primary" disabled={actionBusy} onclick={onStart}>
@@ -99,26 +113,36 @@
       </button>
     {:else}
       <!-- Non-terminal modes: show all buttons -->
-      {#if env.status === 'running'}
+      {#if env.status === "running"}
         {#if env.requiresAuth || deviceAuth}
-          <button class="btn primary" disabled title="Complete GitHub authentication first">
+          <button
+            class="btn primary"
+            disabled
+            title="Complete GitHub authentication first"
+          >
             🔒 Open Tunnel (Auth Required)
           </button>
         {:else}
-          <a class="btn primary" href={env.url} target="_blank" rel="noopener">Open Tunnel</a>
+          <a class="btn primary" href={env.url} target="_blank" rel="noopener"
+            >Open Tunnel</a
+          >
         {/if}
-        <button class="btn secondary" type="button" onclick={onCopyDesktopCommand}>
+        <button
+          class="btn secondary"
+          type="button"
+          onclick={onCopyDesktopCommand}
+        >
           🖥 Copy Desktop Command
         </button>
         {#if desktopCopyState}
           <span class="copy-status {desktopCopyState}">
-            {desktopCopyState === 'copied' ? '✓ Copied!' : '⚠ Failed'}
+            {desktopCopyState === "copied" ? "✓ Copied!" : "⚠ Failed"}
           </span>
         {/if}
         <button class="btn" disabled={actionBusy} onclick={onStop}>
           ⏸ Stop
         </button>
-      {:else if env.status === 'starting'}
+      {:else if env.status === "starting"}
         <button class="btn" disabled>Starting…</button>
       {:else}
         <button class="btn primary" disabled={actionBusy} onclick={onStart}>
@@ -127,10 +151,10 @@
       {/if}
 
       <button class="btn" disabled={actionBusy} onclick={onToggleMonitor}>
-        👁 {monitorOpen ? 'Hide Monitor' : 'Monitor'}
+        {monitorButtonText}
       </button>
       <button class="btn" disabled={actionBusy} onclick={onToggleAi}>
-        🤖 {aiOpen ? 'Hide AI' : 'AI Assist'}
+        {aiAssistButtonText}
       </button>
       <button class="btn" disabled={actionBusy} onclick={onOpenLogs}>
         📝 Logs
@@ -155,7 +179,9 @@
     flex-direction: column;
     gap: 1.25rem;
     box-shadow: 0 16px 32px rgba(79, 70, 229, 0.15);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .device-auth-banner {
@@ -173,7 +199,7 @@
   }
 
   .device-code {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     font-size: 1.4rem;
     letter-spacing: 0.2rem;
     margin: 0.5rem 0;
@@ -286,8 +312,13 @@
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
   }
 
   .badge.exited,

@@ -9,7 +9,7 @@
     "build:server": "tsc -p tsconfig.json",
     "build:client": "vite build",
     "dev": "concurrently -n server,client -c blue,magenta \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "tsx src/main.ts",
+    "dev:server": "tsx --watch src/main.ts",
     "dev:client": "vite dev",
     "start": "node dist/server/main.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",

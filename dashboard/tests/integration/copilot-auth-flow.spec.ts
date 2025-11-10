@@ -32,8 +32,8 @@ test.describe('Copilot Authentication Flow', () => {
 
         if (container) {
           const containerInstance = docker.getContainer(container.Id);
-          await containerInstance.stop().catch(() => {});
-          await containerInstance.remove().catch(() => {});
+          await containerInstance.stop().catch(() => { });
+          await containerInstance.remove().catch(() => { });
         }
       } catch (error) {
         console.error('Cleanup error:', error);
@@ -42,7 +42,7 @@ test.describe('Copilot Authentication Flow', () => {
   });
 
   test('should initiate device flow on terminal environment start', async () => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Open create modal
@@ -77,7 +77,7 @@ test.describe('Copilot Authentication Flow', () => {
 
     if (container) {
       const containerInstance = docker.getContainer(container.Id);
-      
+
       // Check for device auth file
       const exec = await containerInstance.exec({
         Cmd: ['cat', '/home/coder/workspace/.copilot-device-auth.json'],
@@ -104,7 +104,7 @@ test.describe('Copilot Authentication Flow', () => {
   test('should display auth banner in dashboard when device code detected', async () => {
     // This test will verify that the dashboard shows the auth banner
     // when it detects device auth via SSE events
-    
+
     // For now, this is a placeholder for the full implementation
     expect(true).toBe(true);
   });
@@ -112,27 +112,27 @@ test.describe('Copilot Authentication Flow', () => {
   test('should detect authentication completion and remove device auth file', async () => {
     // This test will simulate successful authentication
     // and verify that the system detects it and cleans up
-    
+
     expect(true).toBe(true);
   });
 
   test('should handle authentication timeout gracefully', async () => {
     // Test that the system handles timeout after 5 minutes
-    
+
     expect(true).toBe(true);
   });
 
   test('should work with already authenticated copilot', async () => {
     // Test that if copilot is already authenticated,
     // no device flow is initiated
-    
+
     expect(true).toBe(true);
   });
 
   test('should update UI when authentication completes', async () => {
     // Test that the dashboard auth banner disappears
     // and the environment becomes ready for chat
-    
+
     expect(true).toBe(true);
   });
 });
