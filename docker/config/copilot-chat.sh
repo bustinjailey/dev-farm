@@ -5,8 +5,9 @@
 
 set -e
 
-# Ensure npm global bin is in PATH
-export PATH="/home/coder/.npm-global/bin:$PATH"
+# Ensure npm global bin and pnpm home are in PATH
+export PNPM_HOME=/home/coder/.local/share/pnpm
+export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
 
 # Check if copilot is installed
 if ! command -v copilot >/dev/null 2>&1; then

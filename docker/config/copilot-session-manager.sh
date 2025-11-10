@@ -5,8 +5,9 @@
 SESSION_NAME="copilot-dashboard"
 LOG_FILE="/home/coder/workspace/.terminal.log"
 
-# Ensure npm global bin is in PATH
-export PATH="/home/coder/.npm-global/bin:$PATH"
+# Ensure npm global bin and pnpm home are in PATH
+export PNPM_HOME=/home/coder/.local/share/pnpm
+export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
 
 # Function to check if session exists and is responsive
 session_exists() {
@@ -22,24 +23,34 @@ ensure_session() {
     
     echo "Creating new copilot session..." | tee -a "$LOG_FILE"
     
-    # Create detached tmux session with copilot
-    if ! tmux new-session -d -s "$SESSION_NAME" -c /home/coder/workspace copilot 2>/dev/null; then
+    # Create detached tmux session with copilot using --allow-all-tools flag
+    if ! tmux new-session -d -s "$SESSION_NAME" -c /home/coder/workspace "copilot --allow-all-tools" 2>/dev/null; then
         echo "Error: Failed to create copilot session" | tee -a "$LOG_FILE"
         return 1
     fi
     
     # Wait for copilot to initialize
-    sleep 3
+    sleep 2
     
     # Check if copilot is ready by capturing output
     local ready=false
-    for i in {1..10}; do
-        OUTPUT=$(tmux capture-pane -t "$SESSION_NAME" -p -S -10 2>/dev/null || echo "")
-        if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do"; then
+    local max_attempts=15
+    for i in $(seq 1 $max_attempts); do
+        OUTPUT=$(tmux capture-pane -t "$SESSION_NAME" -p -S -20 2>/dev/null || echo "")
+        
+        # Check for ready state (welcome message or prompt)
+        if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do|^>"; then
             ready=true
             echo "✓ Copilot session ready" | tee -a "$LOG_FILE"
             break
         fi
+        
+        # Check if authentication is needed
+        if echo "$OUTPUT" | grep -qE "github.com/login/device|Enter one time code"; then
+            echo "⚠ Copilot needs authentication. Please complete GitHub device auth." | tee -a "$LOG_FILE"
+            return 1
+        fi
+        
         sleep 1
     done
     
@@ -47,6 +58,7 @@ ensure_session() {
         return 0
     else
         echo "⚠ Copilot session created but may not be fully initialized" | tee -a "$LOG_FILE"
+        echo "⚠ Last output: $OUTPUT" | tee -a "$LOG_FILE"
         return 1
     fi
 }
@@ -72,17 +84,22 @@ send_message() {
     # Send the message
     tmux send-keys -t "$SESSION_NAME" "$message" C-m 2>/dev/null
     
+    # Give initial time for copilot to start processing
+    sleep 1
+    
     # Determine timeout based on message complexity
-    local timeout=15
-    if echo "$message" | grep -qiE "explain|analyze|refactor|debug|create|build|write"; then
-        timeout=30
+    local timeout=20
+    if echo "$message" | grep -qiE "explain|analyze|refactor|debug|create|build|write|code|function|class"; then
+        timeout=35
     fi
     
     # Wait for response with polling
     local elapsed=0
-    local check_interval=2
+    local check_interval=1
     local max_wait=$timeout
     local response_complete=false
+    local last_line_count=0
+    local stable_count=0
     
     while [ $elapsed -lt $max_wait ]; do
         sleep $check_interval
@@ -90,42 +107,78 @@ send_message() {
         
         # Capture current state
         local current_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -50 2>/dev/null)
+        local current_line_count=$(echo "$current_output" | wc -l)
         
         # Check if we see a prompt indicator (copilot is ready for next input)
-        # The copilot CLI typically shows "> " when ready
-        if echo "$current_output" | tail -n 3 | grep -qE "^>\s*$"; then
+        # The copilot CLI shows ">" at the start of a line when ready
+        if echo "$current_output" | tail -n 2 | grep -qE "^>"; then
             response_complete=true
             break
         fi
+        
+        # Also check if output has stabilized (no new lines for 3 checks)
+        if [ "$current_line_count" -eq "$last_line_count" ]; then
+            stable_count=$((stable_count + 1))
+            if [ $stable_count -ge 3 ]; then
+                # Output has stabilized, likely done
+                response_complete=true
+                break
+            fi
+        else
+            stable_count=0
+        fi
+        
+        last_line_count=$current_line_count
     done
     
     # Capture final response
     local full_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -100 2>/dev/null)
     
     # Parse output to extract only Copilot's response (not the echoed input)
-    # Look for content between our message and the next prompt
+    # The copilot CLI echoes the input and then provides a response
+    # We need to skip the echo and extract only the actual response
     echo "$full_output" | awk -v msg="$message" '
-        BEGIN { capturing=0; response="" }
-        # Skip lines until we find our sent message
-        $0 ~ msg { capturing=1; next }
-        # Start capturing after the message
-        capturing == 1 {
-            # Stop if we hit the prompt
-            if ($0 ~ /^>\s*$/) {
-                capturing=0
+        BEGIN { 
+            found_message=0
+            capturing=0
+            response=""
+            line_count=0
+        }
+        # Find the line with our sent message
+        !found_message && $0 ~ msg {
+            found_message=1
+            next
+        }
+        # After finding message, skip empty lines and start capturing content
+        found_message && !capturing {
+            # Skip empty lines after the message
+            if (length($0) == 0 || $0 ~ /^[[:space:]]*$/) {
                 next
             }
-            # Accumulate response
-            if (NR > 0) response = response "\n" $0
+            # Start capturing when we hit non-empty content
+            capturing=1
+        }
+        # Capture response lines
+        capturing {
+            # Stop if we hit the next prompt (line starting with >)
+            if ($0 ~ /^>[[:space:]]*$/ || $0 ~ /^> $/) {
+                exit
+            }
+            # Add line to response
+            if (line_count > 0) {
+                response = response "\n" $0
+            } else {
+                response = $0
+            }
+            line_count++
         }
         END {
-            # Clean up and print
-            gsub(/^\n+/, "", response)
-            gsub(/\n+$/, "", response)
+            # Clean up trailing whitespace
+            gsub(/[[:space:]]+$/, "", response)
             if (length(response) > 0) {
                 print response
             } else {
-                print "No response captured from Copilot"
+                print "No response received from Copilot. Please try again."
             }
         }
     '

@@ -30,22 +30,50 @@ while true; do
     fi
     
     # Test if copilot is authenticated
-    # We'll try to run copilot --version and then test a simple command
-    export PATH="/home/coder/.npm-global/bin:$PATH"
+    export PNPM_HOME=/home/coder/.local/share/pnpm
+    export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
     
     if command -v copilot >/dev/null 2>&1; then
-        # Copilot is installed, test if it's authenticated
-        # Try to start copilot in non-interactive mode and check response
-        if timeout 10s echo "test" | copilot 2>&1 | grep -qE "Welcome|How can I help|What can I do"; then
-            # Successfully authenticated!
-            echo "authenticated" > "$AUTH_STATUS_FILE"
+        # Check if the auth session exists and see if user completed auth
+        if tmux has-session -t copilot-auth 2>/dev/null; then
+            # Capture the session output
+            OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -30 2>/dev/null || echo "")
             
-            # Remove device auth file to signal completion
-            rm -f "$DEVICE_AUTH_FILE"
-            
-            echo "✅ Copilot authentication completed successfully!" | tee -a "$LOG_FILE"
-            echo "🤖 Copilot CLI is ready to use" | tee -a "$LOG_FILE"
-            break
+            # Check if authentication completed (user sees welcome or prompt)
+            if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do|Authentication successful"; then
+                echo "✅ Copilot authentication detected!" | tee -a "$LOG_FILE"
+                
+                # Send /login command to complete the flow automatically
+                echo "✓ Completing authentication flow..." | tee -a "$LOG_FILE"
+                tmux send-keys -t copilot-auth "/login" C-m
+                sleep 2
+                
+                # Mark as authenticated
+                echo "authenticated" > "$AUTH_STATUS_FILE"
+                
+                # Remove device auth file to signal completion
+                rm -f "$DEVICE_AUTH_FILE"
+                
+                # Kill the auth session since we're done
+                tmux kill-session -t copilot-auth 2>/dev/null || true
+                
+                echo "✅ Copilot authentication completed successfully!" | tee -a "$LOG_FILE"
+                echo "🤖 Copilot CLI is ready to use" | tee -a "$LOG_FILE"
+                break
+            fi
+        else
+            # Auth session doesn't exist, try testing with a simple command
+            if timeout 10s echo "test" | copilot --allow-all-tools 2>&1 | grep -qE "Welcome|How can I help|What can I do"; then
+                # Successfully authenticated!
+                echo "authenticated" > "$AUTH_STATUS_FILE"
+                
+                # Remove device auth file to signal completion
+                rm -f "$DEVICE_AUTH_FILE"
+                
+                echo "✅ Copilot authentication completed successfully!" | tee -a "$LOG_FILE"
+                echo "🤖 Copilot CLI is ready to use" | tee -a "$LOG_FILE"
+                break
+            fi
         fi
     fi
     
