@@ -20,7 +20,8 @@ export default defineConfig({
   timeout: 60000, // 60s for SSE and async operations
 
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:5173',
+    // Test against production build on port 5000 (more stable than dev server)
+    baseURL: process.env.BASE_URL || 'http://localhost:5000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -33,10 +34,10 @@ export default defineConfig({
     },
   ],
 
-  // Start dev server before tests (optional - can also run separately)
+  // Build and start production server for E2E tests (more stable than dev mode)
   webServer: process.env.SKIP_WEBSERVER ? undefined : {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: 'npm run build && npm run start',
+    url: 'http://localhost:5000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

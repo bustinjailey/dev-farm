@@ -43,9 +43,9 @@ export default defineConfig({
         '../../node_modules/**',
         '../node_modules/**',
       ],
-      // Use native watching for best performance
+      // Use native watching (polling causes HTTP request hanging)
       usePolling: false,
-      // Reduce file watch depth
+      // Reduce file watch depth to minimize ENOSPC risk
       depth: 2, // Reduced from 3
     },
     fs: {

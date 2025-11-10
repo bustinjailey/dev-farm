@@ -22,6 +22,7 @@
     "test": "pnpm --filter dashboard test",
     "test:watch": "pnpm --filter dashboard test:watch",
     "e2e": "pnpm --filter dashboard test:e2e",
+    "e2e:no-server": "pnpm --filter dashboard test:e2e:no-server",
     "e2e:ui": "pnpm --filter dashboard test:e2e:ui",
     "e2e:headed": "pnpm --filter dashboard test:e2e:headed",
     "e2e:debug": "pnpm --filter dashboard test:e2e:debug",
