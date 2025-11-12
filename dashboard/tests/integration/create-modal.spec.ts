@@ -24,7 +24,7 @@ test.describe('CreateEnvironmentModal', () => {
     await expect(nameInput).toHaveValue('');
 
     const modeSelect = modal.locator('select');
-    await expect(modeSelect).toHaveValue('workspace');
+    await expect(modeSelect).toHaveValue('terminal');
   });
 
   test('clears previous values when reopened', async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe('CreateEnvironmentModal', () => {
     await expect(nameInput).toHaveValue('');
 
     const modeSelect = modal.locator('select');
-    await expect(modeSelect).toHaveValue('workspace');
+    await expect(modeSelect).toHaveValue('terminal');
   });
 
   test('resets form when modal closes and reopens', async ({ page }) => {
@@ -73,14 +73,17 @@ test.describe('CreateEnvironmentModal', () => {
     await expect(nameInput).toHaveValue('');
 
     const modeSelect = modal.locator('select');
-    await expect(modeSelect).toHaveValue('workspace');
+    await expect(modeSelect).toHaveValue('terminal');
   });
 
   test('git mode fields are hidden in workspace mode', async ({ page }) => {
     await page.click('button:has-text("New Environment")');
     const modal = page.locator('.modal');
 
-    // Workspace mode selected by default
+    // Switch to workspace mode
+    await page.selectOption('select', 'workspace');
+
+    // Git fields should not be visible in workspace mode
     await expect(modal.locator('input[placeholder*="github.com"]')).not.toBeVisible();
   });
 

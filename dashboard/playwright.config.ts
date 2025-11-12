@@ -11,13 +11,11 @@ import { defineConfig, devices } from '@playwright/test';
  * - Environment lifecycle
  */
 export default defineConfig({
-  testDir: './tests/integration',
   fullyParallel: false, // Sequential execution for integration tests
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1, // Single worker to avoid conflicts
   reporter: 'html',
-  timeout: 60000, // 60s for SSE and async operations
 
   use: {
     // Test against production build on port 5000 (more stable than dev server)
@@ -29,8 +27,18 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'chromium',
+      name: 'fast',
+      testDir: './tests/integration',
+      timeout: 60000, // 60s for fast UI tests (no Docker)
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'slow',
+      testDir: './tests/integration-slow',
+      timeout: 180000, // 3 minutes for Docker container creation and startup
+      use: { ...devices['Desktop Chrome'] },
+      // Only run slow tests when explicitly requested
+      grep: process.env.RUN_SLOW_TESTS ? undefined : /$.^/,
     },
   ],
 

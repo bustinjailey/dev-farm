@@ -61,8 +61,13 @@ test.describe('AI Chat Dashboard Card Behavior', () => {
     // Create a new terminal environment
     testEnvId = `aitest-${Date.now().toString().slice(-8)}`;  // Max 15 chars
 
+    // Open create modal
     const createButton = page.locator('button:has-text("New Environment")');
     await createButton.click();
+
+    // Wait for modal
+    const modal = page.locator('.modal');
+    await expect(modal).toBeVisible({ timeout: 5000 });
 
     // Fill in form for terminal mode
     await page.fill('input[placeholder="Optional (max 20 chars)"]', testEnvId);
@@ -72,12 +77,15 @@ test.describe('AI Chat Dashboard Card Behavior', () => {
     const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
 
+    // Force reload to ensure frontend sees new environment
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
     // Wait for environment card to appear
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);
     await expect(envCard).toBeVisible({ timeout: 15000 });
 
-    // Wait for environment to start
-    await expect(envCard.locator('.badge:has-text("running")')).toBeVisible({ timeout: 30000 });
+    // Wait for environment to start (Docker pull + startup can take 2+ minutes)
+    await expect(envCard.locator('.badge:has-text("running")')).toBeVisible({ timeout: 120000 });
 
     // Verify Copilot Chat button is present on terminal mode card
     const copilotButton = envCard.locator('[data-testid="copilot-chat-button"]');

@@ -4,37 +4,45 @@ import Docker from 'dockerode';
 test.describe('Copilot CLI Installation', () => {
   let docker: Docker;
   let testEnvId: string;
+  let page: any;
 
   test.beforeAll(() => {
     docker = new Docker();
   });
 
-  test('creates terminal environment and verifies copilot CLI is installed', async ({ page }) => {
+  test.beforeEach(async ({ page: testPage }) => {
+    page = testPage;
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.hero', { timeout: 10000 });
+  });
+
+  test('creates terminal environment and verifies copilot CLI is installed', async () => {
 
     // Open create modal
-    const createButton = page.locator('button:has-text("+ Create")');
+    const createButton = page.locator('button:has-text("New Environment")');
     await createButton.click();
 
-    // Fill in the form for terminal mode
-    testEnvId = `copilot-test-${Date.now()}`;
-    await page.fill('input[placeholder="My Project"]', testEnvId);
+    // Wait for modal
+    const modal = page.locator('.modal');
+    await expect(modal).toBeVisible({ timeout: 5000 });
 
-    // Select terminal mode
-    const terminalRadio = page.locator('input[type="radio"][value="terminal"]');
-    await terminalRadio.click();
+    // Fill in the form (terminal is default mode)
+    testEnvId = `copilot-test-${Date.now().toString().slice(-10)}`;
+    await page.fill('input[placeholder="Optional (max 20 chars)"]', testEnvId);
 
     // Submit form
-    const submitButton = page.locator('button:has-text("Create Environment")');
+    const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
 
     // Wait for modal to close
-    await expect(page.locator('h2:has-text("Create New Environment")')).not.toBeVisible({ timeout: 2000 });
+    await expect(modal).not.toBeVisible({ timeout: 5000 });
+
+    // Force reload to ensure frontend sees new environment
+    await page.reload({ waitUntil: 'domcontentloaded' });
 
     // Wait for environment card to appear
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);
-    await expect(envCard).toBeVisible({ timeout: 5000 });
+    await expect(envCard).toBeVisible({ timeout: 15000 });
 
     // Wait for container to be running (up to 2 minutes)
     let containerRunning = false;

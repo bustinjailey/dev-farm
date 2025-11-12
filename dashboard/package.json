@@ -16,8 +16,11 @@
     "check": "svelte-check --tsconfig frontend/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:e2e:no-server": "SKIP_WEBSERVER=1 playwright test",
+    "test:e2e": "playwright test --project=fast",
+    "test:e2e:slow": "RUN_SLOW_TESTS=1 playwright test --project=slow",
+    "test:e2e:all": "RUN_SLOW_TESTS=1 playwright test",
+    "test:e2e:no-server": "SKIP_WEBSERVER=1 playwright test --project=fast",
+    "test:e2e:slow:no-server": "SKIP_WEBSERVER=1 RUN_SLOW_TESTS=1 playwright test --project=slow",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug"

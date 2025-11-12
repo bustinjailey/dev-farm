@@ -1,15 +1,30 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('AI Chat Echo Bug', () => {
-  test('should receive actual Copilot response, not echo', async ({ page }) => {
-    // Navigate to dashboard
+  test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('.hero', { timeout: 10000 });
+  });
 
-    // Create a terminal environment
-    await page.click('button:has-text("Create Environment")');
-    await page.fill('input[name="name"]', 'ai-chat-test');
-    await page.selectOption('select', 'terminal');
-    await page.click('button:has-text("Create")');
+  test('should receive actual Copilot response, not echo', async ({ page }) => {
+
+    // Open create modal
+    const createButton = page.locator('button:has-text("New Environment")');
+    await createButton.click();
+
+    // Wait for modal
+    const modal = page.locator('.modal');
+    await expect(modal).toBeVisible({ timeout: 5000 });
+
+    // Fill in form (terminal is default mode)
+    await page.fill('input[placeholder="Optional (max 20 chars)"]', 'ai-chat-test');
+
+    // Submit form
+    const submitButton = page.locator('button.primary:has-text("Create")');
+    await submitButton.click();
+
+    // Wait for modal to close
+    await expect(modal).not.toBeVisible({ timeout: 5000 });
 
     // Wait for environment to be ready
     await page.waitForSelector('[data-status="running"]', { timeout: 60000 });

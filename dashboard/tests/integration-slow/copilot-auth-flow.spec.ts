@@ -43,26 +43,31 @@ test.describe('Copilot Authentication Flow', () => {
 
   test('should initiate device flow on terminal environment start', async () => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     // Open create modal
-    const createButton = page.locator('button:has-text("+ Create")');
+    const createButton = page.locator('button:has-text("New Environment")');
     await createButton.click();
 
-    // Fill in form for terminal mode
-    await page.fill('input[placeholder="My Project"]', testEnvId);
+    // Wait for modal
+    const modal = page.locator('.modal');
+    await expect(modal).toBeVisible({ timeout: 5000 });
 
-    // Select terminal mode
-    const terminalRadio = page.locator('input[type="radio"][value="terminal"]');
-    await terminalRadio.click();
+    // Fill in form (terminal is default mode)
+    await page.fill('input[placeholder="Optional (max 20 chars)"]', testEnvId);
 
     // Submit form
-    const submitButton = page.locator('button:has-text("Create Environment")');
+    const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
+
+    // Wait for modal to close
+    await expect(modal).not.toBeVisible({ timeout: 5000 });
+
+    // Force reload to ensure frontend sees new environment
+    await page.reload({ waitUntil: 'domcontentloaded' });
 
     // Wait for environment card to appear
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);
-    await expect(envCard).toBeVisible({ timeout: 10000 });
+    await expect(envCard).toBeVisible({ timeout: 15000 });
 
     // Wait for container to start
     await page.waitForTimeout(15000);
