@@ -27,7 +27,7 @@ test.describe('Copilot CLI Installation', () => {
     await expect(modal).toBeVisible({ timeout: 5000 });
 
     // Fill in the form (terminal is default mode)
-    testEnvId = `copilot-test-${Date.now().toString().slice(-10)}`;
+    testEnvId = `cop-${Date.now().toString().slice(-10)}`; // Max 20 chars
     await page.fill('input[placeholder="Optional (max 20 chars)"]', testEnvId);
 
     // Submit form
@@ -37,8 +37,9 @@ test.describe('Copilot CLI Installation', () => {
     // Wait for modal to close
     await expect(modal).not.toBeVisible({ timeout: 5000 });
 
-    // Force reload to ensure frontend sees new environment
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // SSE events may not work reliably in Playwright, so manually refresh
+    await page.waitForTimeout(2000);
+    await page.reload();
 
     // Wait for environment card to appear
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);

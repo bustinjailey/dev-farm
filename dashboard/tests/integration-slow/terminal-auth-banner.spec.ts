@@ -94,9 +94,10 @@ test.describe('Terminal Auth Flow with Banner', () => {
     // Wait for modal to close
     await expect(modal).not.toBeVisible({ timeout: 5000 });
 
-    // Force reload to ensure frontend sees new environment
-    // (SSE event may not be received if connection isn't fully established)
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // SSE events may not work reliably in Playwright, so manually refresh
+    // Wait a moment for backend to create the environment
+    await page.waitForTimeout(2000);
+    await page.reload();
 
     // Wait for environment card to appear
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);
@@ -139,6 +140,10 @@ test.describe('Terminal Auth Flow with Banner', () => {
 
     const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
+
+    // SSE events may not work reliably in Playwright, so manually refresh
+    await page.waitForTimeout(2000);
+    await page.reload();
 
     // Wait for environment card
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);

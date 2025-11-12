@@ -21,13 +21,22 @@ test.describe('AI Chat Echo Bug', () => {
 
     // Submit form
     const submitButton = page.locator('button.primary:has-text("Create")');
+    await expect(submitButton).toBeEnabled();
     await submitButton.click();
 
     // Wait for modal to close
     await expect(modal).not.toBeVisible({ timeout: 5000 });
 
-    // Wait for environment to be ready
-    await page.waitForSelector('[data-status="running"]', { timeout: 60000 });
+    // SSE events may not work reliably in Playwright, so manually refresh
+    await page.waitForTimeout(2000);
+    await page.reload();
+
+    // Wait for environment card to appear
+    const envCard = page.locator('.card:has-text("ai-chat-test")');
+    await expect(envCard).toBeVisible({ timeout: 15000 });
+
+    // Wait for environment to start running
+    await expect(envCard.locator('.badge:has-text("running")')).toBeVisible({ timeout: 120000 });
 
     // Wait for Copilot authentication (may require manual intervention)
     await page.waitForSelector('[data-auth-status="authenticated"]', { timeout: 120000 });

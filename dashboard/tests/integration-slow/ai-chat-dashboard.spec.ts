@@ -59,7 +59,7 @@ test.describe('AI Chat Dashboard Card Behavior', () => {
    */
   test('should show AI chat panel on terminal mode environment cards', async () => {
     // Create a new terminal environment
-    testEnvId = `aitest-${Date.now().toString().slice(-8)}`;  // Max 15 chars
+    testEnvId = `ai-${Date.now().toString().slice(-10)}`; // Max 20 chars
 
     // Open create modal
     const createButton = page.locator('button:has-text("New Environment")');
@@ -77,8 +77,12 @@ test.describe('AI Chat Dashboard Card Behavior', () => {
     const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
 
-    // Force reload to ensure frontend sees new environment
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // Wait for modal to close
+    await expect(modal).not.toBeVisible({ timeout: 5000 });
+
+    // SSE events may not work reliably in Playwright, so manually refresh
+    await page.waitForTimeout(2000);
+    await page.reload();
 
     // Wait for environment card to appear
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);
