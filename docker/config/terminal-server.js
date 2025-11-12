@@ -25,6 +25,11 @@ const logs = new Map();
 // Serve static files (terminal.html)
 app.use(express.static(path.join(__dirname)));
 
+// Redirect root to terminal.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'terminal.html'));
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
