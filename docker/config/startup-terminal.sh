@@ -111,6 +111,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
         
         # Set initial status
+        echo "📝 Configuring Copilot automation..." | tee -a "$LOG_FILE"
         echo "configuring" > "$AUTH_STATUS_FILE"
         
         # Create temporary tmux session for automation (will become main session)
@@ -126,6 +127,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             
             # Check if we need to confirm workspace trust
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
+                echo "✓ Workspace trust prompt detected - sending option 2" | tee -a "$LOG_FILE"
                 echo "workspace-trust" > "$AUTH_STATUS_FILE"
                 tmux send-keys -t copilot-setup "2" C-m
                 sleep 3
@@ -134,6 +136,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             
             # Check if we need to run /login (only if NOT already showing Welcome)
             if echo "$OUTPUT" | grep -q "Please use /login to sign in to use Copilot"; then
+                echo "✓ Login prompt detected - sending /login command" | tee -a "$LOG_FILE"
                 echo "login" > "$AUTH_STATUS_FILE"
                 tmux send-keys -t copilot-setup "/login" C-m
                 sleep 3
@@ -141,6 +144,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 
                 # After /login, check for account selection
                 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
+                    echo "✓ Account selection prompt detected - selecting GitHub.com" | tee -a "$LOG_FILE"
                     echo "account-selection" > "$AUTH_STATUS_FILE"
                     tmux send-keys -t copilot-setup "1" C-m
                     sleep 3
@@ -160,6 +164,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 DEVICE_URL=$(echo "$OUTPUT" | grep -oP "https://github\.com/login/device[^\s]*" || echo "https://github.com/login/device")
                 
                 if [ -n "$DEVICE_CODE" ]; then
+                    echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
                     echo "awaiting-auth" > "$AUTH_STATUS_FILE"
                     cat > "$DEVICE_AUTH_FILE" <<EOF
 {
@@ -169,6 +174,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
 }
 EOF
                     # Rename setup session to dev-farm (this becomes the main user session)
+                    echo "✓ Renaming session: copilot-setup → dev-farm" | tee -a "$LOG_FILE"
                     tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                     
                     # Start background auth monitor
@@ -176,12 +182,14 @@ EOF
                 fi
             elif echo "$OUTPUT" | grep -q "Please use /login"; then
                 # Still showing login prompt, not authenticated yet
+                echo "⚠ Still showing login prompt" | tee -a "$LOG_FILE"
                 echo "awaiting-auth" > "$AUTH_STATUS_FILE"
                 tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
             elif echo "$OUTPUT" | grep -qE "How can I help|What can I do"; then
                 # Only consider authenticated if we see the actual prompt, not just Welcome banner
                 # AND we don't see any auth prompts
                 if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device"; then
+                    echo "✓ Copilot CLI authenticated and ready!" | tee -a "$LOG_FILE"
                     echo "authenticated" > "$AUTH_STATUS_FILE"
                     tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                 else
