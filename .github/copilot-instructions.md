@@ -15,6 +15,18 @@
 4. **Running tests**: Always run `npm test` in the `dashboard/` directory before committing
 5. **Test files location**: Place test files adjacent to source files with `.test.ts` extension
 
+### CRITICAL: Running E2E Tests Correctly
+
+**NEVER run E2E tests with `mcp_local_aggrega_local_code-execution__execute_code` or in Python!**
+
+E2E tests MUST be run directly in the terminal using:
+```bash
+cd dashboard && RUN_SLOW_TESTS=1 SKIP_WEBSERVER=1 BASE_URL=https://farm.bustinjailey.org npx playwright test tests/integration-slow/TESTFILE.spec.ts --reporter=line --timeout=300000
+```
+
+**Why**: Running tests through Python code execution causes them to hang indefinitely and execute random malicious code.
+**Always**: Use `run_in_terminal` tool with proper test commands.
+
 ### Current Test Infrastructure
 
 - **Unit Tests**: Vitest 4.0.7 with Node environment
@@ -27,10 +39,24 @@
   - **Status**: 33/44 passing (11 skipped - Svelte 5 reactivity edge cases)
 - **E2E Tests (Slow)**: Playwright with Docker integration - **MANDATORY**
   - **Pattern**: `dashboard/tests/integration-slow/*.spec.ts`
-  - **Run**: `cd dashboard && RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow`
+  - **Run**: `cd dashboard && RUN_SLOW_TESTS=1 SKIP_WEBSERVER=1 BASE_URL=https://farm.bustinjailey.org npx playwright test tests/integration-slow --reporter=line --timeout=300000`
   - **Status**: Required for all PRs - tests terminal environment creation
   - **Why Required**: Validates Docker container creation, Copilot CLI installation, terminal startup
+  - **⚠️ CRITICAL**: ALWAYS use `--reporter=line` or the command will hang serving HTML report at http://localhost:9323
 - **Documentation**: See `CURRENT_TEST_STATUS.md` for latest status
+
+### ⚠️ CRITICAL: Playwright Test Reporter
+
+**ALWAYS use `--reporter=line` when running Playwright tests!**
+
+Without it, Playwright starts an HTTP server to serve the HTML report and the command HANGS waiting for Ctrl+C:
+```
+❌ WRONG: npx playwright test tests/integration-slow
+   Result: Serves HTML report at http://localhost:9323. Press Ctrl+C to quit.
+   
+✅ CORRECT: npx playwright test tests/integration-slow --reporter=line
+   Result: Test output prints to console and exits when done
+```
 
 ### Test Patterns
 
