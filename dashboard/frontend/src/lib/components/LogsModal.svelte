@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { EnvironmentSummary } from '@shared/types';
-  import { onDestroy } from 'svelte';
-  import { fetchEnvironmentLogs } from '../api';
+  import type { EnvironmentSummary } from "@shared/types";
+  import { onDestroy } from "svelte";
+  import { fetchEnvironmentLogs } from "../api";
 
   interface Props {
     envId: string;
@@ -11,11 +11,11 @@
   }
 
   let { envId, open, deviceAuth, onClose }: Props = $props();
-  let logs = $state('');
+  let logs = $state("");
   let loading = $state(false);
   let autoRefreshInterval = $state<ReturnType<typeof setInterval> | null>(null);
   let logsContainer: HTMLPreElement | undefined = $state();
-  let copyLogsState = $state<'copied' | 'failed' | ''>('');
+  let copyLogsState = $state<"copied" | "failed" | "">("");
   let copyLogsTimer = $state<ReturnType<typeof setTimeout> | null>(null);
   let userHasScrolled = $state(false);
 
@@ -30,7 +30,7 @@
         scrollToBottom();
       }
     } catch (err) {
-      console.error('Failed to load logs', err);
+      console.error("Failed to load logs", err);
     } finally {
       loading = false;
     }
@@ -49,11 +49,14 @@
 
   function handleScroll() {
     if (!logsContainer) return;
-    
+
     // Check if user is at the bottom (within 50px threshold)
-    const isAtBottom = 
-      logsContainer.scrollHeight - logsContainer.scrollTop - logsContainer.clientHeight < 50;
-    
+    const isAtBottom =
+      logsContainer.scrollHeight -
+        logsContainer.scrollTop -
+        logsContainer.clientHeight <
+      50;
+
     if (isAtBottom) {
       // User scrolled back to bottom, resume auto-scrolling
       userHasScrolled = false;
@@ -68,24 +71,24 @@
     try {
       await navigator.clipboard.writeText(deviceAuth.code);
     } catch (err) {
-      window.prompt('Copy this code to GitHub', deviceAuth.code);
+      window.prompt("Copy this code to GitHub", deviceAuth.code);
     }
   }
 
   async function copyLogs() {
     try {
       await navigator.clipboard.writeText(logs);
-      copyLogsState = 'copied';
+      copyLogsState = "copied";
       if (copyLogsTimer) clearTimeout(copyLogsTimer);
       copyLogsTimer = setTimeout(() => {
-        copyLogsState = '';
+        copyLogsState = "";
         copyLogsTimer = null;
       }, 2500);
     } catch (err) {
-      copyLogsState = 'failed';
+      copyLogsState = "failed";
       if (copyLogsTimer) clearTimeout(copyLogsTimer);
       copyLogsTimer = setTimeout(() => {
-        copyLogsState = '';
+        copyLogsState = "";
         copyLogsTimer = null;
       }, 2500);
     }
@@ -110,14 +113,18 @@
 
   // Track only open and envId changes, not logs state changes
   let prevOpen = $state(false);
-  let prevEnvId = $state('');
+  let prevEnvId = $state("");
 
   $effect(() => {
     // Only trigger when open/envId changes, not when logs updates
     const currentOpen = open;
     const currentEnvId = envId;
-    
-    if (currentOpen && currentEnvId && (!prevOpen || prevEnvId !== currentEnvId)) {
+
+    if (
+      currentOpen &&
+      currentEnvId &&
+      (!prevOpen || prevEnvId !== currentEnvId)
+    ) {
       // Modal just opened or envId changed
       userHasScrolled = false; // Reset scroll tracking when opening modal
       loadLogs();
@@ -127,7 +134,7 @@
       stopAutoRefresh();
       userHasScrolled = false; // Reset for next time
     }
-    
+
     prevOpen = currentOpen;
     prevEnvId = currentEnvId;
   });
@@ -143,7 +150,7 @@
     role="button"
     tabindex="0"
     onclick={handleClose}
-    onkeydown={(e) => e.key === 'Escape' && handleClose()}
+    onkeydown={(e) => e.key === "Escape" && handleClose()}
   >
     <div
       class="logs-modal"
@@ -151,7 +158,7 @@
       aria-modal="true"
       tabindex="0"
       onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.key === 'Escape' && handleClose()}
+      onkeydown={(e) => e.key === "Escape" && handleClose()}
     >
       <header>
         <h2>Logs: {envId}</h2>
@@ -163,21 +170,37 @@
           <p>🔐 GitHub Device Authentication Required</p>
           <div class="device-code">{deviceAuth.code}</div>
           <div class="device-actions">
-            <button class="copy-code-btn" onclick={copyDeviceCode}>📋 Copy Code</button>
-            <a href={deviceAuth.url} target="_blank" rel="noopener" class="btn primary">
+            <button class="copy-code-btn" onclick={copyDeviceCode}
+              >📋 Copy Code</button
+            >
+            <a
+              href={deviceAuth.url}
+              target="_blank"
+              rel="noopener"
+              class="btn primary"
+            >
               Open GitHub Auth →
             </a>
           </div>
         </div>
       {/if}
 
-      <pre class="logs-content" bind:this={logsContainer} onscroll={handleScroll}>{loading && !logs ? 'Loading logs...' : logs || 'No logs available'}</pre>
+      <pre
+        class="logs-content"
+        bind:this={logsContainer}
+        onscroll={handleScroll}>{loading && !logs
+          ? "Loading logs..."
+          : logs || "No logs available"}</pre>
 
       <footer>
         <div class="footer-left">
           <button onclick={handleClose}>Close</button>
           <button class="btn-copy" onclick={copyLogs} disabled={!logs}>
-            📋 {copyLogsState === 'copied' ? '✓ Copied!' : copyLogsState === 'failed' ? '⚠ Failed' : 'Copy Logs'}
+            📋 {copyLogsState === "copied"
+              ? "✓ Copied!"
+              : copyLogsState === "failed"
+                ? "⚠ Failed"
+                : "Copy Logs"}
           </button>
         </div>
         <small>Auto-refreshing every 3 seconds</small>
@@ -233,8 +256,13 @@
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
   }
 
   .device-auth-banner {
@@ -252,7 +280,7 @@
   }
 
   .device-code {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     font-size: 1.8rem;
     letter-spacing: 0.3rem;
     margin: 0.75rem 0;
@@ -317,7 +345,7 @@
     border-radius: 12px;
     flex: 1;
     overflow: auto;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     font-size: 0.85rem;
     line-height: 1.6;
     margin: 0;
