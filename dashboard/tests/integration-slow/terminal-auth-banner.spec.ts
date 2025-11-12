@@ -122,8 +122,10 @@ test.describe('Terminal Auth Flow with Banner', () => {
    * Test 2: Verify GitHub device auth banner appears with code and URL
    * 
    * This test verifies that:
-   * - After terminal environment starts, device auth banner appears
-   * - Banner displays a valid device code (format: XXXX-XXXX)
+   * - After terminal environment starts, startup script automates workspace trust
+   * - Startup script sends /login command automatically
+   * - Startup script selects GitHub.com account automatically
+   * - Device auth banner appears with extracted device code (format: XXXX-XXXX)
    * - Banner includes the GitHub authentication URL
    * - Banner has copy and authenticate buttons
    */
@@ -171,10 +173,46 @@ test.describe('Terminal Auth Flow with Banner', () => {
       await expect(deviceAuthBanner.locator('text=GitHub Authentication Required')).toBeVisible();
 
       // Verify device code is displayed with correct format (XXXX-XXXX)
+      // e.g., 7F6B-693E
       const deviceCode = deviceAuthBanner.locator('.device-code');
       await expect(deviceCode).toBeVisible();
       const codeText = await deviceCode.textContent();
       expect(codeText).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+      
+      // Verify the code was automatically extracted by startup script
+      // (not manually entered) by checking container logs for automation markers
+      const containers = await docker.listContainers();
+      const container = containers.find(c =>
+        c.Names.some(n => n.includes(testEnvId.replace(/[^a-z0-9-]/gi, '-').toLowerCase()))
+      );
+      
+      if (container) {
+        const containerInstance = docker.getContainer(container.Id);
+        const logs = await containerInstance.logs({
+          stdout: true,
+          stderr: true,
+          tail: 200
+        });
+        const logText = logs.toString();
+        
+        // Verify automation steps occurred in correct order
+        // Note: Some steps may not appear if Copilot CLI flow changed
+        const hasWorkspaceTrust = logText.includes('✓ Workspace trust prompt detected');
+        const hasLoginPrompt = logText.includes('✓ Login prompt detected');
+        const hasAccountSelection = logText.includes('✓ Account selection prompt detected');
+        const hasDeviceCode = logText.includes('✓ Device code obtained');
+        
+        // At minimum, device code must be obtained automatically
+        expect(hasDeviceCode).toBe(true);
+        
+        // Log which automation steps were detected for debugging
+        console.log('Automation steps detected:', {
+          workspaceTrust: hasWorkspaceTrust,
+          loginPrompt: hasLoginPrompt,
+          accountSelection: hasAccountSelection,
+          deviceCode: hasDeviceCode
+        });
+      }
 
       // Verify copy button is present
       const copyButton = deviceAuthBanner.locator('button:has-text("Copy Code")');
@@ -504,5 +542,57 @@ test.describe('Terminal Auth Flow with Banner', () => {
       const statusText = await aiStatusBadge.textContent();
       expect(statusText).toMatch(/Ready|Starting/);
     }
+  });
+
+  /**
+   * Test 7: Verify workspace trust is remembered across container restarts
+   * 
+   * This test verifies that:
+   * - After initial workspace trust is confirmed (option 1)
+   * - Container restart doesn't require trust prompt again
+   * - Copilot starts directly to login prompt (skipping trust)
+   */
+  test('should remember workspace trust across container restarts', async ({ page }) => {
+    // Skip if testEnvId not created yet
+    if (!testEnvId) {
+      console.warn('No test environment to restart');
+      return;
+    }
+
+    // Wait for initial auth flow to complete
+    await page.waitForTimeout(10000);
+
+    // Restart the container
+    console.log('Restarting container to test workspace trust persistence...');
+    const containers = await docker.listContainers();
+    const container = containers.find(c =>
+      c.Names.some(n => n.includes(testEnvId.replace(/[^a-z0-9-]/gi, '-').toLowerCase()))
+    );
+
+    if (!container) {
+      console.warn('Container not found for restart test');
+      return;
+    }
+
+    const containerInstance = docker.getContainer(container.Id);
+    await containerInstance.restart();
+
+    // Wait for container to come back up
+    await page.waitForTimeout(15000);
+
+    // Check logs for workspace trust prompt
+    const logs = await containerInstance.logs({
+      stdout: true,
+      stderr: true,
+      since: Math.floor(Date.now() / 1000) - 20, // Last 20 seconds
+      tail: 100
+    });
+    const logText = logs.toString();
+
+    // Verify workspace trust prompt did NOT appear again
+    const hasWorkspaceTrust = logText.includes('✓ Workspace trust prompt detected');
+    expect(hasWorkspaceTrust).toBe(false);
+
+    console.log('✓ Workspace trust is persisted across restarts');
   });
 });

@@ -122,15 +122,55 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             tmux send-keys -t copilot-auth "export PATH=$PNPM_HOME:\$PATH" C-m
             sleep 2
             tmux send-keys -t copilot-auth "copilot --allow-all-tools" C-m
-            sleep 3
+            sleep 5  # Increased wait for workspace trust prompt
             
-            # Capture output to get device code
+            # Capture output to check for workspace trust prompt
+            OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+            
+            # Check if we need to confirm workspace trust
+            if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
+                echo "✓ Workspace trust prompt detected, auto-confirming..." | tee -a "$LOG_FILE"
+                # Send "1" to confirm "Yes, and remember this folder for future sessions"
+                tmux send-keys -t copilot-auth "1" C-m
+                sleep 3
+                
+                # Capture output again after trust confirmation
+                OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+            fi
+            
+            # Check if we need to run /login
+            if echo "$OUTPUT" | grep -q "Please use /login to sign in to use Copilot"; then
+                echo "✓ Login prompt detected, sending /login command..." | tee -a "$LOG_FILE"
+                tmux send-keys -t copilot-auth "/login" C-m
+                sleep 3
+                
+                # After /login, check for account selection
+                OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+                
+                if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
+                    echo "✓ Account selection prompt detected, selecting GitHub.com..." | tee -a "$LOG_FILE"
+                    # Send "1" to select GitHub.com
+                    tmux send-keys -t copilot-auth "1" C-m
+                    sleep 3
+                    
+                    # Capture output again to get device code
+                    OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+                fi
+            fi
+            
+            # Now capture the final output with device code
             OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
             
             # Parse device code and URL from output
+            # Device code format: XXXX-XXXX (e.g., 7F6B-693E)
             if echo "$OUTPUT" | grep -q "github.com/login/device"; then
-                DEVICE_CODE=$(echo "$OUTPUT" | grep -oP "Enter one time code: \K[A-Z0-9-]+" || echo "")
-                DEVICE_URL=$(echo "$OUTPUT" | grep -oP "https://github.com/login/device[^\s]*" || echo "https://github.com/login/device")
+                # Try multiple patterns to extract device code
+                DEVICE_CODE=$(echo "$OUTPUT" | grep -oP "Enter one-time code: \K[A-Z0-9]{4}-[A-Z0-9]{4}" || \
+                              echo "$OUTPUT" | grep -oP "Enter one time code: \K[A-Z0-9]{4}-[A-Z0-9]{4}" || \
+                              echo "$OUTPUT" | grep -oP "code: \K[A-Z0-9]{4}-[A-Z0-9]{4}" || \
+                              echo "$OUTPUT" | grep -oP "\b[A-Z0-9]{4}-[A-Z0-9]{4}\b" | head -1 || \
+                              echo "")
+                DEVICE_URL=$(echo "$OUTPUT" | grep -oP "https://github\.com/login/device[^\s]*" || echo "https://github.com/login/device")
                 
                 if [ -n "$DEVICE_CODE" ]; then
                     echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
