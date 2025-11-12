@@ -17,6 +17,7 @@
   let logsContainer: HTMLPreElement | undefined = $state();
   let copyLogsState = $state<'copied' | 'failed' | ''>('');
   let copyLogsTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+  let userHasScrolled = $state(false);
 
   async function loadLogs() {
     if (!envId) return;
@@ -24,7 +25,10 @@
     try {
       const result = await fetchEnvironmentLogs(envId);
       logs = result.logs;
-      scrollToBottom();
+      // Only auto-scroll if user hasn't manually scrolled up
+      if (!userHasScrolled) {
+        scrollToBottom();
+      }
     } catch (err) {
       console.error('Failed to load logs', err);
     } finally {
@@ -40,6 +44,22 @@
           logsContainer.scrollTop = logsContainer.scrollHeight;
         }
       });
+    }
+  }
+
+  function handleScroll() {
+    if (!logsContainer) return;
+    
+    // Check if user is at the bottom (within 50px threshold)
+    const isAtBottom = 
+      logsContainer.scrollHeight - logsContainer.scrollTop - logsContainer.clientHeight < 50;
+    
+    if (isAtBottom) {
+      // User scrolled back to bottom, resume auto-scrolling
+      userHasScrolled = false;
+    } else {
+      // User scrolled up, stop auto-scrolling
+      userHasScrolled = true;
     }
   }
 
@@ -99,11 +119,13 @@
     
     if (currentOpen && currentEnvId && (!prevOpen || prevEnvId !== currentEnvId)) {
       // Modal just opened or envId changed
+      userHasScrolled = false; // Reset scroll tracking when opening modal
       loadLogs();
       startAutoRefresh();
     } else if (!currentOpen && prevOpen) {
       // Modal just closed
       stopAutoRefresh();
+      userHasScrolled = false; // Reset for next time
     }
     
     prevOpen = currentOpen;
@@ -149,7 +171,7 @@
         </div>
       {/if}
 
-      <pre class="logs-content" bind:this={logsContainer}>{loading && !logs ? 'Loading logs...' : logs || 'No logs available'}</pre>
+      <pre class="logs-content" bind:this={logsContainer} onscroll={handleScroll}>{loading && !logs ? 'Loading logs...' : logs || 'No logs available'}</pre>
 
       <footer>
         <div class="footer-left">
