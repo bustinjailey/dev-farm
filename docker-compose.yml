@@ -24,8 +24,6 @@ services:
       start_period: 15s
     networks:
       - devfarm
-    depends_on:
-      - updater
   
   # Terminal image builder - builds the image but doesn't run a container
   # This ensures the terminal image exists before trying to use it
