@@ -186,8 +186,8 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
   "timestamp": "$(date -Iseconds)"
 }
 EOF
-                    # Start background auth monitor as coder user
-                    su - coder -c "nohup /home/coder/copilot-auth-monitor.sh >> $LOG_FILE 2>&1 &"
+                    # Start background auth monitor as coder user with proper log permissions
+                    su - coder -c "nohup /home/coder/copilot-auth-monitor.sh >> /home/coder/workspace/.terminal.log 2>&1 &"
                 fi
             elif echo "$OUTPUT" | grep -q "Please use /login"; then
                 # Still showing login prompt, not authenticated yet
