@@ -7,11 +7,13 @@
 ## Problem
 
 Tests like `copilot-automation.spec.ts` use dockerode to directly access Docker containers:
+
 - `container.exec()` - Execute commands in containers
 - `container.logs()` - Fetch container logs
 - `container.restart()` - Restart containers
 
 When running tests locally against `BASE_URL=https://farm.bustinjailey.org`:
+
 - Tests connect to LOCAL Docker socket
 - Containers exist on REMOTE Docker (inside LXC #200 on eagle)
 - Result: `getContainer()` returns `null` → tests fail
@@ -98,23 +100,23 @@ npx playwright test tests/integration \
 
 ```typescript
 test.beforeAll(() => {
-  const isRemote = baseURL.includes('farm.bustinjailey.org');
-  
+  const isRemote = baseURL.includes("farm.bustinjailey.org");
+
   if (isRemote) {
-    console.log('⚠ Remote testing detected - Docker tests will be skipped');
-    console.log('  To run full tests, execute inside LXC');
+    console.log("⚠ Remote testing detected - Docker tests will be skipped");
+    console.log("  To run full tests, execute inside LXC");
   }
-  
+
   docker = new Docker(); // Works locally, fails remotely
 });
 
 async function getContainer(envName: string): Promise<Docker.Container | null> {
-  if (baseURL.includes('farm.bustinjailey.org')) {
-    console.log('⊘ Skipping Docker operation - remote testing mode');
+  if (baseURL.includes("farm.bustinjailey.org")) {
+    console.log("⊘ Skipping Docker operation - remote testing mode");
     test.skip();
     return null;
   }
-  
+
   // Normal Docker operations
   const containers = await docker.listContainers({ all: true });
   // ...
@@ -124,6 +126,7 @@ async function getContainer(envName: string): Promise<Docker.Container | null> {
 ### Error Messages
 
 When running remotely, tests show:
+
 ```
 ⚠ Remote testing detected - Docker tests will be skipped
   To run full tests, execute inside LXC:
