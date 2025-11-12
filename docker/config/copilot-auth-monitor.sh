@@ -39,10 +39,18 @@ while true; do
             # Capture the session output
             OUTPUT=$(tmux capture-pane -t dev-farm -p -S -30 2>/dev/null || echo "")
             
+            # Check for token storage prompt (appears after successful authentication)
+            if echo "$OUTPUT" | grep -q "store the token in the plain text config file"; then
+                echo "✓ Detected token storage prompt - accepting plain text storage" | tee -a "$LOG_FILE"
+                tmux send-keys -t dev-farm "1"
+                sleep 2
+                OUTPUT=$(tmux capture-pane -t dev-farm -p -S -30 2>/dev/null || echo "")
+            fi
+            
             # Check if authentication completed (user sees actual prompt, not just welcome banner)
             # Must have prompt indicator AND no auth prompts
             if echo "$OUTPUT" | grep -qE "How can I help|What can I do"; then
-                if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device"; then
+                if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|store the token"; then
                     echo "✅ Copilot authentication completed!" | tee -a "$LOG_FILE"
                     
                     # Mark as authenticated
