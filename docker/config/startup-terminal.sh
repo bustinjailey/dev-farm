@@ -28,6 +28,9 @@ GITIGNORE
 
 # Log helper - store in workspace for easy access
 LOG_FILE="/home/coder/workspace/.terminal.log"
+# Create log file with proper ownership
+touch "$LOG_FILE"
+chown coder:coder "$LOG_FILE"
 {
     echo "==== Terminal Environment startup $(date -Is) ===="
 } >> "$LOG_FILE" 2>/dev/null || true
