@@ -34,9 +34,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 # Install pnpm globally and configure it
 RUN npm install -g pnpm@latest && \
-    mkdir -p /root/.local/share/pnpm && \
-    pnpm config set global-bin-dir /usr/local/bin && \
-    pnpm config set store-dir /root/.local/share/pnpm/store
+  mkdir -p /root/.local/share/pnpm && \
+  pnpm config set global-bin-dir /usr/local/bin && \
+  pnpm config set store-dir /root/.local/share/pnpm/store
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
@@ -73,9 +73,9 @@ COPY --chown=coder:coder config/package.json /home/coder/package.json
 # Use npm instead of pnpm for node-pty to avoid pnpm 10.x build script restrictions
 USER coder
 RUN cd /home/coder && \
-    npm install && \
-    echo '=== Checking node-pty build ===' && \
-    ls -la /home/coder/node_modules/node-pty/build/
+  npm install && \
+  echo '=== Checking node-pty build ===' && \
+  ls -la /home/coder/node_modules/node-pty/build/
 
 USER root
 
@@ -102,11 +102,9 @@ COPY --chown=coder:coder config/copilot-auth-monitor.sh /home/coder/copilot-auth
 COPY --chown=coder:coder config/copilot-session-manager.sh /home/coder/copilot-session-manager.sh
 RUN chmod +x /home/coder/startup.sh /home/coder/terminal-server.js /home/coder/copilot-chat.sh /home/coder/copilot-auth-monitor.sh /home/coder/copilot-session-manager.sh
 
-EXPOSE 8080
-
-# Health check for custom terminal server
+# Health check for custom terminal server (uses PORT env var set at runtime)
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Override the entrypoint to use our startup script
 ENTRYPOINT []
