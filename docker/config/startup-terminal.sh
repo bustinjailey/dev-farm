@@ -114,27 +114,27 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         echo "📝 Configuring Copilot automation..." | tee -a "$LOG_FILE"
         echo "configuring" > "$AUTH_STATUS_FILE"
         
-        # Create temporary tmux session for automation (will become main session)
-        if tmux new-session -d -s copilot-setup -c /home/coder/workspace 2>/dev/null; then
+        # Create tmux session for automation
+        if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>/dev/null; then
             # Start copilot with --allow-all-tools flag
-            tmux send-keys -t copilot-setup "export PATH=$PNPM_HOME:\$PATH" C-m
+            tmux send-keys -t dev-farm "export PATH=$PNPM_HOME:\$PATH" C-m
             sleep 2
-            tmux send-keys -t copilot-setup "copilot --allow-all-tools" C-m
+            tmux send-keys -t dev-farm "copilot --allow-all-tools" C-m
             sleep 5
             
             # Capture output to check for workspace trust prompt
-            OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
             
             # Check if we need to confirm workspace trust
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
                 echo "✓ Workspace trust prompt detected - sending option 2" | tee -a "$LOG_FILE"
                 echo "workspace-trust" > "$AUTH_STATUS_FILE"
-                tmux send-keys -t copilot-setup "2"
+                tmux send-keys -t dev-farm "2"
                 
                 # Wait for login prompt with retries (can take several seconds after trust)
                 for i in {1..10}; do
                     sleep 2
-                    OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+                    OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                     if echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|How can I help"; then
                         echo "✓ Workspace trust processed (attempt $i)" | tee -a "$LOG_FILE"
                         # Wait extra time for CLI to fully initialize before sending commands
@@ -142,10 +142,6 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                         break
                     fi
                 done
-                
-                # Rename session immediately after workspace trust (before continuing)
-                echo "✓ Renaming session: copilot-setup → dev-farm" | tee -a "$LOG_FILE"
-                tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
             fi
             
             # Check if we need to run /login (use same flexible pattern as polling)
