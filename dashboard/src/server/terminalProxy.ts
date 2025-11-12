@@ -125,14 +125,18 @@ export function registerTerminalProxy(fastify: FastifyInstance): void {
   fastify.all('/terminal/:envId/*', proxyTerminalHttp);
 
   const handleTerminalUpgrade = (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    fastify.log.info({ url: req.url, headers: req.headers }, 'WebSocket upgrade request received');
     const info = extractTerminalInfo(req.url);
     if (!info) {
+      fastify.log.warn({ url: req.url }, 'WebSocket upgrade - failed to extract terminal info');
       return;
     }
 
+    fastify.log.info({ envId: info.envId, forwardUrl: info.forwardUrl }, 'WebSocket upgrade - extracted terminal info');
     resolveTerminalProxyTarget(info.envId)
       .then((target) => {
         if (!target) {
+          fastify.log.warn({ envId: info.envId }, 'WebSocket upgrade - target not found');
           try {
             socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
           } catch {
@@ -142,6 +146,7 @@ export function registerTerminalProxy(fastify: FastifyInstance): void {
           return;
         }
 
+        fastify.log.info({ envId: info.envId, target, forwardUrl: info.forwardUrl }, 'WebSocket upgrade - proxying to target');
         req.url = info.forwardUrl;
         terminalProxy.ws(req, socket, head, { target });
       })
