@@ -335,7 +335,15 @@ fi
 echo "Starting custom terminal server..." | tee -a "$LOG_FILE"
 
 # Set up terminal server environment
-export PORT=${PORT:-8080}
+# PORT must be provided by container environment, fail if not set
+if [ -z "$PORT" ]; then
+    echo "ERROR: PORT environment variable is not set!" | tee -a "$LOG_FILE"
+    echo "This should be provided by the dashboard when creating the container." | tee -a "$LOG_FILE"
+    echo "Cannot start terminal server without a port assignment." | tee -a "$LOG_FILE"
+    exit 1
+fi
+
+echo "Terminal server will listen on port: $PORT" | tee -a "$LOG_FILE"
 export HOME=/home/coder
 export SHELL=/bin/zsh
 

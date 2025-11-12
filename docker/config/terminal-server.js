@@ -15,7 +15,21 @@ const crypto = require("crypto");
 const app = express();
 expressWs(app);
 
-const PORT = process.env.PORT || 8080;
+// PORT must be provided by environment variable - no fallback
+if (!process.env.PORT) {
+  console.error("FATAL: PORT environment variable is not set!");
+  console.error("The dashboard must provide a unique port for each terminal container.");
+  console.error("This container cannot start without a port assignment.");
+  process.exit(1);
+}
+
+const PORT = parseInt(process.env.PORT, 10);
+if (isNaN(PORT) || PORT < 1024 || PORT > 65535) {
+  console.error(`FATAL: Invalid PORT value: ${process.env.PORT}`);
+  console.error("PORT must be a number between 1024 and 65535");
+  process.exit(1);
+}
+
 const SHELL =
   process.env.SHELL || (os.platform() === "win32" ? "powershell.exe" : "bash");
 
@@ -176,11 +190,30 @@ app.ws("/terminal", (ws, req) => {
   });
 });
 
-// Start server
-app.listen(PORT, "0.0.0.0", () => {
+// Start server with error handling
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Terminal server listening on http://0.0.0.0:${PORT}`);
   console.log(`Shell: ${SHELL}`);
   console.log(`Platform: ${os.platform()}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`FATAL: Port ${PORT} is already in use!`);
+    console.error(`Another process or container is using port ${PORT}.`);
+    console.error(`This usually means:`);
+    console.error(`  1. Another application on your system is using this port`);
+    console.error(`  2. A previous container wasn't cleaned up properly`);
+    console.error(`  3. The dashboard assigned a port that's already taken`);
+    console.error(`\nTo fix this:`);
+    console.error(`  - Check what's using the port: lsof -i :${PORT} or netstat -nlp | grep ${PORT}`);
+    console.error(`  - Stop the conflicting process`);
+    console.error(`  - Or delete and recreate this environment to get a new port`);
+    process.exit(1);
+  } else {
+    console.error(`Server error:`, err);
+    process.exit(1);
+  }
 });
 
 // Graceful shutdown
