@@ -71,8 +71,8 @@ describe('Terminal Mode Configuration', () => {
     expect(script).toContain('terminal-server.js');
     expect(script).toContain('/usr/bin/node');
 
-    // Check for PORT environment variable
-    expect(script).toContain('PORT=8080');
+    // Check for PORT environment variable validation
+    expect(script).toContain('PORT environment variable');
   });
 
   it('should install new copilot CLI in terminal container', () => {
@@ -87,9 +87,8 @@ describe('Terminal Mode Configuration', () => {
     expect(script).toContain('PNPM_HOME');
     expect(script).toContain('/home/coder/.local/share/pnpm');
 
-    // Check for device flow initiation
-    expect(script).toContain('device flow authentication');
-    expect(script).toContain('.copilot-device-auth.json');
+    // Check for device flow automation (simplified in new architecture)
+    expect(script).toContain('copilot-device-auth.json');
   });
 
   it('should copy custom files in Dockerfile', () => {

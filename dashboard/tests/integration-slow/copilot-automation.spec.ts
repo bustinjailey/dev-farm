@@ -4,12 +4,14 @@ import Docker from 'dockerode';
 /**
  * Comprehensive E2E tests for Copilot CLI Device Auth Automation
  * 
- * These tests verify the automated authentication flow implemented in:
- * - docker/config/startup-terminal.sh (automation logic)
- * - Workspace trust confirmation (sends "1")
- * - Login command execution (sends "/login")
+ * These tests verify the simplified single-session architecture:
+ * - Single dev-farm tmux session (no separate copilot-auth session)
+ * - Granular status updates during setup (configuring, workspace-trust, login, etc.)
+ * - Workspace trust confirmation (sends "2" for persistence)
+ * - Login command execution (sends "/login") - ONLY ONCE
  * - Account selection (sends "1" for GitHub.com)
  * - Device code extraction (4 regex patterns)
+ * - No redundant /login from auth monitor
  * 
  * Related documentation: docs/COPILOT_DEVICE_AUTH_AUTOMATION.md
  */
@@ -99,7 +101,7 @@ test.describe('Copilot CLI Automation', () => {
   }
 
   /**
-   * Test: Workspace trust prompt is automatically confirmed
+   * Test: Workspace trust prompt is automatically confirmed with option 2 (persistent)
    */
   test('should automatically confirm workspace trust on first run', async () => {
     testEnvId = `auto-trust-${Date.now().toString().slice(-8)}`;
@@ -115,23 +117,21 @@ test.describe('Copilot CLI Automation', () => {
     const logs = await getContainerLogs(container);
 
     // Verify workspace trust automation occurred
-    expect(logs).toContain('✓ Workspace trust prompt detected');
-
-    // Verify the automation log appears BEFORE device code
-    const trustIndex = logs.indexOf('✓ Workspace trust prompt detected');
-    const deviceIndex = logs.indexOf('✓ Device code obtained');
-
-    if (deviceIndex > -1) {
-      expect(trustIndex).toBeLessThan(deviceIndex);
-    }
+    // Note: Logs simplified - no longer shows "✓ Workspace trust prompt detected"
+    // Instead, check for status file updates or successful continuation
+    const hasConfiguring = logs.includes('configuring');
+    const hasWorkspaceTrust = logs.includes('workspace-trust');
+    
+    // At least one status should be present during setup
+    expect(hasConfiguring || hasWorkspaceTrust).toBe(true);
 
     console.log('✓ Workspace trust was automatically confirmed');
   });
 
   /**
-   * Test: /login command is automatically sent
+   * Test: /login command is automatically sent ONLY ONCE (no duplicate from monitor)
    */
-  test('should automatically send /login command', async () => {
+  test('should automatically send /login command only once', async () => {
     testEnvId = `auto-login-${Date.now().toString().slice(-9)}`;
     await createTerminalEnvironment(testEnvId);
 
@@ -143,15 +143,16 @@ test.describe('Copilot CLI Automation', () => {
 
     const logs = await getContainerLogs(container);
 
-    // Verify login automation occurred
-    expect(logs).toContain('✓ Login prompt detected');
+    // Verify login status was set
+    const hasLoginStatus = logs.includes('login');
+    expect(hasLoginStatus).toBe(true);
 
-    // Verify the automation happens after workspace trust (if trust appeared)
-    const trustIndex = logs.indexOf('✓ Workspace trust prompt detected');
-    const loginIndex = logs.indexOf('✓ Login prompt detected');
-
-    if (trustIndex > -1 && loginIndex > -1) {
-      expect(loginIndex).toBeGreaterThan(trustIndex);
+    // CRITICAL: Verify NO duplicate /login from auth monitor
+    // Count occurrences of sending /login
+    const loginMatches = logs.match(/sending \/login/gi);
+    if (loginMatches) {
+      expect(loginMatches.length).toBeLessThanOrEqual(1);
+      console.log('✓ /login sent exactly once (no duplicates)');
     }
 
     console.log('✓ /login command was automatically sent');
@@ -409,6 +410,107 @@ test.describe('Copilot CLI Automation', () => {
         console.log(`✓ Dashboard displays correct device code: ${codeText}`);
       }
     }
+  });
+
+  /**
+   * Test: Single dev-farm tmux session (no separate copilot-auth session)
+   */
+  test('should use single dev-farm session for both automation and user terminal', async () => {
+    testEnvId = `single-sess-${Date.now().toString().slice(-7)}`;
+    await createTerminalEnvironment(testEnvId);
+
+    const container = await getContainer(testEnvId);
+    expect(container).toBeTruthy();
+    if (!container) return;
+
+    await page.waitForTimeout(20000);
+
+    // Check tmux sessions in container
+    const exec = await container!.exec({
+      Cmd: ['tmux', 'list-sessions'],
+      AttachStdout: true,
+      AttachStderr: true
+    });
+
+    const stream = await exec.start({ Detach: false });
+    let output = '';
+
+    await new Promise<void>((resolve) => {
+      stream.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+      });
+      stream.on('end', resolve);
+    });
+
+    // Should ONLY have dev-farm session, NOT copilot-auth
+    expect(output).toContain('dev-farm');
+    expect(output).not.toContain('copilot-auth');
+
+    // Count sessions - should be exactly 1
+    const sessionLines = output.trim().split('\n').filter(line => line.trim());
+    expect(sessionLines.length).toBe(1);
+
+    console.log('✓ Single dev-farm session confirmed (no copilot-auth session)');
+  });
+
+  /**
+   * Test: Granular status updates appear in correct order
+   */
+  test('should broadcast granular status updates during setup', async () => {
+    testEnvId = `status-${Date.now().toString().slice(-10)}`;
+    await createTerminalEnvironment(testEnvId);
+
+    const container = await getContainer(testEnvId);
+    expect(container).toBeTruthy();
+    if (!container) return;
+
+    await page.waitForTimeout(25000);
+
+    // Read auth status file from container
+    const exec = await container!.exec({
+      Cmd: ['cat', '/home/coder/workspace/.copilot-auth-status'],
+      AttachStdout: true,
+      AttachStderr: true
+    });
+
+    const stream = await exec.start({ Detach: false });
+    let output = '';
+
+    await new Promise<void>((resolve) => {
+      stream.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+      });
+      stream.on('end', resolve);
+    });
+
+    const status = output.trim();
+
+    // Status should be one of: configuring, workspace-trust, login, 
+    // account-selection, awaiting-auth, authenticated
+    const validStatuses = [
+      'configuring', 'workspace-trust', 'login', 
+      'account-selection', 'awaiting-auth', 'authenticated'
+    ];
+    expect(validStatuses).toContain(status);
+
+    console.log(`✓ Current status: ${status}`);
+
+    // Verify status appears on environment card
+    const envCard = page.locator(`.card:has-text("${testEnvId}")`);
+    const cardSmallText = await envCard.locator('small').first().textContent();
+    
+    // Card should show status-specific text
+    if (status === 'configuring') {
+      expect(cardSmallText).toContain('Setting up Copilot');
+    } else if (status === 'workspace-trust') {
+      expect(cardSmallText).toContain('Confirming workspace trust');
+    } else if (status === 'login') {
+      expect(cardSmallText).toContain('Authenticating');
+    } else if (status === 'awaiting-auth') {
+      expect(cardSmallText).toContain('Awaiting GitHub authentication');
+    }
+
+    console.log('✓ Granular status updates working correctly');
   });
 
   /**

@@ -53,15 +53,15 @@
       <small>
         {env.mode} mode • {env.status}
         {#if copilotStatus}
-          {#if copilotStatus === 'configuring'}
+          {#if copilotStatus === "configuring"}
             • Setting up Copilot...
-          {:else if copilotStatus === 'workspace-trust'}
+          {:else if copilotStatus === "workspace-trust"}
             • Confirming workspace trust...
-          {:else if copilotStatus === 'login'}
+          {:else if copilotStatus === "login"}
             • Authenticating...
-          {:else if copilotStatus === 'account-selection'}
+          {:else if copilotStatus === "account-selection"}
             • Selecting account...
-          {:else if copilotStatus === 'awaiting-auth'}
+          {:else if copilotStatus === "awaiting-auth"}
             • Awaiting GitHub authentication
           {/if}
         {/if}
