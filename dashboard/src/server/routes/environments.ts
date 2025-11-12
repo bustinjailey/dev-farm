@@ -178,6 +178,8 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         let requiresAuth = false;
         let deviceAuthInfo: { code: string; url: string } | null = null;
 
+        fastify.log.info({ envId, displayStatus, mode: record.mode }, 'Monitoring environment');
+
         if (displayStatus === 'starting' || displayStatus === 'running') {
           try {
             // Check for terminal mode Copilot device auth first
