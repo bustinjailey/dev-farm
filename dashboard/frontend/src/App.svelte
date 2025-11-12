@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import type { EnvironmentSummary } from '@shared/types';
+  import { onMount, onDestroy } from "svelte";
+  import type { EnvironmentSummary } from "@shared/types";
   import {
     listEnvironments,
     createEnvironment,
@@ -24,15 +24,15 @@
     rebuildImage,
     upgradeSystemRequest,
     fetchEnvironmentLogs,
-  } from './lib/api';
-  import { sseClient } from './lib/sse';
-  import CreateEnvironmentModal from './lib/components/CreateEnvironmentModal.svelte';
-  import MonitorPanel from './lib/components/MonitorPanel.svelte';
-  import AiChatPanel from './lib/components/AiChatPanel.svelte';
-  import RepoBrowser from './lib/components/RepoBrowser.svelte';
-  import Sidebar from './lib/components/Sidebar.svelte';
-  import EnvironmentCard from './lib/components/EnvironmentCard.svelte';
-  import LogsModal from './lib/components/LogsModal.svelte';
+  } from "./lib/api";
+  import { sseClient } from "./lib/sse";
+  import CreateEnvironmentModal from "./lib/components/CreateEnvironmentModal.svelte";
+  import MonitorPanel from "./lib/components/MonitorPanel.svelte";
+  import AiChatPanel from "./lib/components/AiChatPanel.svelte";
+  import RepoBrowser from "./lib/components/RepoBrowser.svelte";
+  import Sidebar from "./lib/components/Sidebar.svelte";
+  import EnvironmentCard from "./lib/components/EnvironmentCard.svelte";
+  import LogsModal from "./lib/components/LogsModal.svelte";
 
   let environments = $state<EnvironmentSummary[]>([]);
   let loading = $state(true);
@@ -49,27 +49,33 @@
   let updateStatus = $state<any>(null);
   let showUpdateModal = $state(false);
   let showGithubModal = $state(false);
-  let githubPatInput = $state('');
+  let githubPatInput = $state("");
   let deviceFlow = $state<any>(null);
   let devicePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let updatePollTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let updateInitiatedLocally = $state(false);
   let repoBrowserOpen = $state(false);
-  let pendingGitUrl = $state('');
+  let pendingGitUrl = $state("");
   let imagesInfo = $state<any>(null);
   let imageBusy = $state<Record<string, boolean>>({});
   let orphansBusy = $state(false);
   let systemActionMessage = $state<string | null>(null);
-  let desktopCopyState = $state<Record<string, 'copied' | 'failed' | ''>>({});
+  let desktopCopyState = $state<Record<string, "copied" | "failed" | "">>({});
   const desktopCopyTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  let systemActionResetTimer = $state<ReturnType<typeof setTimeout> | null>(null);
-  let deviceCodeCopyState = $state<'copied' | 'failed' | ''>('');
+  let systemActionResetTimer = $state<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  let deviceCodeCopyState = $state<"copied" | "failed" | "">("");
   let deviceCodeCopyTimer = $state<ReturnType<typeof setTimeout> | null>(null);
   // Start with sidebar collapsed on mobile devices
-  let sidebarCollapsed = $state(typeof window !== 'undefined' && window.innerWidth <= 768);
-  let logsModalEnvId = $state('');
+  let sidebarCollapsed = $state(
+    typeof window !== "undefined" && window.innerWidth <= 768
+  );
+  let logsModalEnvId = $state("");
   let logsModalOpen = $state(false);
-  let envDeviceAuth = $state<Record<string, { code: string; url: string } | null>>({});
+  let envDeviceAuth = $state<
+    Record<string, { code: string; url: string } | null>
+  >({});
 
   function reconcileDeviceAuth(list: EnvironmentSummary[]) {
     const next: Record<string, { code: string; url: string } | null> = {};
@@ -97,7 +103,9 @@
     }
   }
 
-  function updateEnvironmentStatus(update: Partial<EnvironmentSummary> & { id: string }) {
+  function updateEnvironmentStatus(
+    update: Partial<EnvironmentSummary> & { id: string }
+  ) {
     const index = environments.findIndex((env) => env.id === update.id);
     if (index === -1) {
       loadEnvironments();
@@ -110,24 +118,24 @@
   }
 
   async function handleCreate(payload: CreateEnvironmentPayload) {
-    actionBusy['create'] = true;
+    actionBusy["create"] = true;
     try {
       await createEnvironment(payload);
       showCreateModal = false;
-      pendingGitUrl = '';
+      pendingGitUrl = "";
       // Don't manually refresh - SSE registry-update event will handle it
     } catch (err) {
       alert(`Failed to create environment: ${(err as Error).message}`);
     } finally {
-      delete actionBusy['create'];
+      delete actionBusy["create"];
     }
   }
 
-  async function perform(id: string, action: 'start' | 'stop' | 'delete') {
+  async function perform(id: string, action: "start" | "stop" | "delete") {
     actionBusy[id] = true;
     try {
-      if (action === 'start') await startEnvironment(id);
-      else if (action === 'stop') await stopEnvironment(id);
+      if (action === "start") await startEnvironment(id);
+      else if (action === "stop") await stopEnvironment(id);
       else await deleteEnvironment(id);
       // Don't manually update state - rely on SSE events (registry-update, env-status)
       // to refresh the UI automatically
@@ -158,7 +166,7 @@
     }
     const handle = setTimeout(() => {
       desktopCopyTimers.delete(envId);
-      desktopCopyState = { ...desktopCopyState, [envId]: '' };
+      desktopCopyState = { ...desktopCopyState, [envId]: "" };
     }, 2500);
     desktopCopyTimers.set(envId, handle);
   }
@@ -169,7 +177,7 @@
     try {
       await navigator.clipboard.writeText(auth.code);
     } catch (err) {
-      window.prompt('Copy this code to GitHub', auth.code);
+      window.prompt("Copy this code to GitHub", auth.code);
     }
   }
 
@@ -179,13 +187,16 @@
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(env.desktopCommand);
       } else {
-        throw new Error('Clipboard unavailable');
+        throw new Error("Clipboard unavailable");
       }
-      desktopCopyState = { ...desktopCopyState, [env.id]: 'copied' };
+      desktopCopyState = { ...desktopCopyState, [env.id]: "copied" };
     } catch (err) {
-      desktopCopyState = { ...desktopCopyState, [env.id]: 'failed' };
+      desktopCopyState = { ...desktopCopyState, [env.id]: "failed" };
       // Fallback prompt so the user can copy manually in environments without clipboard API
-      window.prompt('Copy this command into VS Code Insiders Desktop', env.desktopCommand);
+      window.prompt(
+        "Copy this command into VS Code Insiders Desktop",
+        env.desktopCommand
+      );
     } finally {
       scheduleDesktopReset(env.id);
     }
@@ -197,17 +208,17 @@
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(deviceFlow.user_code);
       } else {
-        throw new Error('Clipboard unavailable');
+        throw new Error("Clipboard unavailable");
       }
-      deviceCodeCopyState = 'copied';
+      deviceCodeCopyState = "copied";
     } catch (err) {
-      deviceCodeCopyState = 'failed';
+      deviceCodeCopyState = "failed";
       // Fallback prompt so the user can copy manually in environments without clipboard API
-      window.prompt('Copy this code to GitHub', deviceFlow.user_code);
+      window.prompt("Copy this code to GitHub", deviceFlow.user_code);
     } finally {
       if (deviceCodeCopyTimer) clearTimeout(deviceCodeCopyTimer);
       deviceCodeCopyTimer = setTimeout(() => {
-        deviceCodeCopyState = '';
+        deviceCodeCopyState = "";
       }, 2500);
     }
   }
@@ -218,7 +229,7 @@
       orphansInfo = await fetchOrphans();
       imagesInfo = await fetchImages();
     } catch (err) {
-      console.error('Failed to load system status', err);
+      console.error("Failed to load system status", err);
     }
   }
 
@@ -226,7 +237,7 @@
     try {
       orphansInfo = await fetchOrphans();
     } catch (err) {
-      console.error('Failed to load orphans', err);
+      console.error("Failed to load orphans", err);
     }
   }
 
@@ -234,7 +245,7 @@
     try {
       imagesInfo = await fetchImages();
     } catch (err) {
-      console.error('Failed to load images', err);
+      console.error("Failed to load images", err);
     }
   }
 
@@ -242,9 +253,9 @@
     try {
       githubStatusInfo = await fetchGithubStatus();
       githubConfig = await fetchGithubConfig();
-      githubPatInput = githubConfig?.has_pat ? '••••••••' : '';
+      githubPatInput = githubConfig?.has_pat ? "••••••••" : "";
     } catch (err) {
-      console.error('Failed to load GitHub info', err);
+      console.error("Failed to load GitHub info", err);
     }
   }
 
@@ -252,7 +263,7 @@
     try {
       const result = await startSystemUpdate();
       if (!result.started) {
-        alert(result.message ?? 'Update already running');
+        alert(result.message ?? "Update already running");
         return;
       }
       updateInitiatedLocally = true;
@@ -304,7 +315,7 @@
       }
       return updateStatus;
     } catch (err) {
-      console.error('Failed to fetch update status', err);
+      console.error("Failed to fetch update status", err);
       return null;
     }
   }
@@ -337,12 +348,14 @@
     return updateStatus?.running ?? false;
   }
 
-  async function handleImageBuild(type: 'code-server' | 'terminal' | 'dashboard') {
+  async function handleImageBuild(
+    type: "code-server" | "terminal" | "dashboard"
+  ) {
     imageBusy = { ...imageBusy, [type]: true };
     try {
       const result = await rebuildImage(type);
       if (!result.success) {
-        alert(result.output ?? 'Build failed');
+        alert(result.output ?? "Build failed");
       }
       await loadSystemStatus();
     } catch (err) {
@@ -359,16 +372,16 @@
 
   function closeLogs() {
     logsModalOpen = false;
-    logsModalEnvId = '';
+    logsModalEnvId = "";
   }
 
   async function saveGithubPat() {
     try {
       const payload: Record<string, string> = {};
-      if (githubPatInput && githubPatInput !== '••••••••') {
+      if (githubPatInput && githubPatInput !== "••••••••") {
         payload.personal_access_token = githubPatInput;
       } else if (!githubPatInput) {
-        payload.personal_access_token = '';
+        payload.personal_access_token = "";
       }
       const result = await updateGithubConfig(payload);
       if (result.error) {
@@ -393,27 +406,33 @@
   async function beginDeviceFlow() {
     try {
       deviceFlow = await startGithubDeviceFlow();
-      if ('error' in deviceFlow) {
+      if ("error" in deviceFlow) {
         alert(deviceFlow.error);
         deviceFlow = null;
         return;
       }
-      devicePollTimer = setInterval(async () => {
-        const result = await pollGithubDeviceFlow();
-        if (result.status === 'success') {
-          clearDevicePoll();
-          await loadGithubInfo();
-          deviceFlow = null;
-          closeGithubModal();
-        } else if (result.status === 'expired' || result.status === 'denied') {
-          clearDevicePoll();
-          deviceFlow = null;
-          alert(`OAuth ${result.status}`);
-        } else if (result.status === 'error') {
-          clearDevicePoll();
-          alert(result.message || 'OAuth error');
-        }
-      }, (deviceFlow.interval ?? 5) * 1000);
+      devicePollTimer = setInterval(
+        async () => {
+          const result = await pollGithubDeviceFlow();
+          if (result.status === "success") {
+            clearDevicePoll();
+            await loadGithubInfo();
+            deviceFlow = null;
+            closeGithubModal();
+          } else if (
+            result.status === "expired" ||
+            result.status === "denied"
+          ) {
+            clearDevicePoll();
+            deviceFlow = null;
+            alert(`OAuth ${result.status}`);
+          } else if (result.status === "error") {
+            clearDevicePoll();
+            alert(result.message || "OAuth error");
+          }
+        },
+        (deviceFlow.interval ?? 5) * 1000
+      );
     } catch (err) {
       alert((err as Error).message);
     }
@@ -434,21 +453,27 @@
       clearTimeout(deviceCodeCopyTimer);
       deviceCodeCopyTimer = null;
     }
-    deviceCodeCopyState = '';
+    deviceCodeCopyState = "";
   }
 
   function openCreateModalDialog() {
     if (isUpdateInProgress()) {
-      alert('Cannot create new environments while system update is in progress');
+      alert(
+        "Cannot create new environments while system update is in progress"
+      );
       return;
     }
-    pendingGitUrl = '';
+    pendingGitUrl = "";
     showCreateModal = true;
   }
 
   async function setupRealtimeStreams() {
     try {
-      await Promise.all([loadEnvironments(), loadSystemStatus(), loadGithubInfo()]);
+      await Promise.all([
+        loadEnvironments(),
+        loadSystemStatus(),
+        loadGithubInfo(),
+      ]);
 
       const status = await refreshUpdateStatus();
       if (status?.cacheBustPending) {
@@ -472,7 +497,7 @@
           url: payload.url,
           mode: payload.mode,
           workspacePath: payload.workspacePath,
-          ready: payload.status === 'running',
+          ready: payload.status === "running",
           desktopCommand: payload.desktopCommand,
           requiresAuth: payload.requiresAuth,
           deviceAuth: payload.deviceAuth,
@@ -493,7 +518,7 @@
         const { env_id: envId, response } = payload;
         aiSseMessages = {
           ...aiSseMessages,
-          [envId]: `${aiSseMessages[envId] ?? ''}\n\n${response}`.trim(),
+          [envId]: `${aiSseMessages[envId] ?? ""}\n\n${response}`.trim(),
         };
       };
 
@@ -539,30 +564,30 @@
         }, 1000);
       };
 
-      sseClient.on('registry-update', registryHandler);
-      sseClient.on('env-status', statusHandler);
-      sseClient.on('ai-response', aiHandler);
-      sseClient.on('update-progress', updateHandler);
-      sseClient.on('update-started', updateHandler);
-      sseClient.on('device-auth', deviceAuthHandler);
-      sseClient.on('copilot-ready', copilotReadyHandler);
-      sseClient.on('system-status', systemStatusHandler);
-      sseClient.on('cache-bust', cacheBustHandler);
+      sseClient.on("registry-update", registryHandler);
+      sseClient.on("env-status", statusHandler);
+      sseClient.on("ai-response", aiHandler);
+      sseClient.on("update-progress", updateHandler);
+      sseClient.on("update-started", updateHandler);
+      sseClient.on("device-auth", deviceAuthHandler);
+      sseClient.on("copilot-ready", copilotReadyHandler);
+      sseClient.on("system-status", systemStatusHandler);
+      sseClient.on("cache-bust", cacheBustHandler);
 
       return () => {
-        sseClient.off('registry-update', registryHandler);
-        sseClient.off('env-status', statusHandler);
-        sseClient.off('ai-response', aiHandler);
-        sseClient.off('update-progress', updateHandler);
-        sseClient.off('update-started', updateHandler);
-        sseClient.off('device-auth', deviceAuthHandler);
-        sseClient.off('copilot-ready', copilotReadyHandler);
-        sseClient.off('system-status', systemStatusHandler);
-        sseClient.off('cache-bust', cacheBustHandler);
+        sseClient.off("registry-update", registryHandler);
+        sseClient.off("env-status", statusHandler);
+        sseClient.off("ai-response", aiHandler);
+        sseClient.off("update-progress", updateHandler);
+        sseClient.off("update-started", updateHandler);
+        sseClient.off("device-auth", deviceAuthHandler);
+        sseClient.off("copilot-ready", copilotReadyHandler);
+        sseClient.off("system-status", systemStatusHandler);
+        sseClient.off("cache-bust", cacheBustHandler);
         sseClient.disconnect();
       };
     } catch (err) {
-      console.error('Failed to initialize realtime streams', err);
+      console.error("Failed to initialize realtime streams", err);
       return;
     }
   }
@@ -573,18 +598,18 @@
 
     (async () => {
       const result = await setupRealtimeStreams();
-      if (disposed && typeof result === 'function') {
+      if (disposed && typeof result === "function") {
         result();
         return;
       }
       cleanup = result;
     })().catch((err) => {
-      console.error('Realtime initialization failed', err);
+      console.error("Realtime initialization failed", err);
     });
 
     return () => {
       disposed = true;
-      if (typeof cleanup === 'function') {
+      if (typeof cleanup === "function") {
         cleanup();
         cleanup = undefined;
       }
@@ -611,14 +636,14 @@
 <main>
   <Sidebar
     bind:collapsed={sidebarCollapsed}
-    githubStatusInfo={githubStatusInfo}
-    githubConfig={githubConfig}
-    systemStatus={systemStatus}
-    systemActionMessage={systemActionMessage}
-    orphansInfo={orphansInfo}
-    imagesInfo={imagesInfo}
-    orphansBusy={orphansBusy}
-    imageBusy={imageBusy}
+    {githubStatusInfo}
+    {githubConfig}
+    {systemStatus}
+    {systemActionMessage}
+    {orphansInfo}
+    {imagesInfo}
+    {orphansBusy}
+    {imageBusy}
     updateInProgress={isUpdateInProgress()}
     onGithubManage={() => (showGithubModal = true)}
     onGithubDisconnect={disconnectGithubAccount}
@@ -634,177 +659,203 @@
       <div>
         <h1>🚜 Dev Farm</h1>
       </div>
-      <button class="create" on:click={openCreateModalDialog}>➕ New Environment</button>
+      <button class="create" on:click={openCreateModalDialog}
+        >➕ New Environment</button
+      >
     </header>
 
     {#if loading}
-    <p class="status">Loading environments…</p>
-  {:else if error}
-    <p class="status error">{error}</p>
-  {:else if environments.length === 0}
-    <div class="empty">
-      <span>🌱</span>
-      <p>No environments yet. Create one to get started.</p>
-    </div>
-  {:else}
-    <section class="grid">
-      {#each environments as env}
-        <EnvironmentCard
-          env={env}
-          actionBusy={actionBusy[env.id] || false}
-          desktopCopyState={desktopCopyState[env.id] || ''}
-          deviceAuth={envDeviceAuth[env.id] ?? env.deviceAuth ?? null}
-          monitorOpen={monitorOpen[env.id] || false}
-          aiOpen={aiOpen[env.id] || false}
-          onStart={() => perform(env.id, 'start')}
-          onStop={() => perform(env.id, 'stop')}
-          onDelete={() => perform(env.id, 'delete')}
-          onCopyDesktopCommand={() => copyDesktopCommand(env)}
-          onCopyDeviceCode={() => copyDeviceCode(env.id)}
-          onToggleMonitor={() => toggleMonitor(env.id)}
-          onToggleAi={() => toggleAi(env.id)}
-          onOpenLogs={() => openLogs(env.id)}
+      <p class="status">Loading environments…</p>
+    {:else if error}
+      <p class="status error">{error}</p>
+    {:else if environments.length === 0}
+      <div class="empty">
+        <span>🌱</span>
+        <p>No environments yet. Create one to get started.</p>
+      </div>
+    {:else}
+      <section class="grid">
+        {#each environments as env}
+          <EnvironmentCard
+            {env}
+            actionBusy={actionBusy[env.id] || false}
+            desktopCopyState={desktopCopyState[env.id] || ""}
+            deviceAuth={envDeviceAuth[env.id] ?? env.deviceAuth ?? null}
+            monitorOpen={monitorOpen[env.id] || false}
+            aiOpen={aiOpen[env.id] || false}
+            onStart={() => perform(env.id, "start")}
+            onStop={() => perform(env.id, "stop")}
+            onDelete={() => perform(env.id, "delete")}
+            onCopyDesktopCommand={() => copyDesktopCommand(env)}
+            onCopyDeviceCode={() => copyDeviceCode(env.id)}
+            onToggleMonitor={() => toggleMonitor(env.id)}
+            onToggleAi={() => toggleAi(env.id)}
+            onOpenLogs={() => openLogs(env.id)}
+          >
+            <MonitorPanel envId={env.id} open={monitorOpen[env.id] || false} />
+            <AiChatPanel
+              envId={env.id}
+              open={aiOpen[env.id] || false}
+              latestSse={aiSseMessages[env.id] || null}
+              deviceAuth={envDeviceAuth[env.id] || null}
+            />
+          </EnvironmentCard>
+        {/each}
+      </section>
+    {/if}
+
+    <CreateEnvironmentModal
+      open={showCreateModal}
+      bind:gitUrl={pendingGitUrl}
+      on:close={() => {
+        showCreateModal = false;
+        pendingGitUrl = "";
+      }}
+      on:submit={({ detail }) => handleCreate(detail)}
+      on:browseRepo={() => {
+        repoBrowserOpen = true;
+      }}
+    />
+
+    <RepoBrowser
+      open={repoBrowserOpen}
+      on:select={(event) => {
+        pendingGitUrl = event.detail.url;
+        repoBrowserOpen = false;
+        showCreateModal = true;
+      }}
+      on:close={() => (repoBrowserOpen = false)}
+    />
+
+    {#if showUpdateModal}
+      <div
+        class="backdrop modal-layer"
+        role="button"
+        tabindex="0"
+        on:click={closeUpdateModal}
+        on:keydown={(e) => e.key === "Escape" && closeUpdateModal()}
+      >
+        <div
+          class="update-modal"
+          role="dialog"
+          aria-modal="true"
+          tabindex="0"
+          on:click|stopPropagation
+          on:keydown={(e) => e.key === "Escape" && closeUpdateModal()}
         >
-          <MonitorPanel envId={env.id} open={monitorOpen[env.id] || false} />
-          <AiChatPanel
-            envId={env.id}
-            open={aiOpen[env.id] || false}
-            latestSse={aiSseMessages[env.id] || null}
-            deviceAuth={envDeviceAuth[env.id] || null}
-          />
-        </EnvironmentCard>
-      {/each}
-    </section>
-  {/if}
-
-  <CreateEnvironmentModal
-    open={showCreateModal}
-    bind:gitUrl={pendingGitUrl}
-    on:close={() => {
-      showCreateModal = false;
-      pendingGitUrl = '';
-    }}
-    on:submit={({ detail }) => handleCreate(detail)}
-    on:browseRepo={() => {
-      repoBrowserOpen = true;
-    }}
-  />
-
-  <RepoBrowser
-    open={repoBrowserOpen}
-    on:select={(event) => {
-      pendingGitUrl = event.detail.url;
-      repoBrowserOpen = false;
-      showCreateModal = true;
-    }}
-    on:close={() => (repoBrowserOpen = false)}
-  />
-
-  {#if showUpdateModal}
-    <div
-      class="backdrop modal-layer"
-      role="button"
-      tabindex="0"
-      on:click={closeUpdateModal}
-      on:keydown={(e) => e.key === 'Escape' && closeUpdateModal()}
-    >
-      <div
-        class="update-modal"
-        role="dialog"
-        aria-modal="true"
-        tabindex="0"
-        on:click|stopPropagation
-        on:keydown={(e) => e.key === 'Escape' && closeUpdateModal()}
-      >
-        <header>
-          <h2>System Update</h2>
-        </header>
-        {#if updateStatus}
-          <ul>
-            {#each updateStatus.stages as stage}
-              <li class={stage.status}>{stage.stage} {stage.message}</li>
-            {/each}
-          </ul>
-          {#if updateStatus.running}
-            <p>Update in progress…</p>
-          {:else if updateStatus.success}
-            <p class="success">Update completed successfully.</p>
-          {:else if updateStatus.error}
-            <p class="error">{updateStatus.error}</p>
-          {/if}
-        {:else}
-          <p>Loading update status…</p>
-        {/if}
-        <button on:click={closeUpdateModal}>Close</button>
-      </div>
-    </div>
-  {/if}
-
-  {#if showGithubModal}
-    <div
-      class="backdrop modal-layer"
-      role="button"
-      tabindex="0"
-      on:click={closeGithubModal}
-      on:keydown={(e) => e.key === 'Escape' && closeGithubModal()}
-    >
-      <div
-        class="github-modal"
-        role="dialog"
-        aria-modal="true"
-        tabindex="0"
-        on:click|stopPropagation
-        on:keydown={(e) => e.key === 'Escape' && closeGithubModal()}
-      >
-        <header>
-          <h2>GitHub Connection</h2>
-        </header>
-        
-        <div class="auth-method-section">
-          <h3>💡 Recommended: Personal Access Token</h3>
-          <p class="hint">
-            Easier for terminal environments - no device flow needed!<br>
-            Requires: repo, workflow, read:org, gist scopes
-          </p>
-          <label>
-            <span>Personal Access Token</span>
-            <input type="text" bind:value={githubPatInput} placeholder="ghp_..." />
-          </label>
-          <button class="primary-action" on:click={saveGithubPat} disabled={!githubPatInput.trim()}>
-            Save Token
-          </button>
-        </div>
-
-        <div class="divider">
-          <span>OR</span>
-        </div>
-
-        <div class="auth-method-section">
-          <h3>OAuth Device Flow</h3>
-          <p class="hint">Browser-based authentication (requires opening links)</p>
-          <button class="secondary" on:click={beginDeviceFlow}>Start Device Flow</button>
-        </div>
-
-        <div class="modal-actions">
-          <button class="secondary danger-text" on:click={disconnectGithubAccount}>Disconnect</button>
-        </div>
-        {#if deviceFlow}
-          <div class="device-info">
-            <p>Enter this code at <a href={deviceFlow.verification_uri} target="_blank" rel="noreferrer">{deviceFlow.verification_uri}</a></p>
-            <div class="device-code">{deviceFlow.user_code}</div>
-            <button class="copy-code-btn" on:click={copyModalDeviceCode}>📋 Copy Code</button>
-            {#if deviceCodeCopyState === 'copied'}
-              <p class="copy-status success">Code copied to clipboard!</p>
-            {:else if deviceCodeCopyState === 'failed'}
-              <p class="copy-status warn">Clipboard unavailable. Use the prompt to copy manually.</p>
+          <header>
+            <h2>System Update</h2>
+          </header>
+          {#if updateStatus}
+            <ul>
+              {#each updateStatus.stages as stage}
+                <li class={stage.status}>{stage.stage} {stage.message}</li>
+              {/each}
+            </ul>
+            {#if updateStatus.running}
+              <p>Update in progress…</p>
+            {:else if updateStatus.success}
+              <p class="success">Update completed successfully.</p>
+            {:else if updateStatus.error}
+              <p class="error">{updateStatus.error}</p>
             {/if}
-          </div>
-        {/if}
-        <button class="close" on:click={closeGithubModal}>Close</button>
+          {:else}
+            <p>Loading update status…</p>
+          {/if}
+          <button on:click={closeUpdateModal}>Close</button>
+        </div>
       </div>
-    </div>
-  {/if}
+    {/if}
 
+    {#if showGithubModal}
+      <div
+        class="backdrop modal-layer"
+        role="button"
+        tabindex="0"
+        on:click={closeGithubModal}
+        on:keydown={(e) => e.key === "Escape" && closeGithubModal()}
+      >
+        <div
+          class="github-modal"
+          role="dialog"
+          aria-modal="true"
+          tabindex="0"
+          on:click|stopPropagation
+          on:keydown={(e) => e.key === "Escape" && closeGithubModal()}
+        >
+          <header>
+            <h2>GitHub Connection</h2>
+          </header>
+
+          <div class="auth-method-section">
+            <h3>💡 Recommended: Personal Access Token</h3>
+            <p class="hint">
+              Easier for terminal environments - no device flow needed!<br />
+              Requires: repo, workflow, read:org, gist scopes
+            </p>
+            <label>
+              <span>Personal Access Token</span>
+              <input
+                type="text"
+                bind:value={githubPatInput}
+                placeholder="ghp_..."
+              />
+            </label>
+            <button
+              class="primary-action"
+              on:click={saveGithubPat}
+              disabled={!githubPatInput.trim()}
+            >
+              Save Token
+            </button>
+          </div>
+
+          <div class="divider">
+            <span>OR</span>
+          </div>
+
+          <div class="auth-method-section">
+            <h3>OAuth Device Flow</h3>
+            <p class="hint">
+              Browser-based authentication (requires opening links)
+            </p>
+            <button class="secondary" on:click={beginDeviceFlow}
+              >Start Device Flow</button
+            >
+          </div>
+
+          <div class="modal-actions">
+            <button
+              class="secondary danger-text"
+              on:click={disconnectGithubAccount}>Disconnect</button
+            >
+          </div>
+          {#if deviceFlow}
+            <div class="device-info">
+              <p>
+                Enter this code at <a
+                  href={deviceFlow.verification_uri}
+                  target="_blank"
+                  rel="noreferrer">{deviceFlow.verification_uri}</a
+                >
+              </p>
+              <div class="device-code">{deviceFlow.user_code}</div>
+              <button class="copy-code-btn" on:click={copyModalDeviceCode}
+                >📋 Copy Code</button
+              >
+              {#if deviceCodeCopyState === "copied"}
+                <p class="copy-status success">Code copied to clipboard!</p>
+              {:else if deviceCodeCopyState === "failed"}
+                <p class="copy-status warn">
+                  Clipboard unavailable. Use the prompt to copy manually.
+                </p>
+              {/if}
+            </div>
+          {/if}
+          <button class="close" on:click={closeGithubModal}>Close</button>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <LogsModal
@@ -1151,7 +1202,7 @@
 
   .github-modal .divider::before,
   .github-modal .divider::after {
-    content: '';
+    content: "";
     flex: 1;
     border-bottom: 1px solid #cbd5e1;
   }
@@ -1238,7 +1289,7 @@
   }
 
   .device-code {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     font-size: 1.4rem;
     letter-spacing: 0.2rem;
     margin-bottom: 0.75rem;
