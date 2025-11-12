@@ -366,6 +366,11 @@ curl -N http://192.168.1.126:5000/api/stream
   - **Implementation**: When SSE reconnects and update in progress, fetches all stages and rebuilds UI
   - **Files changed**: `dashboard/templates/index.html` (added 100+ line function to replay stages)
   - **Testing**: System update flow now works correctly with dashboard restarts mid-update
+- **2025-11-12**: Fixed workspace trust automation to use option 2 (remember folder)
+  - **Issue**: Used option 1 which only trusts once and asks again on restart
+  - **Fix**: Changed to option 2 "Yes, and remember this folder for future sessions"
+  - **Impact**: Workspace trust now persists across container restarts as intended
+  - **Files**: startup-terminal.sh, COPILOT_DEVICE_AUTH_AUTOMATION.md
 - **2025-11-04**: Migrated from web mode to tunnel mode for server-side extensions
   - **Breaking**: Containers no longer expose port 8080 or use nginx proxy routing
   - **New**: All environments accessed via `https://vscode.dev/tunnel/devfarm-<env-id>`

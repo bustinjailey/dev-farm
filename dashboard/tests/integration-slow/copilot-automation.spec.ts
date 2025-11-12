@@ -116,11 +116,11 @@ test.describe('Copilot CLI Automation', () => {
 
     // Verify workspace trust automation occurred
     expect(logs).toContain('✓ Workspace trust prompt detected');
-    
+
     // Verify the automation log appears BEFORE device code
     const trustIndex = logs.indexOf('✓ Workspace trust prompt detected');
     const deviceIndex = logs.indexOf('✓ Device code obtained');
-    
+
     if (deviceIndex > -1) {
       expect(trustIndex).toBeLessThan(deviceIndex);
     }
@@ -145,11 +145,11 @@ test.describe('Copilot CLI Automation', () => {
 
     // Verify login automation occurred
     expect(logs).toContain('✓ Login prompt detected');
-    
+
     // Verify the automation happens after workspace trust (if trust appeared)
     const trustIndex = logs.indexOf('✓ Workspace trust prompt detected');
     const loginIndex = logs.indexOf('✓ Login prompt detected');
-    
+
     if (trustIndex > -1 && loginIndex > -1) {
       expect(loginIndex).toBeGreaterThan(trustIndex);
     }
@@ -174,11 +174,11 @@ test.describe('Copilot CLI Automation', () => {
 
     // Verify account selection automation occurred
     expect(logs).toContain('✓ Account selection prompt detected');
-    
+
     // Verify the automation happens after login prompt
     const loginIndex = logs.indexOf('✓ Login prompt detected');
     const accountIndex = logs.indexOf('✓ Account selection prompt detected');
-    
+
     if (loginIndex > -1 && accountIndex > -1) {
       expect(accountIndex).toBeGreaterThan(loginIndex);
     }
@@ -203,11 +203,11 @@ test.describe('Copilot CLI Automation', () => {
 
     // Verify device code extraction occurred
     expect(logs).toContain('✓ Device code obtained');
-    
+
     // Verify device code format (XXXX-XXXX)
     const codeMatch = logs.match(/✓ Device code obtained: ([A-Z0-9]{4}-[A-Z0-9]{4})/);
     expect(codeMatch).toBeTruthy();
-    
+
     if (codeMatch) {
       const deviceCode = codeMatch[1];
       expect(deviceCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
@@ -380,10 +380,10 @@ test.describe('Copilot CLI Automation', () => {
 
     // Check for device auth banner
     const deviceAuthBanner = envCard.locator('.device-auth-banner');
-    
+
     // Banner might not appear if Copilot is already authenticated
     const hasBanner = await deviceAuthBanner.isVisible().catch(() => false);
-    
+
     if (!hasBanner) {
       console.log('⊘ Skipping - Copilot already authenticated');
       test.skip();
@@ -393,7 +393,7 @@ test.describe('Copilot CLI Automation', () => {
     // Verify banner displays code
     const deviceCode = deviceAuthBanner.locator('.device-code');
     await expect(deviceCode).toBeVisible();
-    
+
     const codeText = await deviceCode.textContent();
     expect(codeText).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
 
@@ -402,7 +402,7 @@ test.describe('Copilot CLI Automation', () => {
     if (container) {
       const logs = await getContainerLogs(container);
       const codeMatch = logs.match(/✓ Device code obtained: ([A-Z0-9]{4}-[A-Z0-9]{4})/);
-      
+
       if (codeMatch) {
         const loggedCode = codeMatch[1];
         expect(codeText).toBe(loggedCode);
@@ -416,7 +416,7 @@ test.describe('Copilot CLI Automation', () => {
    */
   test('should complete automation within reasonable time', async () => {
     testEnvId = `timing-${Date.now().toString().slice(-11)}`;
-    
+
     const startTime = Date.now();
     await createTerminalEnvironment(testEnvId);
 
@@ -428,7 +428,7 @@ test.describe('Copilot CLI Automation', () => {
     await page.waitForTimeout(25000);
 
     const logs = await getContainerLogs(container);
-    
+
     // Check if device code was obtained
     const hasDeviceCode = logs.includes('✓ Device code obtained');
     expect(hasDeviceCode).toBe(true);

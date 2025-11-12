@@ -3,6 +3,7 @@
 ## Overview
 
 As of commit `d2f76da`, the Dev Farm terminal mode environments now **fully automate** the GitHub Copilot CLI device authentication flow. Users no longer need to manually:
+
 1. Confirm workspace trust
 2. Enter the `/login` command
 3. Select their GitHub account
@@ -17,6 +18,7 @@ All these steps are now handled automatically by the startup script.
 The automation is implemented in `docker/config/startup-terminal.sh` (lines 120-180) and performs the following sequence:
 
 #### 1. Workspace Trust Confirmation (First Run Only)
+
 ```bash
 # Wait for workspace trust prompt
 sleep 5
@@ -25,8 +27,8 @@ OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
 # Check if workspace trust prompt appeared
 if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
   echo "✓ Workspace trust prompt detected, auto-confirming..."
-  # Send "1" to select "Yes, and remember this folder for future sessions"
-  tmux send-keys -t copilot-auth "1" C-m
+  # Send "2" to select "Yes, and remember this folder for future sessions"
+  tmux send-keys -t copilot-auth "2" C-m
   sleep 3
   OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
 fi
@@ -34,9 +36,15 @@ fi
 
 **Why**: Copilot CLI requires workspace trust on first run to prevent malicious code execution.
 
-**Persistence**: Option 1 remembers the trust decision, so this prompt doesn't appear on subsequent container restarts.
+**Options**:
+- Option 1: "Yes, I trust the authors" (trust once, will ask again)
+- Option 2: "Yes, and remember this folder for future sessions" (trust and persist)
+- Option 3: "No, I don't trust the authors" (deny)
+
+**Persistence**: Option 2 remembers the trust decision, so this prompt doesn't appear on subsequent container restarts.
 
 #### 2. Login Command Automation
+
 ```bash
 # Check if /login is needed
 if echo "$OUTPUT" | grep -q "Please use /login to sign in to use Copilot"; then
@@ -50,6 +58,7 @@ fi
 **Why**: Copilot CLI requires an explicit `/login` command to initiate the device authentication flow.
 
 #### 3. Account Selection Automation
+
 ```bash
 # Check if account selection is needed
 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
@@ -64,6 +73,7 @@ fi
 **Why**: Copilot CLI can authenticate to either GitHub.com or GitHub Enterprise. We default to GitHub.com for most users.
 
 #### 4. Device Code Extraction
+
 ```bash
 # Parse device code and URL from output
 # Device code format: XXXX-XXXX (e.g., 7F6B-693E)
@@ -75,11 +85,11 @@ if echo "$OUTPUT" | grep -q "github.com/login/device"; then
                 echo "$OUTPUT" | grep -oP "\b[A-Z0-9]{4}-[A-Z0-9]{4}\b" | head -1 || \
                 echo "")
   DEVICE_URL=$(echo "$OUTPUT" | grep -oP "https://github\.com/login/device[^\s]*" || echo "https://github.com/login/device")
-  
+
   if [ -n "$DEVICE_CODE" ]; then
     echo "✓ Device code obtained: $DEVICE_CODE"
     echo "✓ Auth URL: $DEVICE_URL"
-    
+
     # Write device auth info to file for dashboard to read
     cat > "$DEVICE_AUTH_FILE" <<EOF
 {
@@ -113,6 +123,7 @@ The dashboard's background monitor (`dashboard/src/server/routes/environments.ts
 ## User Experience
 
 ### Before Automation (Old Flow)
+
 1. User creates terminal environment
 2. Container starts, shows workspace trust prompt
 3. **User manually presses "1"** to trust workspace
@@ -124,6 +135,7 @@ The dashboard's background monitor (`dashboard/src/server/routes/environments.ts
 9. **User manually copies code** and opens GitHub auth page
 
 ### After Automation (New Flow)
+
 1. User creates terminal environment
 2. Container starts and **automatically**:
    - Confirms workspace trust
@@ -144,6 +156,7 @@ The dashboard's background monitor (`dashboard/src/server/routes/environments.ts
 The E2E test suite (`dashboard/tests/integration-slow/terminal-auth-banner.spec.ts`) has been updated to verify automation:
 
 #### Test 2: Device Code Display
+
 - ✅ Verifies device code appears with correct format (XXXX-XXXX)
 - ✅ Checks container logs for automation markers:
   - `✓ Workspace trust prompt detected`
@@ -152,6 +165,7 @@ The E2E test suite (`dashboard/tests/integration-slow/terminal-auth-banner.spec.
   - `✓ Device code obtained`
 
 #### Test 7: Workspace Trust Persistence (NEW)
+
 - ✅ Creates terminal environment → waits for auth flow
 - ✅ Restarts container → checks logs
 - ✅ Verifies workspace trust prompt does NOT appear again
@@ -199,15 +213,18 @@ docker logs devfarm-<env-name> 2>&1 | grep -A 2 'Workspace trust\|Login prompt\|
 ### Common Issues
 
 1. **Workspace trust appears every restart**
+
    - Likely: User manually selected option 2 or 3 (don't remember)
    - Fix: Delete container volume and recreate environment
 
 2. **Device code not extracted**
+
    - Check logs for which prompts were detected
    - Verify Copilot CLI output format hasn't changed
    - May need to add new regex pattern
 
 3. **Account selection timeout**
+
    - Check if Copilot CLI added new prompts before account selection
    - Increase sleep delays in startup script
 
@@ -261,15 +278,15 @@ docker logs devfarm-<env-name> 2>&1 | grep -A 2 'Workspace trust\|Login prompt\|
 
 ### File Locations
 
-| Component | Path | Purpose |
-|-----------|------|---------|
-| Startup script | `docker/config/startup-terminal.sh` | Automation logic |
-| Auth monitor | `docker/config/copilot-auth-monitor.sh` | Completion detection |
-| Device auth file | `/home/coder/workspace/.copilot-device-auth.json` | Code + URL storage |
-| Auth status file | `/home/coder/workspace/.copilot-auth-status` | State tracking |
-| Backend routes | `dashboard/src/server/routes/environments.ts` | SSE broadcasting |
-| Frontend app | `dashboard/frontend/src/App.svelte` | SSE handling |
-| E2E tests | `dashboard/tests/integration-slow/terminal-auth-banner.spec.ts` | Automation verification |
+| Component        | Path                                                            | Purpose                 |
+| ---------------- | --------------------------------------------------------------- | ----------------------- |
+| Startup script   | `docker/config/startup-terminal.sh`                             | Automation logic        |
+| Auth monitor     | `docker/config/copilot-auth-monitor.sh`                         | Completion detection    |
+| Device auth file | `/home/coder/workspace/.copilot-device-auth.json`               | Code + URL storage      |
+| Auth status file | `/home/coder/workspace/.copilot-auth-status`                    | State tracking          |
+| Backend routes   | `dashboard/src/server/routes/environments.ts`                   | SSE broadcasting        |
+| Frontend app     | `dashboard/frontend/src/App.svelte`                             | SSE handling            |
+| E2E tests        | `dashboard/tests/integration-slow/terminal-auth-banner.spec.ts` | Automation verification |
 
 ## Related Commits
 

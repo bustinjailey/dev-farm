@@ -130,8 +130,8 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             # Check if we need to confirm workspace trust
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
                 echo "✓ Workspace trust prompt detected, auto-confirming..." | tee -a "$LOG_FILE"
-                # Send "1" to confirm "Yes, and remember this folder for future sessions"
-                tmux send-keys -t copilot-auth "1" C-m
+                # Send "2" to select "Yes, and remember this folder for future sessions"
+                tmux send-keys -t copilot-auth "2" C-m
                 sleep 3
                 
                 # Capture output again after trust confirmation

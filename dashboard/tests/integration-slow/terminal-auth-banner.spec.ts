@@ -178,14 +178,14 @@ test.describe('Terminal Auth Flow with Banner', () => {
       await expect(deviceCode).toBeVisible();
       const codeText = await deviceCode.textContent();
       expect(codeText).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
-      
+
       // Verify the code was automatically extracted by startup script
       // (not manually entered) by checking container logs for automation markers
       const containers = await docker.listContainers();
       const container = containers.find(c =>
         c.Names.some(n => n.includes(testEnvId.replace(/[^a-z0-9-]/gi, '-').toLowerCase()))
       );
-      
+
       if (container) {
         const containerInstance = docker.getContainer(container.Id);
         const logs = await containerInstance.logs({
@@ -194,17 +194,17 @@ test.describe('Terminal Auth Flow with Banner', () => {
           tail: 200
         });
         const logText = logs.toString();
-        
+
         // Verify automation steps occurred in correct order
         // Note: Some steps may not appear if Copilot CLI flow changed
         const hasWorkspaceTrust = logText.includes('✓ Workspace trust prompt detected');
         const hasLoginPrompt = logText.includes('✓ Login prompt detected');
         const hasAccountSelection = logText.includes('✓ Account selection prompt detected');
         const hasDeviceCode = logText.includes('✓ Device code obtained');
-        
+
         // At minimum, device code must be obtained automatically
         expect(hasDeviceCode).toBe(true);
-        
+
         // Log which automation steps were detected for debugging
         console.log('Automation steps detected:', {
           workspaceTrust: hasWorkspaceTrust,
