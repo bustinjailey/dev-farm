@@ -411,7 +411,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           'dev-farm.mode': mode,
         },
         HostConfig: {
-          NetworkMode: 'devfarm',
+          NetworkMode: 'host',
           RestartPolicy: { Name: 'unless-stopped' },
           Mounts: mounts,
           Dns: ['8.8.8.8', '8.8.4.4'],

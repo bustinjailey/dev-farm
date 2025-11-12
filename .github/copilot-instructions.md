@@ -17,11 +17,20 @@
 
 ### Current Test Infrastructure
 
-- **Framework**: Vitest 4.0.7 with Node environment
-- **Test pattern**: `dashboard/src/**/*.test.ts`
-- **Run command**: `cd dashboard && npm test`
-- **Current coverage**: 99 tests across 8 test suites
-- **Documentation**: See `dashboard/TEST_COVERAGE.md` and `dashboard/TEST_SUITE_SUMMARY.md`
+- **Unit Tests**: Vitest 4.0.7 with Node environment
+  - **Pattern**: `dashboard/src/**/*.test.ts`
+  - **Run**: `cd dashboard && npm test`
+  - **Status**: 158 tests, 100% passing
+- **E2E Tests (Fast)**: Playwright with Chromium
+  - **Pattern**: `dashboard/tests/integration/*.spec.ts`
+  - **Run**: `cd dashboard && SKIP_WEBSERVER=1 npx playwright test --project=fast`
+  - **Status**: 33/44 passing (11 skipped - Svelte 5 reactivity edge cases)
+- **E2E Tests (Slow)**: Playwright with Docker integration - **MANDATORY**
+  - **Pattern**: `dashboard/tests/integration-slow/*.spec.ts`
+  - **Run**: `cd dashboard && RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow`
+  - **Status**: Required for all PRs - tests terminal environment creation
+  - **Why Required**: Validates Docker container creation, Copilot CLI installation, terminal startup
+- **Documentation**: See `CURRENT_TEST_STATUS.md` for latest status
 
 ### Test Patterns
 
@@ -43,18 +52,26 @@ afterEach(async () => {
 
 ### What to Test
 
-✅ **Always test**:
+✅ **Always test with unit tests**:
 
 - New API endpoints (request/response behavior)
 - Business logic functions (input/output validation)
 - Data transformations (environment naming, URL generation)
 - Error handling (expected error cases)
 
-⚠️ **Optional for unit tests** (better suited for integration tests):
+✅ **Always test with E2E slow tests**:
+
+- Docker container creation and startup
+- Terminal environment functionality
+- Copilot CLI installation and authentication
+- Environment mode switching (workspace/git/terminal/ssh)
+- Container networking and health checks
+
+⚠️ **Optional for unit tests** (use E2E tests instead):
 
 - Complex cross-module file I/O dependencies
 - Docker container orchestration requiring real containers
-- Real GitHub API interactions (use mocks instead)
+- Real GitHub API interactions (mock in unit tests, test in E2E)
 
 ## System Architecture
 

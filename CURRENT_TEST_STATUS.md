@@ -42,18 +42,19 @@ cd dashboard && SKIP_WEBSERVER=1 npx playwright test --project=fast
 - Update button disabled state
 - SSE registry update count
 
-### E2E Tests (Slow): Not Required for CI
+### E2E Tests (Slow): REQUIRED ⚠️
 ```bash
 cd dashboard && RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow
 ```
 
-**Status**: Docker-based tests are very slow (3+ minutes) and flaky. Not required for PR merge.
+**Status**: Docker-based tests are slow (3+ minutes) but **MANDATORY** - they test critical terminal environment creation.
 
-**Tests**:
-- AI chat dashboard integration
-- Copilot CLI installation verification
-- Copilot authentication flow
-- Terminal auth banner behavior
+**Tests** (all required):
+- ✅ AI chat dashboard integration
+- ✅ Copilot CLI installation verification
+- ✅ Copilot authentication flow
+- ✅ Terminal auth banner behavior
+- ✅ Terminal environment creation and startup
 
 ## Production Health
 
@@ -80,20 +81,16 @@ cd dashboard && RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow
 ### For CI/CD
 ```yaml
 # Run on every commit
-- npm test                           # Unit tests (required)
-- npx playwright test --project=fast # E2E tests (required)
+- npm test                                          # Unit tests (required)
+- npx playwright test --project=fast                # E2E fast tests (required)
+- RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow  # E2E slow tests (REQUIRED - tests terminal creation)
 ```
 
 ### For Local Development
 ```bash
-npm test              # Quick unit test check
-npm run test:watch    # Watch mode during development
-```
-
-### For Release Testing
-```bash
-# Only if needed for major releases
-RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow
+npm test                     # Quick unit test check
+npm run test:watch           # Watch mode during development
+RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow  # Full integration tests
 ```
 
 ## Conclusion
