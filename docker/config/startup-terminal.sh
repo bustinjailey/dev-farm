@@ -335,7 +335,7 @@ fi
 echo "Starting custom terminal server..." | tee -a "$LOG_FILE"
 
 # Set up terminal server environment
-export PORT=8080
+export PORT=${PORT:-8080}
 export HOME=/home/coder
 export SHELL=/bin/zsh
 
