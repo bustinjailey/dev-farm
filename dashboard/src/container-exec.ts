@@ -28,10 +28,21 @@ export async function execInContainer(
 
   const stream = await exec.start({ hijack: false, stdin: false });
   
-  // Read the stream data
+  // Demultiplex Docker stream (removes 8-byte headers)
   const chunks: Buffer[] = [];
   return new Promise((resolve, reject) => {
-    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    stream.on('data', (chunk: Buffer) => {
+      // Docker multiplexed stream format: [stream_type, 0, 0, 0, size_byte1, size_byte2, size_byte3, size_byte4, ...payload]
+      let offset = 0;
+      while (offset < chunk.length) {
+        if (chunk.length - offset < 8) break;
+        const payloadSize = chunk.readUInt32BE(offset + 4);
+        if (chunk.length - offset < 8 + payloadSize) break;
+        const payload = chunk.slice(offset + 8, offset + 8 + payloadSize);
+        chunks.push(payload);
+        offset += 8 + payloadSize;
+      }
+    });
     stream.on('end', () => resolve({ output: Buffer.concat(chunks) }));
     stream.on('error', reject);
   });
