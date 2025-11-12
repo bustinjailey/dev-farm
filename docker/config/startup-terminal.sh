@@ -140,28 +140,32 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                         break
                     fi
                 done
+                
+                # Rename session immediately after workspace trust (before continuing)
+                echo "✓ Renaming session: copilot-setup → dev-farm" | tee -a "$LOG_FILE"
+                tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
             fi
             
-            # Check if we need to run /login (only if NOT already showing Welcome)
-            if echo "$OUTPUT" | grep -q "Please use /login to sign in to use Copilot"; then
+            # Check if we need to run /login (use same flexible pattern as polling)
+            if echo "$OUTPUT" | grep -q "Please use /login"; then
                 echo "✓ Login prompt detected - sending /login command" | tee -a "$LOG_FILE"
                 echo "login" > "$AUTH_STATUS_FILE"
-                tmux send-keys -t copilot-setup "/login" C-m
+                tmux send-keys -t dev-farm "/login" C-m
                 sleep 3
-                OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+                OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                 
                 # After /login, check for account selection
                 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
                     echo "✓ Account selection prompt detected - selecting GitHub.com" | tee -a "$LOG_FILE"
                     echo "account-selection" > "$AUTH_STATUS_FILE"
-                    tmux send-keys -t copilot-setup "1" C-m
+                    tmux send-keys -t dev-farm "1" C-m
                     sleep 3
-                    OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+                    OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                 fi
             fi
             
             # Check final state
-            OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
             
             # Parse device code if present
             if echo "$OUTPUT" | grep -q "github.com/login/device"; then
@@ -181,10 +185,6 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
   "timestamp": "$(date -Iseconds)"
 }
 EOF
-                    # Rename setup session to dev-farm (this becomes the main user session)
-                    echo "✓ Renaming session: copilot-setup → dev-farm" | tee -a "$LOG_FILE"
-                    tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
-                    
                     # Start background auth monitor
                     nohup /home/coder/copilot-auth-monitor.sh >> "$LOG_FILE" 2>&1 &
                 fi
@@ -192,22 +192,18 @@ EOF
                 # Still showing login prompt, not authenticated yet
                 echo "⚠ Still showing login prompt" | tee -a "$LOG_FILE"
                 echo "awaiting-auth" > "$AUTH_STATUS_FILE"
-                tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
             elif echo "$OUTPUT" | grep -qE "How can I help|What can I do"; then
                 # Only consider authenticated if we see the actual prompt, not just Welcome banner
                 # AND we don't see any auth prompts
                 if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device"; then
                     echo "✓ Copilot CLI authenticated and ready!" | tee -a "$LOG_FILE"
                     echo "authenticated" > "$AUTH_STATUS_FILE"
-                    tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                 else
                     echo "awaiting-auth" > "$AUTH_STATUS_FILE"
-                    tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                 fi
             else
                 # Unknown state - assume needs auth
                 echo "awaiting-auth" > "$AUTH_STATUS_FILE"
-                tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
             fi
         else
             echo "⚠ Failed to create tmux session" | tee -a "$LOG_FILE"
