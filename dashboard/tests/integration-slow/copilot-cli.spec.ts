@@ -75,84 +75,12 @@ test.describe('Copilot CLI Installation', () => {
     // Exec into container and check copilot installation
     const containerInstance = docker.getContainer(container.Id);
 
-    // Wait a bit for startup script to complete
-    await page.waitForTimeout(10000);
+    // Wait a bit for startup script to complete (pnpm install takes time)
+    await page.waitForTimeout(30000);
 
-    // Check if copilot command exists
-    const execWhich = await containerInstance.exec({
-      Cmd: ['bash', '-c', 'which copilot'],
-      AttachStdout: true,
-      AttachStderr: true,
-    });
-
-    const streamWhich = await execWhich.start({ Detach: false });
-    let whichOutput = '';
-
-    streamWhich.on('data', (chunk: Buffer) => {
-      whichOutput += chunk.toString();
-    });
-
-    await new Promise((resolve) => streamWhich.on('end', resolve));
-
-    console.log('which copilot output:', whichOutput);
-
-    // Check PATH
-    const execPath = await containerInstance.exec({
-      Cmd: ['bash', '-c', 'echo $PATH'],
-      AttachStdout: true,
-      AttachStderr: true,
-    });
-
-    const streamPath = await execPath.start({ Detach: false });
-    let pathOutput = '';
-
-    streamPath.on('data', (chunk: Buffer) => {
-      pathOutput += chunk.toString();
-    });
-
-    await new Promise((resolve) => streamPath.on('end', resolve));
-
-    console.log('PATH:', pathOutput);
-
-    // Check npm global location
-    const execNpmRoot = await containerInstance.exec({
-      Cmd: ['bash', '-c', 'npm root -g'],
-      AttachStdout: true,
-      AttachStderr: true,
-    });
-
-    const streamNpmRoot = await execNpmRoot.start({ Detach: false });
-    let npmRootOutput = '';
-
-    streamNpmRoot.on('data', (chunk: Buffer) => {
-      npmRootOutput += chunk.toString();
-    });
-
-    await new Promise((resolve) => streamNpmRoot.on('end', resolve));
-
-    console.log('npm root -g:', npmRootOutput);
-
-    // Check if copilot is installed in npm global
-    const execNpmList = await containerInstance.exec({
-      Cmd: ['bash', '-c', 'npm list -g --depth=0 2>&1 | grep copilot'],
-      AttachStdout: true,
-      AttachStderr: true,
-    });
-
-    const streamNpmList = await execNpmList.start({ Detach: false });
-    let npmListOutput = '';
-
-    streamNpmList.on('data', (chunk: Buffer) => {
-      npmListOutput += chunk.toString();
-    });
-
-    await new Promise((resolve) => streamNpmList.on('end', resolve));
-
-    console.log('npm list copilot:', npmListOutput);
-
-    // Check startup log
+    // Check startup log to see if copilot was installed
     const execLog = await containerInstance.exec({
-      Cmd: ['bash', '-c', 'tail -100 /home/coder/workspace/.devfarm/startup.log 2>&1 || echo "No log file"'],
+      Cmd: ['bash', '-c', 'tail -200 /home/coder/workspace/.terminal.log 2>&1 || cat /home/coder/workspace/.terminal.log 2>&1 || echo "No log file"'],
       AttachStdout: true,
       AttachStderr: true,
     });
@@ -166,11 +94,48 @@ test.describe('Copilot CLI Installation', () => {
 
     await new Promise((resolve) => streamLog.on('end', resolve));
 
-    console.log('Startup log (last 100 lines):\n', logOutput);
+    console.log('Startup log:\n', logOutput);
 
-    // Try running copilot --version
+    // The startup script uses pnpm, so check the pnpm global path
+    // PNPM_HOME=/home/coder/.local/share/pnpm
+    const execCopilotCheck = await containerInstance.exec({
+      Cmd: ['bash', '-c', 'export PNPM_HOME=/home/coder/.local/share/pnpm && export PATH="$PNPM_HOME:$PATH" && which copilot 2>&1'],
+      AttachStdout: true,
+      AttachStderr: true,
+    });
+
+    const streamCopilotCheck = await execCopilotCheck.start({ Detach: false });
+    let copilotCheckOutput = '';
+
+    streamCopilotCheck.on('data', (chunk: Buffer) => {
+      copilotCheckOutput += chunk.toString();
+    });
+
+    await new Promise((resolve) => streamCopilotCheck.on('end', resolve));
+
+    console.log('which copilot:', copilotCheckOutput);
+
+    // Check if copilot binary exists in pnpm global directory
+    const execLs = await containerInstance.exec({
+      Cmd: ['bash', '-c', 'ls -la /home/coder/.local/share/pnpm/copilot* 2>&1 || echo "No copilot found"'],
+      AttachStdout: true,
+      AttachStderr: true,
+    });
+
+    const streamLs = await execLs.start({ Detach: false });
+    let lsOutput = '';
+
+    streamLs.on('data', (chunk: Buffer) => {
+      lsOutput += chunk.toString();
+    });
+
+    await new Promise((resolve) => streamLs.on('end', resolve));
+
+    console.log('ls copilot:', lsOutput);
+
+    // Try running copilot --version with correct PATH
     const execVersion = await containerInstance.exec({
-      Cmd: ['bash', '-c', 'export PATH=/home/coder/.npm-global/bin:$PATH && copilot --version 2>&1'],
+      Cmd: ['bash', '-c', 'export PNPM_HOME=/home/coder/.local/share/pnpm && export PATH="$PNPM_HOME:$PATH" && copilot --version 2>&1'],
       AttachStdout: true,
       AttachStderr: true,
     });
@@ -186,8 +151,8 @@ test.describe('Copilot CLI Installation', () => {
 
     console.log('copilot --version:', versionOutput);
 
-    // Verify copilot is accessible
-    expect(versionOutput).toContain('0.0.');
+    // Verify copilot is accessible (version format is like 0.0.x or 1.0.x)
+    expect(versionOutput).toMatch(/\d+\.\d+\.\d+/);
   });
 
   test.afterAll(async () => {
