@@ -26,7 +26,15 @@ export async function execInContainer(
     Tty: false,
   });
 
-  return exec.start({ hijack: false, stdin: false }) as unknown as { output?: unknown };
+  const stream = await exec.start({ hijack: false, stdin: false });
+  
+  // Read the stream data
+  const chunks: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    stream.on('end', () => resolve({ output: Buffer.concat(chunks) }));
+    stream.on('error', reject);
+  });
 }
 
 export async function execToString(
