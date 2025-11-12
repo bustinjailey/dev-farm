@@ -84,11 +84,11 @@ test.describe('AI Chat Echo Bug Fix', () => {
     // VERIFICATION: Response likely contains keywords from query (now works!)
     // OLD BUG: Would skip response if it contained "python" or "function"
     // NEW: Response should include code/explanation with these terms
-    const hasKeywords = 
-      response!.toLowerCase().includes('python') || 
+    const hasKeywords =
+      response!.toLowerCase().includes('python') ||
       response!.toLowerCase().includes('function') ||
       response!.toLowerCase().includes('def');
-    
+
     expect(hasKeywords).toBe(true);
 
     console.log('✓ Echo bug fixed - User message:', testMessage);
@@ -103,10 +103,10 @@ test.describe('AI Chat Echo Bug Fix', () => {
     await page.click('button:has-text("New Environment")');
     await page.fill('input[placeholder="Optional (max 20 chars)"]', testId);
     await page.click('button.primary:has-text("Create")');
-    
+
     await page.waitForTimeout(2000);
     await page.reload();
-    
+
     const envCard = page.locator(`.card:has-text("${testId}")`);
     await expect(envCard.locator('.badge:has-text("running")')).toBeVisible({ timeout: 120000 });
     await page.waitForSelector('[data-auth-status="authenticated"]', { timeout: 120000 });
@@ -124,10 +124,10 @@ test.describe('AI Chat Echo Bug Fix', () => {
     for (const msg of messages) {
       await page.fill('[data-testid="chat-input"]', msg);
       await page.click('[data-testid="send-button"]');
-      
+
       // Wait for response
       await page.waitForTimeout(5000);
-      
+
       const responses = await page.locator('[data-role="assistant"]').allTextContents();
       const lastResponse = responses[responses.length - 1];
 

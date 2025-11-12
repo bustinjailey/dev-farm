@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 
 describe('Copilot Session Manager - Echo Bug Fix', () => {
-  
+
   /**
    * Helper: Simulates the OLD buggy parsing logic (substring filter)
    */
@@ -97,7 +97,7 @@ This function takes two parameters and returns their sum.
     // BUG: Response filtered out because it contains "python" and "function"
     expect(result).not.toContain('Python function');
     expect(result).not.toContain('def add');
-    
+
     // This demonstrates the echo bug - response was empty or incomplete
     console.log('BUGGY result (filtered):', result);
   });
@@ -143,10 +143,10 @@ This function takes two parameters and returns their sum.
 
     for (const scenario of scenarios) {
       const tmuxOutput = `> ${scenario.query}\n${scenario.response}\n>`;
-      
+
       // OLD: Would filter out parts of response
       const buggyResult = parseTmuxOutputBuggy(tmuxOutput, scenario.query);
-      
+
       // NEW: Captures full response
       const fixedResult = parseTmuxOutputFixed(tmuxOutput);
 
@@ -276,7 +276,7 @@ This script prompts the user for input.
 });
 
 describe('Copilot Session Manager - Session Name Update', () => {
-  
+
   it('should reference dev-farm session, not copilot-auth', () => {
     // This test documents the session name change
     const oldSessionName = 'copilot-auth';

@@ -1,5 +1,4 @@
 import { test, expect, type Page } from '@playwright/test';
-import Docker from 'dockerode';
 
 /**
  * Comprehensive E2E tests for Copilot CLI Device Auth Automation
@@ -16,13 +15,28 @@ import Docker from 'dockerode';
  * Related documentation: docs/COPILOT_DEVICE_AUTH_AUTOMATION.md
  */
 
+import Docker from 'dockerode';
+
 test.describe('Copilot CLI Automation', () => {
   let docker: Docker;
   let testEnvId: string;
   let page: Page;
+  const baseURL = process.env.BASE_URL || 'http://localhost:5000';
 
   test.beforeAll(() => {
-    docker = new Docker();
+    // For remote testing against farm.bustinjailey.org, skip Docker-based tests
+    // These tests require direct Docker access which should be run inside the LXC
+    const isRemote = baseURL.includes('farm.bustinjailey.org');
+    
+    if (isRemote) {
+      console.log('⚠ Remote testing detected - Docker tests will be skipped');
+      console.log('  To run full tests, execute inside LXC:');
+      console.log('  ssh root@eagle "pct exec 200 -- bash -c \'cd /opt/dev-farm/dashboard && RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow/copilot-automation.spec.ts --reporter=line\'"');
+      docker = new Docker(); // Create dummy instance
+    } else {
+      // Local Docker socket
+      docker = new Docker();
+    }
   });
 
   test.beforeEach(async ({ page: testPage }) => {
@@ -34,16 +48,16 @@ test.describe('Copilot CLI Automation', () => {
   test.afterEach(async () => {
     if (testEnvId) {
       try {
-        const containers = await docker.listContainers({ all: true });
-        const container = containers.find(c =>
-          c.Names.some(n => n.includes(testEnvId.replace(/[^a-z0-9-]/gi, '-').toLowerCase()))
-        );
-
-        if (container) {
-          const containerInstance = docker.getContainer(container.Id);
-          await containerInstance.stop().catch(() => { });
-          await containerInstance.remove().catch(() => { });
-        }
+        // Use dashboard API to stop/remove environment
+        const kebabified = testEnvId
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .replace(/-+/g, '-');
+        
+        await fetch(`${baseURL}/api/environments/${kebabified}`, {
+          method: 'DELETE'
+        }).catch(() => {});
       } catch (error) {
         console.error('Cleanup error:', error);
       }
@@ -77,15 +91,42 @@ test.describe('Copilot CLI Automation', () => {
   }
 
   /**
+   * Helper function to get environment ID (kebabified name)
+   */
+  function getEnvironmentId(envName: string): string {
+    return envName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-+/g, '-');
+  }
+
+  /**
    * Helper function to get container instance
    */
   async function getContainer(envName: string): Promise<Docker.Container | null> {
-    const containers = await docker.listContainers({ all: true });
-    const container = containers.find(c =>
-      c.Names.some(n => n.includes(envName.replace(/[^a-z0-9-]/gi, '-').toLowerCase()))
-    );
+    // Skip Docker operations if running remotely
+    const isRemote = baseURL.includes('farm.bustinjailey.org');
+    if (isRemote) {
+      console.log('⊘ Skipping Docker operation - remote testing mode');
+      test.skip();
+      return null;
+    }
 
-    return container ? docker.getContainer(container.Id) : null;
+    const kebabified = getEnvironmentId(envName);
+    const expectedPrefix = `devfarm-${kebabified}`;
+    
+    try {
+      const containers = await docker.listContainers({ all: true });
+      const container = containers.find(c =>
+        c.Names.some(n => n.includes(expectedPrefix))
+      );
+
+      return container ? docker.getContainer(container.Id) : null;
+    } catch (error) {
+      console.error('Docker error:', error);
+      return null;
+    }
   }
 
   /**
@@ -110,7 +151,7 @@ test.describe('Copilot CLI Automation', () => {
     const container = await getContainer(testEnvId);
     expect(container).toBeTruthy();
     if (!container) return;
-
+    
     // Wait for startup to complete
     await page.waitForTimeout(20000);
 
@@ -121,7 +162,7 @@ test.describe('Copilot CLI Automation', () => {
     // Instead, check for status file updates or successful continuation
     const hasConfiguring = logs.includes('configuring');
     const hasWorkspaceTrust = logs.includes('workspace-trust');
-    
+
     // At least one status should be present during setup
     expect(hasConfiguring || hasWorkspaceTrust).toBe(true);
 
@@ -488,7 +529,7 @@ test.describe('Copilot CLI Automation', () => {
     // Status should be one of: configuring, workspace-trust, login, 
     // account-selection, awaiting-auth, authenticated
     const validStatuses = [
-      'configuring', 'workspace-trust', 'login', 
+      'configuring', 'workspace-trust', 'login',
       'account-selection', 'awaiting-auth', 'authenticated'
     ];
     expect(validStatuses).toContain(status);
@@ -498,7 +539,7 @@ test.describe('Copilot CLI Automation', () => {
     // Verify status appears on environment card
     const envCard = page.locator(`.card:has-text("${testEnvId}")`);
     const cardSmallText = await envCard.locator('small').first().textContent();
-    
+
     // Card should show status-specific text
     if (status === 'configuring') {
       expect(cardSmallText).toContain('Setting up Copilot');

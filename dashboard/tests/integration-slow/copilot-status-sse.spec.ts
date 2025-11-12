@@ -58,13 +58,13 @@ test.describe('Copilot Status SSE Events', () => {
   /**
    * Helper: Listen for SSE events
    */
-  async function captureSSEEvents(duration: number): Promise<Array<{type: string, data: any}>> {
-    const events: Array<{type: string, data: any}> = [];
+  async function captureSSEEvents(duration: number): Promise<Array<{ type: string, data: any }>> {
+    const events: Array<{ type: string, data: any }> = [];
 
     // Inject SSE listener into page context
     await page.evaluate((durationMs) => {
       const eventSource = new EventSource('/api/stream');
-      const collectedEvents: Array<{type: string, data: any}> = [];
+      const collectedEvents: Array<{ type: string, data: any }> = [];
 
       eventSource.addEventListener('copilot-status', (e: MessageEvent) => {
         try {
@@ -121,7 +121,7 @@ test.describe('Copilot Status SSE Events', () => {
       .map(e => e.data.status);
 
     const validStatuses = [
-      'configuring', 'workspace-trust', 'login', 
+      'configuring', 'workspace-trust', 'login',
       'account-selection', 'awaiting-auth', 'authenticated'
     ];
 
@@ -148,7 +148,7 @@ test.describe('Copilot Status SSE Events', () => {
     if (copilotStatusEvents.length > 1) {
       // Verify sequence follows expected order
       const expectedOrder = ['configuring', 'workspace-trust', 'login', 'account-selection', 'awaiting-auth'];
-      
+
       let lastIndex = -1;
       for (const status of copilotStatusEvents) {
         const currentIndex = expectedOrder.indexOf(status);
@@ -181,7 +181,7 @@ test.describe('Copilot Status SSE Events', () => {
 
     // Check for status text (should show one of the status messages)
     const cardText = await envCard.textContent();
-    
+
     const statusMessages = [
       'Setting up Copilot',
       'Confirming workspace trust',
@@ -191,7 +191,7 @@ test.describe('Copilot Status SSE Events', () => {
     ];
 
     const hasStatusMessage = statusMessages.some(msg => cardText?.includes(msg));
-    
+
     if (hasStatusMessage) {
       console.log('✓ Status message displayed on environment card');
     } else {
@@ -216,7 +216,7 @@ test.describe('Copilot Status SSE Events', () => {
     // Check if final event clears status (empty string or "ready")
     if (copilotStatusEvents.length > 0) {
       const lastEvent = copilotStatusEvents[copilotStatusEvents.length - 1];
-      
+
       // Status should either be cleared or show authenticated/ready state
       const finalStatus = lastEvent.data.status;
       expect(['', 'authenticated', 'ready']).toContain(finalStatus);
@@ -242,10 +242,10 @@ test.describe('Copilot Status SSE Events', () => {
     const events = await eventsPromise;
 
     // Verify each environment has its own status events
-    const env1Events = events.filter(e => 
+    const env1Events = events.filter(e =>
       e.type === 'copilot-status' && e.data.env_id === env1
     );
-    const env2Events = events.filter(e => 
+    const env2Events = events.filter(e =>
       e.type === 'copilot-status' && e.data.env_id === env2
     );
 
