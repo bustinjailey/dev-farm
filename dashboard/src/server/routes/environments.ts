@@ -373,6 +373,11 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           : gitUrl;
       }
 
+      // For terminal mode with host networking, assign unique port
+      if (mode === 'terminal') {
+        envVars.PORT = String(port);
+      }
+
       const imageName = mode === 'terminal' ? 'dev-farm/terminal:latest' : 'dev-farm/code-server:latest';
 
       try {

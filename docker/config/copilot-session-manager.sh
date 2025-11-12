@@ -140,6 +140,7 @@ send_message() {
     echo "$full_output" | awk -v msg="$message" '
         BEGIN { 
             found_message=0
+            skip_lines=0
             capturing=0
             response=""
             line_count=0
@@ -147,12 +148,27 @@ send_message() {
         # Find the line with our sent message
         !found_message && $0 ~ msg {
             found_message=1
+            skip_lines=2  # Skip the message line and next line (usually empty)
             next
         }
-        # After finding message, skip empty lines and start capturing content
-        found_message && !capturing {
-            # Skip empty lines after the message
+        # Skip lines immediately after the message
+        found_message && skip_lines > 0 {
+            skip_lines--
+            # Also skip if this line is just the message echo again
+            if ($0 ~ msg || length($0) == 0 || $0 ~ /^[[:space:]]*$/) {
+                next
+            }
+            # If we hit actual content, start capturing
+            capturing=1
+        }
+        # After finding message and skip period, start capturing
+        found_message && skip_lines == 0 && !capturing {
+            # Skip empty lines
             if (length($0) == 0 || $0 ~ /^[[:space:]]*$/) {
+                next
+            }
+            # Skip if it looks like the echoed message
+            if ($0 ~ msg) {
                 next
             }
             # Start capturing when we hit non-empty content
@@ -163,6 +179,10 @@ send_message() {
             # Stop if we hit the next prompt (line starting with >)
             if ($0 ~ /^>[[:space:]]*$/ || $0 ~ /^> $/) {
                 exit
+            }
+            # Skip if this looks like the user message being echoed
+            if ($0 ~ msg && line_count < 3) {
+                next
             }
             # Add line to response
             if (line_count > 0) {
@@ -175,6 +195,8 @@ send_message() {
         END {
             # Clean up trailing whitespace
             gsub(/[[:space:]]+$/, "", response)
+            # Also remove leading whitespace
+            gsub(/^[[:space:]]+/, "", response)
             if (length(response) > 0) {
                 print response
             } else {
