@@ -360,10 +360,13 @@ TMUXCONF
 if tmux has-session -t dev-farm 2>/dev/null; then
     echo "✓ Terminal session ready" | tee -a "$LOG_FILE"
     
-    # Display welcome message in terminal
-    tmux send-keys -t dev-farm "clear" C-m
-    tmux send-keys -t dev-farm "cat /home/coder/workspace/WELCOME.txt" C-m
-    tmux send-keys -t dev-farm "echo ''" C-m
+    # Only display welcome message if Copilot automation completed
+    # (Don't interrupt ongoing automation with clear/cat commands)
+    if [ -f "$AUTH_STATUS_FILE" ] && grep -q "authenticated" "$AUTH_STATUS_FILE" 2>/dev/null; then
+        tmux send-keys -t dev-farm "clear" C-m
+        tmux send-keys -t dev-farm "cat /home/coder/workspace/WELCOME.txt" C-m
+        tmux send-keys -t dev-farm "echo ''" C-m
+    fi
     
     TMUX_READY=true
 else
