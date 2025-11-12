@@ -27,7 +27,7 @@ test.describe('Copilot CLI Automation', () => {
     // For remote testing against farm.bustinjailey.org, skip Docker-based tests
     // These tests require direct Docker access which should be run inside the LXC
     const isRemote = baseURL.includes('farm.bustinjailey.org');
-    
+
     if (isRemote) {
       console.log('⚠ Remote testing detected - Docker tests will be skipped');
       console.log('  To run full tests, execute inside LXC:');
@@ -54,10 +54,10 @@ test.describe('Copilot CLI Automation', () => {
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '')
           .replace(/-+/g, '-');
-        
+
         await fetch(`${baseURL}/api/environments/${kebabified}`, {
           method: 'DELETE'
-        }).catch(() => {});
+        }).catch(() => { });
       } catch (error) {
         console.error('Cleanup error:', error);
       }
@@ -115,7 +115,7 @@ test.describe('Copilot CLI Automation', () => {
 
     const kebabified = getEnvironmentId(envName);
     const expectedPrefix = `devfarm-${kebabified}`;
-    
+
     try {
       const containers = await docker.listContainers({ all: true });
       const container = containers.find(c =>
@@ -151,7 +151,7 @@ test.describe('Copilot CLI Automation', () => {
     const container = await getContainer(testEnvId);
     expect(container).toBeTruthy();
     if (!container) return;
-    
+
     // Wait for startup to complete
     await page.waitForTimeout(20000);
 
