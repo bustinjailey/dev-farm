@@ -111,12 +111,36 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
         const ready = await isContainerHealthy(container, docker);
-        const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
+        let displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
         const workspacePath = getWorkspacePath(env.mode);
         const summaryUrl = env.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
 
-        const requiresAuth = lastKnownDeviceAuth.has(envId);
-        const deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
+        let requiresAuth = lastKnownDeviceAuth.has(envId);
+        let deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
+
+        // For terminal mode: check if auth is still required and override status
+        if (env.mode === 'terminal' && (displayStatus === 'starting' || displayStatus === 'running')) {
+          try {
+            const authStatus = await execToString(
+              container,
+              'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
+            ).catch(() => 'unknown');
+            
+            const copilotStatus = authStatus.trim();
+            if (copilotStatus !== 'authenticated' && copilotStatus !== 'unknown') {
+              requiresAuth = true;
+              // Override status to "starting" if auth required but container shows running
+              if (displayStatus === 'running') {
+                displayStatus = 'starting';
+              }
+            }
+          } catch (error) {
+            // If we can't check auth status, assume it's required if container is starting
+            if (displayStatus === 'starting') {
+              requiresAuth = true;
+            }
+          }
+        }
 
         summaries.push({
           name: env.displayName ?? env.name,
@@ -149,7 +173,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         const ready = await isContainerHealthy(container, docker);
         const inspect = await container.inspect();
         const status = inspect.State?.Status ?? 'unknown';
-        const displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
+        let displayStatus = ready ? 'running' : status === 'running' ? 'starting' : status;
 
         let requiresAuth = false;
         let deviceAuthInfo: { code: string; url: string } | null = null;
@@ -214,6 +238,12 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                   requiresAuth = true;
                   deviceAuthInfo = lastKnownDeviceAuth.get(envId) ?? null;
                 }
+              }
+
+              // For terminal mode: override status to "starting" if auth is required
+              // This prevents the environment from appearing "running" until auth completes
+              if (requiresAuth && displayStatus === 'running') {
+                displayStatus = 'starting';
               }
             } else {
               // Tunnel mode: check logs for device auth
