@@ -12,7 +12,7 @@ ulimit -c 0
 ### Ensure workspace directory exists and is owned by coder
 echo "Preparing workspace directory..."
 mkdir -p /home/coder/workspace || true
-sudo chown -R coder:coder /home/coder/workspace 2>/dev/null || true
+chown -R coder:coder /home/coder/workspace 2>/dev/null || true
 
 # Create .gitignore for workspace to exclude core dumps and other unwanted files
 cat > /home/coder/workspace/.gitignore <<'GITIGNORE'
@@ -113,6 +113,10 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
         AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
         
+        # Create auth status file with proper ownership
+        touch "$AUTH_STATUS_FILE"
+        chown coder:coder "$AUTH_STATUS_FILE"
+        
         # Set initial status
         echo "📝 Configuring Copilot automation..." | tee -a "$LOG_FILE"
         echo "configuring" > "$AUTH_STATUS_FILE"
@@ -182,6 +186,9 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 if [ -n "$DEVICE_CODE" ]; then
                     echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
                     echo "awaiting-auth" > "$AUTH_STATUS_FILE"
+                    # Create device auth file with proper ownership
+                    touch "$DEVICE_AUTH_FILE"
+                    chown coder:coder "$DEVICE_AUTH_FILE"
                     cat > "$DEVICE_AUTH_FILE" <<EOF
 {
   "code": "$DEVICE_CODE",
