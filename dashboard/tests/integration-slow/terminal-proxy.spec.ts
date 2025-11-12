@@ -97,11 +97,11 @@ test.describe('Terminal Proxy with Host Networking', () => {
     const wsConnected = await page.evaluate(() => {
       return new Promise<boolean>((resolve) => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const basePath = window.location.pathname.endsWith('/') 
-          ? window.location.pathname.slice(0, -1) 
+        const basePath = window.location.pathname.endsWith('/')
+          ? window.location.pathname.slice(0, -1)
           : window.location.pathname;
         const wsUrl = `${protocol}//${window.location.host}${basePath}/terminal`;
-        
+
         const ws = new WebSocket(wsUrl);
         let timeoutId: number;
 

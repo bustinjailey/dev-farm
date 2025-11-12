@@ -18,7 +18,9 @@ expressWs(app);
 // PORT must be provided by environment variable - no fallback
 if (!process.env.PORT) {
   console.error("FATAL: PORT environment variable is not set!");
-  console.error("The dashboard must provide a unique port for each terminal container.");
+  console.error(
+    "The dashboard must provide a unique port for each terminal container."
+  );
   console.error("This container cannot start without a port assignment.");
   process.exit(1);
 }
@@ -197,8 +199,8 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Platform: ${os.platform()}`);
 });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
     console.error(`FATAL: Port ${PORT} is already in use!`);
     console.error(`Another process or container is using port ${PORT}.`);
     console.error(`This usually means:`);
@@ -206,9 +208,13 @@ server.on('error', (err) => {
     console.error(`  2. A previous container wasn't cleaned up properly`);
     console.error(`  3. The dashboard assigned a port that's already taken`);
     console.error(`\nTo fix this:`);
-    console.error(`  - Check what's using the port: lsof -i :${PORT} or netstat -nlp | grep ${PORT}`);
+    console.error(
+      `  - Check what's using the port: lsof -i :${PORT} or netstat -nlp | grep ${PORT}`
+    );
     console.error(`  - Stop the conflicting process`);
-    console.error(`  - Or delete and recreate this environment to get a new port`);
+    console.error(
+      `  - Or delete and recreate this environment to get a new port`
+    );
     process.exit(1);
   } else {
     console.error(`Server error:`, err);

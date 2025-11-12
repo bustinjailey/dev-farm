@@ -127,8 +127,9 @@ ssh root@eagle "pct exec 200 -- <command>"
 │   Naming: devfarm-<kebab-case-name>            │
 │   Ports: 8100+ (auto-assigned)                 │
 │   Volumes: devfarm-<name> mounted at /workspace│
-│   Modes: workspace | git | ssh                 │
-│   Auth: GITHUB_TOKEN env var                   │
+│   Modes: workspace | git | ssh | terminal      │
+│   Auth: GITHUB_TOKEN for git/gh CLI            │
+│   Note: Copilot CLI requires device flow auth  │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -282,6 +283,17 @@ def save_registry(registry):
 4. Handle `slow_down` error → increase interval by 5 seconds
 5. On success, token saved to `/data/.github_token`
 6. Token applied to new containers via `GITHUB_TOKEN` env var
+
+**IMPORTANT**: GITHUB_TOKEN authenticates:
+- Git operations (push/pull)
+- GitHub CLI (`gh` commands)
+- **NOT Copilot CLI** - requires separate device flow
+
+**Copilot CLI Authentication**:
+- Requires manual device flow authentication
+- User must visit https://github.com/login/device and enter code
+- Auth persists in container workspace across restarts
+- Cannot be automated via GITHUB_TOKEN
 
 **Critical**: `--user-data-dir` → `--server-data-dir` (VS Code Server v1.95+ breaking change)
 
