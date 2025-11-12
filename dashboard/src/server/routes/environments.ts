@@ -125,7 +125,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
               container,
               'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
             ).catch(() => 'unknown');
-            
+
             const copilotStatus = authStatus.trim();
             if (copilotStatus !== 'authenticated' && copilotStatus !== 'unknown') {
               requiresAuth = true;
@@ -186,9 +186,13 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
               const authStatus = await execToString(
                 container,
                 'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
-              ).catch(() => 'unknown');
+              ).catch((err) => {
+                fastify.log.warn({ envId, err }, 'Failed to read auth status');
+                return 'unknown';
+              });
 
               const status = authStatus.trim();
+              fastify.log.debug({ envId, status }, 'Terminal mode: Copilot auth status');
 
               if (status === 'authenticated') {
                 // Authentication completed - clear device auth state
