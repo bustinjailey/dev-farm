@@ -130,6 +130,8 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           mode: env.mode,
           requiresAuth,
           deviceAuth,
+          created: env.created,
+          lastStarted: env.lastStarted,
         });
       } catch (error) {
         fastify.log.warn({ envId, err: error }, 'Failed to inspect container');
@@ -513,6 +515,11 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       try {
         const container = docker.getContainer(record.containerId);
         await container.start();
+        
+        // Update lastStarted timestamp
+        record.lastStarted = new Date().toISOString();
+        await saveEnvironment(envId, record);
+        
         const workspacePath = getWorkspacePath(record.mode);
         const desktopCommand = buildDesktopCommand(envId, workspacePath);
         const statusUrl = record.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
@@ -565,6 +572,11 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       try {
         const container = docker.getContainer(record.containerId);
         await container.restart();
+        
+        // Update lastStarted timestamp
+        record.lastStarted = new Date().toISOString();
+        await saveEnvironment(envId, record);
+        
         const workspacePath = getWorkspacePath(record.mode);
         const desktopCommand = buildDesktopCommand(envId, workspacePath);
         const statusUrl = record.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);

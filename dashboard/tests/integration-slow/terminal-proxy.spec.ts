@@ -92,6 +92,39 @@ test.describe('Terminal Proxy with Host Networking', () => {
     // Check for terminal UI elements
     const terminalContent = await page.content();
     expect(terminalContent).toContain('xterm'); // xterm.js terminal
+
+    // Test WebSocket connection
+    const wsConnected = await page.evaluate(() => {
+      return new Promise<boolean>((resolve) => {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const basePath = window.location.pathname.endsWith('/') 
+          ? window.location.pathname.slice(0, -1) 
+          : window.location.pathname;
+        const wsUrl = `${protocol}//${window.location.host}${basePath}/terminal`;
+        
+        const ws = new WebSocket(wsUrl);
+        let timeoutId: number;
+
+        ws.onopen = () => {
+          clearTimeout(timeoutId);
+          ws.close();
+          resolve(true);
+        };
+
+        ws.onerror = () => {
+          clearTimeout(timeoutId);
+          resolve(false);
+        };
+
+        // 5 second timeout
+        timeoutId = window.setTimeout(() => {
+          ws.close();
+          resolve(false);
+        }, 5000);
+      });
+    });
+
+    expect(wsConnected).toBe(true);
   });
 
   test.afterAll(async () => {

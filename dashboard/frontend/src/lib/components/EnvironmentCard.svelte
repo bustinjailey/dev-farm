@@ -77,6 +77,18 @@
       <dt>Workspace Path</dt>
       <dd>{env.workspacePath}</dd>
     </div>
+    {#if env.created}
+      <div>
+        <dt>Created</dt>
+        <dd>{new Date(env.created).toLocaleString()}</dd>
+      </div>
+    {/if}
+    {#if env.lastStarted}
+      <div>
+        <dt>Last Started</dt>
+        <dd>{new Date(env.lastStarted).toLocaleString()}</dd>
+      </div>
+    {/if}
   </dl>
 
   <div class="actions">

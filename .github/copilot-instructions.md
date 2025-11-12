@@ -20,6 +20,7 @@
 **NEVER run E2E tests with `mcp_local_aggrega_local_code-execution__execute_code` or in Python!**
 
 E2E tests MUST be run directly in the terminal using:
+
 ```bash
 cd dashboard && RUN_SLOW_TESTS=1 SKIP_WEBSERVER=1 BASE_URL=https://farm.bustinjailey.org npx playwright test tests/integration-slow/TESTFILE.spec.ts --reporter=line --timeout=300000
 ```
@@ -50,10 +51,11 @@ cd dashboard && RUN_SLOW_TESTS=1 SKIP_WEBSERVER=1 BASE_URL=https://farm.bustinja
 **ALWAYS use `--reporter=line` when running Playwright tests!**
 
 Without it, Playwright starts an HTTP server to serve the HTML report and the command HANGS waiting for Ctrl+C:
+
 ```
 ❌ WRONG: npx playwright test tests/integration-slow
    Result: Serves HTML report at http://localhost:9323. Press Ctrl+C to quit.
-   
+
 ✅ CORRECT: npx playwright test tests/integration-slow --reporter=line
    Result: Test output prints to console and exits when done
 ```
