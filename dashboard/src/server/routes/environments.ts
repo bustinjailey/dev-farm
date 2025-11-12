@@ -193,7 +193,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                 return 'unknown';
               });
 
-              const status = authStatus.trim();
+              const status = (authStatus || 'unknown').trim();
               fastify.log.info({ envId, status, mode: record.mode }, 'Terminal mode: Copilot auth status check');
 
               if (status === 'authenticated') {
