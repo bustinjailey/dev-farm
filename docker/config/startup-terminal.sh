@@ -114,27 +114,27 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         echo "📝 Configuring Copilot automation..." | tee -a "$LOG_FILE"
         echo "configuring" > "$AUTH_STATUS_FILE"
         
-        # Create tmux session for automation
-        if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>/dev/null; then
+        # Create tmux session as coder user (not root) so AI chat can access it
+        if su - coder -c "tmux new-session -d -s dev-farm -c /home/coder/workspace" 2>/dev/null; then
             # Start copilot with --allow-all-tools flag
-            tmux send-keys -t dev-farm "export PATH=$PNPM_HOME:\$PATH" C-m
+            su - coder -c "tmux send-keys -t dev-farm 'export PATH=$PNPM_HOME:\$PATH' C-m"
             sleep 2
-            tmux send-keys -t dev-farm "copilot --allow-all-tools" C-m
+            su - coder -c "tmux send-keys -t dev-farm 'copilot --allow-all-tools' C-m"
             sleep 5
             
             # Capture output to check for workspace trust prompt
-            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
+            OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
             
             # Check if we need to confirm workspace trust
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
                 echo "✓ Workspace trust prompt detected - sending option 2" | tee -a "$LOG_FILE"
                 echo "workspace-trust" > "$AUTH_STATUS_FILE"
-                tmux send-keys -t dev-farm "2"
+                su - coder -c "tmux send-keys -t dev-farm '2'"
                 
                 # Wait for login prompt with retries (can take several seconds after trust)
                 for i in {1..10}; do
                     sleep 2
-                    OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
+                    OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
                     if echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|How can I help"; then
                         echo "✓ Workspace trust processed (attempt $i)" | tee -a "$LOG_FILE"
                         # Wait extra time for CLI to fully initialize before sending commands
@@ -149,24 +149,24 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 echo "✓ Login prompt detected - sending /login command" | tee -a "$LOG_FILE"
                 echo "login" > "$AUTH_STATUS_FILE"
                 # Send command and Enter separately (Copilot CLI requires this)
-                tmux send-keys -t dev-farm "/login"
+                su - coder -c "tmux send-keys -t dev-farm '/login'"
                 sleep 0.5
-                tmux send-keys -t dev-farm C-m
+                su - coder -c "tmux send-keys -t dev-farm C-m"
                 sleep 3
-                OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
+                OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
                 
                 # After /login, check for account selection
                 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
                     echo "✓ Account selection prompt detected - selecting GitHub.com" | tee -a "$LOG_FILE"
                     echo "account-selection" > "$AUTH_STATUS_FILE"
-                    tmux send-keys -t dev-farm "1"
+                    su - coder -c "tmux send-keys -t dev-farm '1'"
                     sleep 3
-                    OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
+                    OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
                 fi
             fi
             
             # Check final state
-            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
+            OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
             
             # Parse device code if present
             if echo "$OUTPUT" | grep -q "github.com/login/device"; then
@@ -186,8 +186,8 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
   "timestamp": "$(date -Iseconds)"
 }
 EOF
-                    # Start background auth monitor
-                    nohup /home/coder/copilot-auth-monitor.sh >> "$LOG_FILE" 2>&1 &
+                    # Start background auth monitor as coder user
+                    su - coder -c "nohup /home/coder/copilot-auth-monitor.sh >> $LOG_FILE 2>&1 &"
                 fi
             elif echo "$OUTPUT" | grep -q "Please use /login"; then
                 # Still showing login prompt, not authenticated yet
