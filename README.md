@@ -388,6 +388,7 @@ dev-farm/                   # Monorepo root
 Dev Farm has comprehensive test coverage to ensure reliability:
 
 ### Unit Tests (Required)
+
 ```bash
 cd dashboard
 npm test                    # Run all unit tests
@@ -397,6 +398,7 @@ npm run test:watch          # Watch mode for development
 **Status**: 158/158 tests passing (100%)
 
 ### E2E Tests - Fast (Required)
+
 ```bash
 cd dashboard
 SKIP_WEBSERVER=1 npx playwright test --project=fast
@@ -405,6 +407,7 @@ SKIP_WEBSERVER=1 npx playwright test --project=fast
 **Status**: 33/44 tests passing (11 skipped - Svelte 5 reactivity edge cases)
 
 ### E2E Tests - Slow (MANDATORY ⚠️)
+
 ```bash
 cd dashboard
 RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow
@@ -413,6 +416,7 @@ RUN_SLOW_TESTS=1 npx playwright test tests/integration-slow
 **Status**: **REQUIRED for all PRs** - tests Docker container creation, terminal environments, and Copilot CLI installation.
 
 **Why Required**: These tests validate:
+
 - Container creation and startup
 - Terminal mode functionality
 - Copilot CLI installation and authentication
@@ -430,6 +434,7 @@ Contributions welcome! Feel free to:
 - Submit pull requests
 
 **Before submitting PRs**:
+
 1. Run all unit tests: `cd dashboard && npm test`
 2. Run E2E tests: `RUN_SLOW_TESTS=1 npx playwright test`
 3. Ensure production site works: Test on `farm.bustinjailey.org`

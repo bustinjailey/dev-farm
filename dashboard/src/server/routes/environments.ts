@@ -622,7 +622,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
 
       try {
         let output: string;
-        
+
         // Use different commands based on environment mode
         if (record.mode === 'terminal') {
           // Terminal mode: Use the new copilot CLI via wrapper script
@@ -640,7 +640,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
             output = `Note: gh copilot is deprecated. For terminal environments, the new @github/copilot CLI is used.\n\nOriginal error: ${(ghError as Error).message}`;
           }
         }
-        
+
         const existing = aiOutputCache.get(envId) ?? '';
         const combined = `${existing}\n\n> ${message}\n${output}`.trim();
         aiOutputCache.set(envId, combined);
