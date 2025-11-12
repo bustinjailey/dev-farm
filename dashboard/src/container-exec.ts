@@ -27,7 +27,7 @@ export async function execInContainer(
   });
 
   const stream = await exec.start({ hijack: false, stdin: false });
-  
+
   // Demultiplex Docker stream (removes 8-byte headers)
   const chunks: Buffer[] = [];
   return new Promise((resolve, reject) => {
