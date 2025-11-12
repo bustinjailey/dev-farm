@@ -138,7 +138,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                     if echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|How can I help"; then
                         echo "✓ Workspace trust processed (attempt $i)" | tee -a "$LOG_FILE"
                         # Wait extra time for CLI to fully initialize before sending commands
-                        sleep 3
+                        sleep 0.5
                         break
                     fi
                 done
@@ -152,7 +152,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 su - coder -c "tmux send-keys -t dev-farm '/login'"
                 sleep 0.5
                 su - coder -c "tmux send-keys -t dev-farm C-m"
-                sleep 3
+                sleep 0.5
                 OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
                 
                 # After /login, check for account selection
@@ -160,7 +160,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                     echo "✓ Account selection prompt detected - selecting GitHub.com" | tee -a "$LOG_FILE"
                     echo "account-selection" > "$AUTH_STATUS_FILE"
                     su - coder -c "tmux send-keys -t dev-farm '1'"
-                    sleep 3
+                    sleep 0.5
                     OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
                 fi
             fi
