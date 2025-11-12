@@ -2,7 +2,7 @@
 # Manages a persistent copilot session for dashboard chat
 # This avoids creating new sessions for each message, improving efficiency
 
-SESSION_NAME="copilot-dashboard"
+SESSION_NAME="copilot-auth"
 LOG_FILE="/home/coder/workspace/.terminal.log"
 
 # Ensure npm global bin and pnpm home are in PATH
@@ -21,16 +21,20 @@ ensure_session() {
         return 0
     fi
     
-    echo "Creating new copilot session..." | tee -a "$LOG_FILE"
+    # The copilot-auth session should already exist (created by startup.sh)
+    # It has workspace trust automation and device auth handling
+    # We should NOT create a new session here, as it would require manual trust confirmation
+    echo "⚠ copilot-auth session does not exist - may not be initialized yet" | tee -a "$LOG_FILE"
+    echo "⚠ This session is created by startup.sh with automation" | tee -a "$LOG_FILE"
+    return 1
     
-    # Create detached tmux session with copilot using --allow-all-tools flag
-    if ! tmux new-session -d -s "$SESSION_NAME" -c /home/coder/workspace "copilot --allow-all-tools" 2>/dev/null; then
-        echo "Error: Failed to create copilot session" | tee -a "$LOG_FILE"
-        return 1
-    fi
-    
-    # Wait for copilot to initialize
-    sleep 2
+    # LEGACY CODE (disabled - we now use the pre-created copilot-auth session):
+    # echo "Creating new copilot session..." | tee -a "$LOG_FILE"
+    # if ! tmux new-session -d -s "$SESSION_NAME" -c /home/coder/workspace "copilot --allow-all-tools" 2>/dev/null; then
+    #     echo "Error: Failed to create copilot session" | tee -a "$LOG_FILE"
+    #     return 1
+    # fi
+    # sleep 2
     
     # Check if copilot is ready by capturing output
     local ready=false
