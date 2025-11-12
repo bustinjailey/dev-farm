@@ -185,7 +185,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
               } else {
                 // Broadcast granular status for setup progress
                 const lastStatus = lastKnownStatus.get(`${envId}:copilot-status`);
-                if (lastStatus !== status && ['configuring', 'workspace-trust', 'login', 'account-selection', 'awaiting-auth'].includes(status)) {
+                if (lastStatus !== status && ['configuring', 'workspace-trust', 'login', 'account-selection', 'awaiting-auth', 'pending'].includes(status)) {
                   lastKnownStatus.set(`${envId}:copilot-status`, status);
                   sseChannel.broadcast('copilot-status', {
                     env_id: envId,
@@ -194,8 +194,8 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                   fastify.log.info({ envId, status }, 'Copilot setup progress');
                 }
 
-                // Check for device auth file
-                const copilotAuth = await readCopilotDeviceAuth(container);
+                // Check for device auth file when awaiting/pending auth
+                const copilotAuth = ['awaiting-auth', 'pending'].includes(status) ? await readCopilotDeviceAuth(container) : null;
                 if (copilotAuth) {
                   const cached = lastKnownDeviceAuth.get(envId);
                   if (!cached || cached.code !== copilotAuth.code) {
