@@ -513,6 +513,14 @@
         };
       };
 
+      const copilotReadyHandler = (payload: any) => {
+        // Clear device auth when copilot is ready
+        if (envDeviceAuth[payload.env_id]) {
+          const { [payload.env_id]: _ignored, ...rest } = envDeviceAuth;
+          envDeviceAuth = rest;
+        }
+      };
+
       const systemStatusHandler = (payload: any) => {
         systemStatus = systemStatus
           ? {
@@ -537,6 +545,7 @@
       sseClient.on('update-progress', updateHandler);
       sseClient.on('update-started', updateHandler);
       sseClient.on('device-auth', deviceAuthHandler);
+      sseClient.on('copilot-ready', copilotReadyHandler);
       sseClient.on('system-status', systemStatusHandler);
       sseClient.on('cache-bust', cacheBustHandler);
 
@@ -547,6 +556,7 @@
         sseClient.off('update-progress', updateHandler);
         sseClient.off('update-started', updateHandler);
         sseClient.off('device-auth', deviceAuthHandler);
+        sseClient.off('copilot-ready', copilotReadyHandler);
         sseClient.off('system-status', systemStatusHandler);
         sseClient.off('cache-bust', cacheBustHandler);
         sseClient.disconnect();

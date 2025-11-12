@@ -285,11 +285,13 @@ def save_registry(registry):
 6. Token applied to new containers via `GITHUB_TOKEN` env var
 
 **IMPORTANT**: GITHUB_TOKEN authenticates:
+
 - Git operations (push/pull)
 - GitHub CLI (`gh` commands)
 - **NOT Copilot CLI** - requires separate device flow
 
 **Copilot CLI Authentication**:
+
 - Requires manual device flow authentication
 - User must visit https://github.com/login/device and enter code
 - Auth persists in container workspace across restarts

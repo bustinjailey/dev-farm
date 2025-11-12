@@ -76,13 +76,13 @@ test.describe('Copilot CLI Authentication', () => {
     // 1. "Enter one-time code: XXXX-XXXX" - awaiting authentication
     // 2. "Welcome to GitHub Copilot CLI" - already authenticated from previous session
     // 3. "You must be logged in" - not authenticated
-    
-    const hasDeviceFlow = logText.includes('Enter one-time code') || 
-                          logText.includes('https://github.com/login/device');
+
+    const hasDeviceFlow = logText.includes('Enter one-time code') ||
+      logText.includes('https://github.com/login/device');
     const alreadyAuthed = logText.includes('Welcome to GitHub Copilot CLI') ||
-                          logText.includes('already authenticated');
+      logText.includes('already authenticated');
     const needsAuth = logText.includes('You must be logged in') ||
-                      logText.includes('/login');
+      logText.includes('/login');
 
     // One of these states must be true
     const hasExpectedAuthState = hasDeviceFlow || alreadyAuthed || needsAuth;
@@ -102,7 +102,7 @@ test.describe('Copilot CLI Authentication', () => {
     const hasGithubToken = logText.includes('GITHUB_TOKEN') || logText.includes('GitHub authentication completed');
     console.log(`GitHub token present: ${hasGithubToken}`);
     console.log(`Copilot authenticated: ${alreadyAuthed}`);
-    
+
     // This proves the point: even with GITHUB_TOKEN, Copilot needs device auth
   });
 

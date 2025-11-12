@@ -135,75 +135,77 @@ send_message() {
     local full_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -100 2>/dev/null)
     
     # Parse output to extract only Copilot's response (not the echoed input)
-    # The copilot CLI echoes the input and then provides a response
-    # We need to skip the echo and extract only the actual response
-    echo "$full_output" | awk -v msg="$message" '
-        BEGIN { 
-            found_message=0
-            skip_lines=0
-            capturing=0
-            response=""
-            line_count=0
-        }
-        # Find the line with our sent message
-        !found_message && $0 ~ msg {
-            found_message=1
-            skip_lines=2  # Skip the message line and next line (usually empty)
-            next
-        }
-        # Skip lines immediately after the message
-        found_message && skip_lines > 0 {
-            skip_lines--
-            # Also skip if this line is just the message echo again
-            if ($0 ~ msg || length($0) == 0 || $0 ~ /^[[:space:]]*$/) {
-                next
-            }
-            # If we hit actual content, start capturing
-            capturing=1
-        }
-        # After finding message and skip period, start capturing
-        found_message && skip_lines == 0 && !capturing {
-            # Skip empty lines
-            if (length($0) == 0 || $0 ~ /^[[:space:]]*$/) {
-                next
-            }
-            # Skip if it looks like the echoed message
-            if ($0 ~ msg) {
-                next
-            }
-            # Start capturing when we hit non-empty content
-            capturing=1
-        }
-        # Capture response lines
-        capturing {
-            # Stop if we hit the next prompt (line starting with >)
-            if ($0 ~ /^>[[:space:]]*$/ || $0 ~ /^> $/) {
-                exit
-            }
-            # Skip if this looks like the user message being echoed
-            if ($0 ~ msg && line_count < 3) {
-                next
-            }
-            # Add line to response
-            if (line_count > 0) {
-                response = response "\n" $0
-            } else {
-                response = $0
-            }
-            line_count++
-        }
-        END {
-            # Clean up trailing whitespace
-            gsub(/[[:space:]]+$/, "", response)
-            # Also remove leading whitespace
-            gsub(/^[[:space:]]+/, "", response)
-            if (length(response) > 0) {
-                print response
-            } else {
-                print "No response received from Copilot. Please try again."
-            }
-        }
-    '
+    # The copilot CLI shows responses in a specific format
+    # We need to extract only the actual AI response, not the echoed user input
+    
+    # Strategy: Find the last occurrence of the user's message, then capture everything after it
+    # until we hit the prompt marker (">")
+    
+    # Use a Python one-liner for more reliable text parsing
+    echo "$full_output" | python3 -c "
+import sys
+import re
+
+full_text = sys.stdin.read()
+message = '''$message'''
+
+# Split by lines for processing
+lines = full_text.split('\n')
+
+# Find the LAST occurrence of the user message (it may appear multiple times due to echo)
+last_msg_idx = -1
+for i in range(len(lines) - 1, -1, -1):
+    if message.strip() in lines[i]:
+        last_msg_idx = i
+        break
+
+if last_msg_idx == -1:
+    # Message not found, try to extract any copilot response
+    # Look for lines that don't start with '>' and aren't empty
+    response_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith('>'):
+            response_lines.append(line)
+    
+    if response_lines:
+        print('\n'.join(response_lines))
+    else:
+        print('No response from Copilot')
+    sys.exit(0)
+
+# Start capturing from the line AFTER the last message occurrence
+response_lines = []
+capturing = False
+
+for i in range(last_msg_idx + 1, len(lines)):
+    line = lines[i]
+    stripped = line.strip()
+    
+    # Skip empty lines immediately after the message
+    if not capturing and not stripped:
+        continue
+    
+    # Stop if we hit a prompt indicator
+    if stripped == '>' or stripped == '':
+        if capturing:  # Only stop if we've started capturing
+            break
+    
+    # Skip lines that still look like the echoed message
+    if message.strip() in line:
+        continue
+    
+    # Start capturing non-empty content
+    if stripped:
+        capturing = True
+        response_lines.append(line.rstrip())
+
+# Output the response
+if response_lines:
+    print('\n'.join(response_lines))
+else:
+    print('Copilot is processing your request...')
+"
 }
 
 # Function to check session health
