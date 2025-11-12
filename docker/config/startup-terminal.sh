@@ -129,7 +129,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
                 echo "✓ Workspace trust prompt detected - sending option 2" | tee -a "$LOG_FILE"
                 echo "workspace-trust" > "$AUTH_STATUS_FILE"
-                tmux send-keys -t copilot-setup "2" C-m
+                tmux send-keys -t copilot-setup "2"
                 
                 # Wait for login prompt with retries (can take several seconds after trust)
                 for i in {1..10}; do
@@ -158,7 +158,7 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
                     echo "✓ Account selection prompt detected - selecting GitHub.com" | tee -a "$LOG_FILE"
                     echo "account-selection" > "$AUTH_STATUS_FILE"
-                    tmux send-keys -t dev-farm "1" C-m
+                    tmux send-keys -t dev-farm "1"
                     sleep 3
                     OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                 fi
