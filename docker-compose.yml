@@ -2,8 +2,7 @@ services:
   dashboard:
     build: ./dashboard
     container_name: devfarm-dashboard
-    ports:
-      - "5000:5000"
+    network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - devfarm-data:/data
@@ -22,8 +21,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-    networks:
-      - devfarm
   
   # Terminal image builder - builds the image but doesn't run a container
   # This ensures the terminal image exists before trying to use it
@@ -40,13 +37,12 @@ services:
   updater:
     image: docker:27-cli
     container_name: devfarm-updater
+    network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/dev-farm:/opt/dev-farm
     restart: unless-stopped
     command: tail -f /dev/null
-    networks:
-      - devfarm
 
 networks:
   devfarm:
