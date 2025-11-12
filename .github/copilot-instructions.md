@@ -359,6 +359,14 @@ curl -N http://192.168.1.126:5000/api/stream
 
 ## Recent Breaking Changes
 
+- **2025-11-12**: Confirmed Copilot CLI automation working correctly
+  - **Observation**: Created fresh terminal environment `observe-2964821360` and monitored live container logs
+  - **Finding**: Automation successfully detects workspace trust prompt: `✓ Workspace trust prompt detected`
+  - **Finding**: Copilot authentication persists in Docker volumes, so device flow only happens once
+  - **Behavior**: Container logs show `✓ Copilot CLI already authenticated` when auth is cached
+  - **Behavior**: Device flow (login/account selection/device code) only triggers on first-ever authentication
+  - **Test caveat**: E2E tests won't see full device flow if volumes have cached authentication
+  - **Verification**: To test full flow, must use fresh volume or delete workspace auth data
 - **2025-11-04**: Fixed SSE reconnection during system updates (commit 49f1a9c)
   - **Issue**: Dashboard restart during system update (after pulling code) caused SSE connection loss
   - **Symptom**: Modal showed "Update in progress..." with no progress messages after reconnection

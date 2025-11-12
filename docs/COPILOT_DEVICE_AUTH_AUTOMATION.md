@@ -37,6 +37,7 @@ fi
 **Why**: Copilot CLI requires workspace trust on first run to prevent malicious code execution.
 
 **Options**:
+
 - Option 1: "Yes, I trust the authors" (trust once, will ask again)
 - Option 2: "Yes, and remember this folder for future sessions" (trust and persist)
 - Option 3: "No, I don't trust the authors" (deny)
