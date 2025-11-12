@@ -89,6 +89,13 @@ async function runUpdate(docker: Docker) {
   }
   appendStage('rebuild_codeserver', 'success', 'code-server image rebuilt');
 
+  appendStage('rebuild_terminal', 'starting', 'Rebuilding terminal image');
+  const terminalResult = await buildImage(docker, 'terminal');
+  if (!terminalResult.success) {
+    throw new Error(`terminal build failed (exit ${terminalResult.exitCode}): ${terminalResult.output.slice(-400)}`);
+  }
+  appendStage('rebuild_terminal', 'success', 'Terminal image rebuilt');
+
   appendStage('rebuild_dashboard', 'starting', 'Rebuilding dashboard image');
   const dashboardResult = await buildImage(docker, 'dashboard');
   if (!dashboardResult.success) {
