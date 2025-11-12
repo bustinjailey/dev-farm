@@ -130,8 +130,16 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 echo "✓ Workspace trust prompt detected - sending option 2" | tee -a "$LOG_FILE"
                 echo "workspace-trust" > "$AUTH_STATUS_FILE"
                 tmux send-keys -t copilot-setup "2" C-m
-                sleep 3
-                OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+                
+                # Wait for login prompt with retries (can take several seconds after trust)
+                for i in {1..10}; do
+                    sleep 2
+                    OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
+                    if echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|How can I help"; then
+                        echo "✓ Workspace trust processed (attempt $i)" | tee -a "$LOG_FILE"
+                        break
+                    fi
+                done
             fi
             
             # Check if we need to run /login (only if NOT already showing Welcome)
