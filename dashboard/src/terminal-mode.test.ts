@@ -81,11 +81,11 @@ describe('Terminal Mode Configuration', () => {
     
     // Check for new @github/copilot package
     expect(script).toContain('@github/copilot');
-    expect(script).toContain('npm install -g');
+    expect(script).toContain('pnpm add -g');
     
-    // Check for NPM global path setup
-    expect(script).toContain('NPM_CONFIG_PREFIX');
-    expect(script).toContain('.npm-global');
+    // Check for PNPM global path setup
+    expect(script).toContain('PNPM_HOME');
+    expect(script).toContain('/home/coder/.local/share/pnpm');
     
     // Check for device flow initiation
     expect(script).toContain('device flow authentication');
@@ -106,8 +106,8 @@ describe('Terminal Mode Configuration', () => {
     // Check for permissions
     expect(dockerfile).toContain('chmod +x');
     
-    // Check for node-pty and express dependencies
-    expect(dockerfile).toContain('express');
+    // Check for node-pty dependency (npm install command)
+    expect(dockerfile).toContain('npm install');
     expect(dockerfile).toContain('node-pty');
     
     // Check for jq (needed for JSON parsing in copilot-chat.sh)
