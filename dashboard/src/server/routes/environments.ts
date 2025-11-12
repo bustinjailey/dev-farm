@@ -192,7 +192,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
               });
 
               const status = authStatus.trim();
-              fastify.log.debug({ envId, status }, 'Terminal mode: Copilot auth status');
+              fastify.log.info({ envId, status, mode: record.mode }, 'Terminal mode: Copilot auth status check');
 
               if (status === 'authenticated') {
                 // Authentication completed - clear device auth state
