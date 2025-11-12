@@ -354,15 +354,19 @@ set -g status-right '%Y-%m-%d %H:%M'
 setw -g window-status-current-style bg=white,fg=blue,bold
 TMUXCONF
 
-# Start tmux server with initial session running copilot
+# Start tmux server with initial session - DO NOT auto-start copilot
+# Copilot authentication happens in the background copilot-auth session
+# Users should use the AI Chat panel in the dashboard, not run copilot manually
 if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>&1 | tee -a "$LOG_FILE"; then
     echo "✓ Tmux session 'dev-farm' created successfully" | tee -a "$LOG_FILE"
+    echo "✓ Terminal session ready (Copilot available via dashboard AI chat)" | tee -a "$LOG_FILE"
     
-    # Start copilot with --allow-all-tools in the main terminal session
-    echo "✓ Starting copilot CLI in terminal session..." | tee -a "$LOG_FILE"
-    tmux send-keys -t dev-farm "export PATH=$PNPM_HOME:\$PATH" C-m
-    sleep 1
-    tmux send-keys -t dev-farm "copilot --allow-all-tools" C-m
+    # Display welcome message in terminal
+    tmux send-keys -t dev-farm "cat /home/coder/workspace/WELCOME.txt" C-m
+    tmux send-keys -t dev-farm "echo ''" C-m
+    tmux send-keys -t dev-farm "echo '💡 TIP: Use the AI Chat panel in the dashboard to interact with Copilot'" C-m
+    tmux send-keys -t dev-farm "echo '   Running copilot manually will require workspace trust confirmation'" C-m
+    tmux send-keys -t dev-farm "echo ''" C-m
     
     TMUX_READY=true
 else
