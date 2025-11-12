@@ -76,6 +76,7 @@
   let envDeviceAuth = $state<
     Record<string, { code: string; url: string } | null>
   >({});
+  let envCopilotStatus = $state<Record<string, string>>({});
 
   function reconcileDeviceAuth(list: EnvironmentSummary[]) {
     const next: Record<string, { code: string; url: string } | null> = {};
@@ -544,6 +545,19 @@
           const { [payload.env_id]: _ignored, ...rest } = envDeviceAuth;
           envDeviceAuth = rest;
         }
+        // Clear copilot status
+        if (envCopilotStatus[payload.env_id]) {
+          const { [payload.env_id]: _ignored2, ...rest2 } = envCopilotStatus;
+          envCopilotStatus = rest2;
+        }
+      };
+
+      const copilotStatusHandler = (payload: any) => {
+        // Update copilot setup status for granular progress
+        envCopilotStatus = {
+          ...envCopilotStatus,
+          [payload.env_id]: payload.status,
+        };
       };
 
       const systemStatusHandler = (payload: any) => {
@@ -571,6 +585,7 @@
       sseClient.on("update-started", updateHandler);
       sseClient.on("device-auth", deviceAuthHandler);
       sseClient.on("copilot-ready", copilotReadyHandler);
+      sseClient.on("copilot-status", copilotStatusHandler);
       sseClient.on("system-status", systemStatusHandler);
       sseClient.on("cache-bust", cacheBustHandler);
 
@@ -681,6 +696,7 @@
             actionBusy={actionBusy[env.id] || false}
             desktopCopyState={desktopCopyState[env.id] || ""}
             deviceAuth={envDeviceAuth[env.id] ?? env.deviceAuth ?? null}
+            copilotStatus={envCopilotStatus[env.id]}
             monitorOpen={monitorOpen[env.id] || false}
             aiOpen={aiOpen[env.id] || false}
             onStart={() => perform(env.id, "start")}

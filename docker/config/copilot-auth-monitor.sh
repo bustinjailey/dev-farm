@@ -34,43 +34,37 @@ while true; do
     export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
     
     if command -v copilot >/dev/null 2>&1; then
-        # Check if the auth session exists and see if user completed auth
-        if tmux has-session -t copilot-auth 2>/dev/null; then
+        # Check if the main dev-farm session shows copilot is authenticated
+        if tmux has-session -t dev-farm 2>/dev/null; then
             # Capture the session output
-            OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -30 2>/dev/null || echo "")
+            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -30 2>/dev/null || echo "")
             
-            # Check if authentication completed (user sees welcome or prompt)
-            if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do|Authentication successful"; then
-                echo "✅ Copilot authentication detected!" | tee -a "$LOG_FILE"
-                
-                # Send /login command to complete the flow automatically
-                echo "✓ Completing authentication flow..." | tee -a "$LOG_FILE"
-                tmux send-keys -t copilot-auth "/login" C-m
-                sleep 2
-                
-                # Mark as authenticated
-                echo "authenticated" > "$AUTH_STATUS_FILE"
-                
-                # Remove device auth file to signal completion
-                rm -f "$DEVICE_AUTH_FILE"
-                
-                # Kill the auth session since we're done
-                tmux kill-session -t copilot-auth 2>/dev/null || true
-                
-                echo "✅ Copilot authentication completed successfully!" | tee -a "$LOG_FILE"
-                echo "🤖 Copilot CLI is ready to use" | tee -a "$LOG_FILE"
-                break
+            # Check if authentication completed (user sees actual prompt, not just welcome banner)
+            # Must have prompt indicator AND no auth prompts
+            if echo "$OUTPUT" | grep -qE "How can I help|What can I do"; then
+                if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device"; then
+                    echo "✅ Copilot authentication completed!" | tee -a "$LOG_FILE"
+                    
+                    # Mark as authenticated
+                    echo "authenticated" > "$AUTH_STATUS_FILE"
+                    
+                    # Remove device auth file to signal completion
+                    rm -f "$DEVICE_AUTH_FILE"
+                    
+                    echo "🤖 Copilot CLI is ready to use" | tee -a "$LOG_FILE"
+                    break
+                fi
             fi
         else
-            # Auth session doesn't exist, try testing with a simple command
-            if timeout 10s echo "test" | copilot --allow-all-tools 2>&1 | grep -qE "Welcome|How can I help|What can I do"; then
+            # Session doesn't exist, try testing with a simple command
+            if timeout 10s echo "test" | copilot --allow-all-tools 2>&1 | grep -qE "How can I help|What can I do"; then
                 # Successfully authenticated!
                 echo "authenticated" > "$AUTH_STATUS_FILE"
                 
                 # Remove device auth file to signal completion
                 rm -f "$DEVICE_AUTH_FILE"
                 
-                echo "✅ Copilot authentication completed successfully!" | tee -a "$LOG_FILE"
+                echo "✅ Copilot authentication completed!" | tee -a "$LOG_FILE"
                 echo "🤖 Copilot CLI is ready to use" | tee -a "$LOG_FILE"
                 break
             fi

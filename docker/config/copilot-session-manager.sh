@@ -2,7 +2,7 @@
 # Manages a persistent copilot session for dashboard chat
 # This avoids creating new sessions for each message, improving efficiency
 
-SESSION_NAME="copilot-auth"
+SESSION_NAME="dev-farm"
 LOG_FILE="/home/coder/workspace/.terminal.log"
 
 # Ensure npm global bin and pnpm home are in PATH
@@ -21,10 +21,10 @@ ensure_session() {
         return 0
     fi
     
-    # The copilot-auth session should already exist (created by startup.sh)
+    # The dev-farm session should already exist (created by startup.sh)
     # It has workspace trust automation and device auth handling
     # We should NOT create a new session here, as it would require manual trust confirmation
-    echo "⚠ copilot-auth session does not exist - may not be initialized yet" | tee -a "$LOG_FILE"
+    echo "⚠ dev-farm session does not exist - may not be initialized yet" | tee -a "$LOG_FILE"
     echo "⚠ This session is created by startup.sh with automation" | tee -a "$LOG_FILE"
     return 1
     
@@ -190,16 +190,11 @@ for i in range(last_msg_idx + 1, len(lines)):
     if not capturing and not stripped:
         continue
     
-    # Stop if we hit a prompt indicator
-    if stripped == '>' or stripped == '':
-        if capturing:  # Only stop if we've started capturing
-            break
+    # Stop if we hit a prompt indicator (but only after capturing started)
+    if stripped == '>' and capturing:
+        break
     
-    # Skip lines that still look like the echoed message
-    if message.strip() in line:
-        continue
-    
-    # Start capturing non-empty content
+    # Start capturing non-empty content (removed substring filter to fix echo bug)
     if stripped:
         capturing = True
         response_lines.append(line.rstrip())

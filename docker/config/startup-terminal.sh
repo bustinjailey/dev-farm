@@ -104,79 +104,63 @@ done
 if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
     # Verify installation
     if command -v copilot >/dev/null 2>&1; then
-        echo "✓ GitHub Copilot CLI installed successfully at $(which copilot)" | tee -a "$LOG_FILE"
+        echo "✓ Copilot CLI installed" | tee -a "$LOG_FILE"
         
-        # Initiate device flow authentication for Copilot CLI
-        # This captures the device code and URL for dashboard display
-        echo "Initiating GitHub Copilot device flow authentication..." | tee -a "$LOG_FILE"
-        
-        # Create a state file for device auth info
+        # Create state files for device auth info
         DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
         AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
         
-        # Create tmux session for copilot auth
-        if tmux new-session -d -s copilot-auth -c /home/coder/workspace 2>/dev/null; then
-            echo "✓ Created tmux session for copilot auth" | tee -a "$LOG_FILE"
-            
-            # Start copilot in that session with --allow-all-tools flag
-            tmux send-keys -t copilot-auth "export PATH=$PNPM_HOME:\$PATH" C-m
+        # Set initial status
+        echo "configuring" > "$AUTH_STATUS_FILE"
+        
+        # Create temporary tmux session for automation (will become main session)
+        if tmux new-session -d -s copilot-setup -c /home/coder/workspace 2>/dev/null; then
+            # Start copilot with --allow-all-tools flag
+            tmux send-keys -t copilot-setup "export PATH=$PNPM_HOME:\$PATH" C-m
             sleep 2
-            tmux send-keys -t copilot-auth "copilot --allow-all-tools" C-m
-            sleep 5  # Increased wait for workspace trust prompt
+            tmux send-keys -t copilot-setup "copilot --allow-all-tools" C-m
+            sleep 5
             
             # Capture output to check for workspace trust prompt
-            OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+            OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
             
             # Check if we need to confirm workspace trust
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
-                echo "✓ Workspace trust prompt detected, auto-confirming..." | tee -a "$LOG_FILE"
-                # Send "2" to select "Yes, and remember this folder for future sessions"
-                tmux send-keys -t copilot-auth "2" C-m
+                echo "workspace-trust" > "$AUTH_STATUS_FILE"
+                tmux send-keys -t copilot-setup "2" C-m
                 sleep 3
-                
-                # Capture output again after trust confirmation
-                OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+                OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
             fi
             
-            # Check if we need to run /login
+            # Check if we need to run /login (only if NOT already showing Welcome)
             if echo "$OUTPUT" | grep -q "Please use /login to sign in to use Copilot"; then
-                echo "✓ Login prompt detected, sending /login command..." | tee -a "$LOG_FILE"
-                tmux send-keys -t copilot-auth "/login" C-m
+                echo "login" > "$AUTH_STATUS_FILE"
+                tmux send-keys -t copilot-setup "/login" C-m
                 sleep 3
+                OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
                 
                 # After /login, check for account selection
-                OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
-                
                 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
-                    echo "✓ Account selection prompt detected, selecting GitHub.com..." | tee -a "$LOG_FILE"
-                    # Send "1" to select GitHub.com
-                    tmux send-keys -t copilot-auth "1" C-m
+                    echo "account-selection" > "$AUTH_STATUS_FILE"
+                    tmux send-keys -t copilot-setup "1" C-m
                     sleep 3
-                    
-                    # Capture output again to get device code
-                    OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+                    OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
                 fi
             fi
             
-            # Now capture the final output with device code
-            OUTPUT=$(tmux capture-pane -t copilot-auth -p -S -50)
+            # Check final state
+            OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
             
-            # Parse device code and URL from output
-            # Device code format: XXXX-XXXX (e.g., 7F6B-693E)
+            # Parse device code if present
             if echo "$OUTPUT" | grep -q "github.com/login/device"; then
-                # Try multiple patterns to extract device code
                 DEVICE_CODE=$(echo "$OUTPUT" | grep -oP "Enter one-time code: \K[A-Z0-9]{4}-[A-Z0-9]{4}" || \
                               echo "$OUTPUT" | grep -oP "Enter one time code: \K[A-Z0-9]{4}-[A-Z0-9]{4}" || \
                               echo "$OUTPUT" | grep -oP "code: \K[A-Z0-9]{4}-[A-Z0-9]{4}" || \
-                              echo "$OUTPUT" | grep -oP "\b[A-Z0-9]{4}-[A-Z0-9]{4}\b" | head -1 || \
-                              echo "")
+                              echo "$OUTPUT" | grep -oP "\b[A-Z0-9]{4}-[A-Z0-9]{4}\b" | head -1 || echo "")
                 DEVICE_URL=$(echo "$OUTPUT" | grep -oP "https://github\.com/login/device[^\s]*" || echo "https://github.com/login/device")
                 
                 if [ -n "$DEVICE_CODE" ]; then
-                    echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
-                    echo "✓ Auth URL: $DEVICE_URL" | tee -a "$LOG_FILE"
-                    
-                    # Write device auth info to file for dashboard to read
+                    echo "awaiting-auth" > "$AUTH_STATUS_FILE"
                     cat > "$DEVICE_AUTH_FILE" <<EOF
 {
   "code": "$DEVICE_CODE",
@@ -184,29 +168,34 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
   "timestamp": "$(date -Iseconds)"
 }
 EOF
-                    echo "✓ Device auth info saved to $DEVICE_AUTH_FILE" | tee -a "$LOG_FILE"
+                    # Rename setup session to dev-farm (this becomes the main user session)
+                    tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                     
                     # Start background auth monitor
-                    echo "✓ Starting authentication monitor" | tee -a "$LOG_FILE"
                     nohup /home/coder/copilot-auth-monitor.sh >> "$LOG_FILE" 2>&1 &
-                    echo "✓ Authentication monitor running in background" | tee -a "$LOG_FILE"
+                fi
+            elif echo "$OUTPUT" | grep -q "Please use /login"; then
+                # Still showing login prompt, not authenticated yet
+                echo "awaiting-auth" > "$AUTH_STATUS_FILE"
+                tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
+            elif echo "$OUTPUT" | grep -qE "How can I help|What can I do"; then
+                # Only consider authenticated if we see the actual prompt, not just Welcome banner
+                # AND we don't see any auth prompts
+                if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device"; then
+                    echo "authenticated" > "$AUTH_STATUS_FILE"
+                    tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                 else
-                    echo "⚠ Could not parse device code from copilot output" | tee -a "$LOG_FILE"
+                    echo "awaiting-auth" > "$AUTH_STATUS_FILE"
+                    tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
                 fi
             else
-                # Check if already authenticated
-                if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do"; then
-                    echo "✓ Copilot CLI already authenticated" | tee -a "$LOG_FILE"
-                    echo "authenticated" > "$AUTH_STATUS_FILE"
-                    # Kill the auth session since we don't need it
-                    tmux kill-session -t copilot-auth 2>/dev/null || true
-                else
-                    echo "⚠ Device flow initiation did not produce expected output" | tee -a "$LOG_FILE"
-                    echo "⚠ Output: $OUTPUT" | tee -a "$LOG_FILE"
-                fi
+                # Unknown state - assume needs auth
+                echo "awaiting-auth" > "$AUTH_STATUS_FILE"
+                tmux rename-session -t copilot-setup dev-farm 2>/dev/null || true
             fi
         else
-            echo "⚠ Failed to create tmux session for copilot auth" | tee -a "$LOG_FILE"
+            echo "⚠ Failed to create tmux session" | tee -a "$LOG_FILE"
+            echo "error" > "$AUTH_STATUS_FILE"
         fi
     else
         echo "⚠ Copilot installed but not found in PATH" | tee -a "$LOG_FILE"
@@ -354,24 +343,26 @@ set -g status-right '%Y-%m-%d %H:%M'
 setw -g window-status-current-style bg=white,fg=blue,bold
 TMUXCONF
 
-# Start tmux server with initial session - DO NOT auto-start copilot
-# Copilot authentication happens in the background copilot-auth session
-# Users should use the AI Chat panel in the dashboard, not run copilot manually
-if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>&1 | tee -a "$LOG_FILE"; then
-    echo "✓ Tmux session 'dev-farm' created successfully" | tee -a "$LOG_FILE"
-    echo "✓ Terminal session ready (Copilot available via dashboard AI chat)" | tee -a "$LOG_FILE"
+# Dev-farm session already created during Copilot setup above
+# Just verify it exists and is ready
+if tmux has-session -t dev-farm 2>/dev/null; then
+    echo "✓ Terminal session ready" | tee -a "$LOG_FILE"
     
     # Display welcome message in terminal
+    tmux send-keys -t dev-farm "clear" C-m
     tmux send-keys -t dev-farm "cat /home/coder/workspace/WELCOME.txt" C-m
-    tmux send-keys -t dev-farm "echo ''" C-m
-    tmux send-keys -t dev-farm "echo '💡 TIP: Use the AI Chat panel in the dashboard to interact with Copilot'" C-m
-    tmux send-keys -t dev-farm "echo '   Running copilot manually will require workspace trust confirmation'" C-m
     tmux send-keys -t dev-farm "echo ''" C-m
     
     TMUX_READY=true
 else
-    echo "⚠ Failed to create tmux session, falling back to direct zsh" | tee -a "$LOG_FILE"
-    TMUX_READY=false
+    # Fallback: create session if it somehow doesn't exist
+    if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>/dev/null; then
+        echo "✓ Created fallback terminal session" | tee -a "$LOG_FILE"
+        TMUX_READY=true
+    else
+        echo "⚠ Failed to create tmux session" | tee -a "$LOG_FILE"
+        TMUX_READY=false
+    fi
 fi
 
 # Start custom terminal server with xterm.js

@@ -7,6 +7,7 @@
     actionBusy: boolean;
     desktopCopyState: "" | "copied" | "failed";
     deviceAuth: { code: string; url: string } | null;
+    copilotStatus?: string;
     onStart: () => void;
     onStop: () => void;
     onDelete: () => void;
@@ -25,6 +26,7 @@
     actionBusy,
     desktopCopyState,
     deviceAuth,
+    copilotStatus,
     onStart,
     onStop,
     onDelete,
@@ -48,7 +50,22 @@
   <header>
     <div>
       <h2>{env.name}</h2>
-      <small>{env.mode} mode • {env.status}</small>
+      <small>
+        {env.mode} mode • {env.status}
+        {#if copilotStatus}
+          {#if copilotStatus === 'configuring'}
+            • Setting up Copilot...
+          {:else if copilotStatus === 'workspace-trust'}
+            • Confirming workspace trust...
+          {:else if copilotStatus === 'login'}
+            • Authenticating...
+          {:else if copilotStatus === 'account-selection'}
+            • Selecting account...
+          {:else if copilotStatus === 'awaiting-auth'}
+            • Awaiting GitHub authentication
+          {/if}
+        {/if}
+      </small>
     </div>
     <span class="badge {env.status}">{env.status}</span>
   </header>

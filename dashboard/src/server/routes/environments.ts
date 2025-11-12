@@ -164,11 +164,13 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                 'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
               ).catch(() => 'unknown');
 
-              if (authStatus.trim() === 'authenticated') {
+              const status = authStatus.trim();
+
+              if (status === 'authenticated') {
                 // Authentication completed - clear device auth state
                 if (lastKnownDeviceAuth.has(envId)) {
                   lastKnownDeviceAuth.delete(envId);
-                  fastify.log.info({ envId }, 'Copilot authenticated successfully (terminal mode)');
+                  fastify.log.info({ envId }, 'Copilot authenticated successfully');
                   sseChannel.broadcast('copilot-ready', {
                     env_id: envId,
                     status: 'ready',
@@ -176,18 +178,29 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                 }
                 requiresAuth = false;
                 deviceAuthInfo = null;
-              } else if (authStatus.trim() === 'timeout') {
+              } else if (status === 'timeout') {
                 // Authentication timed out
                 requiresAuth = true;
                 deviceAuthInfo = { code: 'TIMEOUT', url: '' };
               } else {
-                // Check for device auth file (pending state)
+                // Broadcast granular status for setup progress
+                const lastStatus = lastKnownStatus.get(`${envId}:copilot-status`);
+                if (lastStatus !== status && ['configuring', 'workspace-trust', 'login', 'account-selection', 'awaiting-auth'].includes(status)) {
+                  lastKnownStatus.set(`${envId}:copilot-status`, status);
+                  sseChannel.broadcast('copilot-status', {
+                    env_id: envId,
+                    status: status,
+                  });
+                  fastify.log.info({ envId, status }, 'Copilot setup progress');
+                }
+
+                // Check for device auth file
                 const copilotAuth = await readCopilotDeviceAuth(container);
-                if (copilotAuth && authStatus.trim() === 'pending') {
+                if (copilotAuth) {
                   const cached = lastKnownDeviceAuth.get(envId);
                   if (!cached || cached.code !== copilotAuth.code) {
                     lastKnownDeviceAuth.set(envId, copilotAuth);
-                    fastify.log.info({ envId, code: copilotAuth.code }, 'Copilot device auth detected (terminal mode)');
+                    fastify.log.info({ envId, code: copilotAuth.code }, 'Device auth code available');
                     sseChannel.broadcast('device-auth', {
                       env_id: envId,
                       url: copilotAuth.url,
@@ -198,7 +211,6 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                   deviceAuthInfo = copilotAuth;
                 } else if (!copilotAuth && lastKnownDeviceAuth.has(envId)) {
                   // Auth file removed but status not yet authenticated
-                  // Keep checking for authenticated status
                   requiresAuth = true;
                   deviceAuthInfo = lastKnownDeviceAuth.get(envId) ?? null;
                 }
@@ -518,7 +530,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
 
         // Update lastStarted timestamp
         record.lastStarted = new Date().toISOString();
-        await saveEnvironment(envId, record);
+        await upsertEnvironment(record);
 
         const workspacePath = getWorkspacePath(record.mode);
         const desktopCommand = buildDesktopCommand(envId, workspacePath);
@@ -571,11 +583,11 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       }
       try {
         const container = docker.getContainer(record.containerId);
-        await container.restart();
+        await container.start();
 
         // Update lastStarted timestamp
         record.lastStarted = new Date().toISOString();
-        await saveEnvironment(envId, record);
+        await upsertEnvironment(record);
 
         const workspacePath = getWorkspacePath(record.mode);
         const desktopCommand = buildDesktopCommand(envId, workspacePath);
