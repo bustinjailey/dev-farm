@@ -21,11 +21,11 @@ test.describe('Copilot Chat Echo Bug Prevention', () => {
     await expect(modal).toBeVisible({ timeout: 5000 });
 
     testEnvId = `chat-test-${Date.now().toString().slice(-8)}`;
-    await page.fill('input[placeholder="Optional (max 20 chars)"]', testEnvId);
+    await page.fill('input[placeholder*="Optional"]', testEnvId);
 
-    // Select terminal mode
-    const terminalModeRadio = page.locator('input[value="terminal"]');
-    await terminalModeRadio.check();
+    // Terminal mode is the default, verify it's selected
+    const modeSelect = modal.locator('select');
+    await expect(modeSelect).toHaveValue('terminal');
 
     const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
@@ -99,7 +99,7 @@ test.describe('Copilot Chat Echo Bug Prevention', () => {
     expect(lastMessageText).toBeDefined();
     expect(lastMessageText).not.toBe(testMessage);
     expect(lastMessageText).not.toBe(`> ${testMessage}`);
-    
+
     // Copilot should respond with more than just echoing the input
     // A real Copilot response would be longer or at least different content
     const isEcho = lastMessageText?.toLowerCase().trim() === testMessage.toLowerCase().trim();

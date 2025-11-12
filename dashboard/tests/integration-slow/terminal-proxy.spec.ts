@@ -23,11 +23,11 @@ test.describe('Terminal Proxy with Host Networking', () => {
 
     // Generate unique name
     testEnvId = `term-proxy-${Date.now().toString().slice(-8)}`;
-    await page.fill('input[placeholder="Optional (max 20 chars)"]', testEnvId);
+    await page.fill('input[placeholder*="Optional"]', testEnvId);
 
-    // Terminal mode should be default, but verify
-    const terminalModeRadio = page.locator('input[value="terminal"]');
-    await terminalModeRadio.check();
+    // Terminal mode is the default, verify it's selected
+    const modeSelect = modal.locator('select');
+    await expect(modeSelect).toHaveValue('terminal');
 
     const submitButton = page.locator('button.primary:has-text("Create")');
     await submitButton.click();
@@ -79,7 +79,7 @@ test.describe('Terminal Proxy with Host Networking', () => {
     // Test the terminal proxy endpoint
     const terminalUrl = `/terminal/${testEnvId}`;
     const response = await page.request.get(terminalUrl);
-    
+
     // Should return 200 and HTML content (terminal UI)
     expect(response.status()).toBe(200);
     const contentType = response.headers()['content-type'];
