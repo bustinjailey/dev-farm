@@ -595,7 +595,11 @@
             
             // WebSocket connection
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/terminal`;
+            // Use current page path + /terminal to support proxied environments
+            const basePath = window.location.pathname.endsWith('/') 
+                ? window.location.pathname.slice(0, -1) 
+                : window.location.pathname;
+            const wsUrl = `${protocol}//${window.location.host}${basePath}/terminal`;
             let ws = null;
             let reconnectAttempts = 0;
             const maxReconnectAttempts = 5;
