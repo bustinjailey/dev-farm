@@ -137,6 +137,8 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                     OUTPUT=$(tmux capture-pane -t copilot-setup -p -S -50)
                     if echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|How can I help"; then
                         echo "✓ Workspace trust processed (attempt $i)" | tee -a "$LOG_FILE"
+                        # Wait extra time for CLI to fully initialize before sending commands
+                        sleep 3
                         break
                     fi
                 done
