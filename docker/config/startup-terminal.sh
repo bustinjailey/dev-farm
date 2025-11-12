@@ -265,71 +265,18 @@ elif [ "${DEV_MODE}" = "terminal" ]; then
     echo "Terminal-only mode - ready for CLI operations"
 fi
 
-# Create a friendly WELCOME message
+# Create minimal welcome message (detailed help available in dashboard)
 WELCOME_PATH="/home/coder/workspace/WELCOME.txt"
 cat > "$WELCOME_PATH" <<'EOWELCOME'
-╔══════════════════════════════════════════════════════════════╗
-║                  🚀 Terminal Environment                      ║
-║                      Dev Farm CLI Mode                        ║
-╚══════════════════════════════════════════════════════════════╝
-
-Welcome to your terminal-focused development environment!
-
-🤖 COPILOT AI ASSISTANT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  GitHub Copilot CLI is ready to use from the dashboard AI chat panel!
-  
-  The copilot command runs automatically in this terminal with:
-    • --allow-all-tools flag for full functionality
-    • Interactive chat for code assistance
-    • Direct access to GitHub repos and issues
-    
-  Use natural language to:
-    • Write and edit code
-    • Debug and refactor
-    • Understand codebases
-    • Execute terminal commands
-
-📁 YOUR WORKSPACE:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  • Git Mode: Your repo is in repo/ directory
-  • Terminal Mode: Use workspace/ for your code
-  • Git and GitHub CLI are pre-authenticated
-
-💡 TERMINAL TIPS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  • Ctrl+A then C           Create new tmux window
-  • Ctrl+A then N           Next tmux window
-  • Ctrl+A then P           Previous tmux window
-  • Ctrl+A then D           Detach from tmux session
-  • Ctrl+A then ?           Show all tmux keybindings
-  • ll                      List files (alias for ls -alh)
-
-🚀 USING THE AI ASSISTANT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  This terminal opens with copilot already running!
-  
-  Use the dashboard's AI Assistant panel to chat with Copilot.
-  All your conversations are saved per environment.
-  
-  Example prompts:
-    "Create a Python web server"
-    "Explain this Docker Compose file"
-    "Help me debug this error"
-  
-Happy hacking! 🎉
-
+🚀 Dev Farm Terminal Environment Ready
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • Copilot CLI available via dashboard AI chat panel
+  • GitHub CLI pre-authenticated
+  • tmux session 'dev-farm' (Ctrl+A prefix)
 EOWELCOME
 
-# Display welcome message
-cat "$WELCOME_PATH"
-echo ""
-echo "Starting web terminal on port 8080..."
-echo ""
+# Welcome message is only displayed if Copilot is authenticated
+# (see tmux session check below)
 
 # Initialize tmux session
 echo "Initializing tmux session..." | tee -a "$LOG_FILE"
