@@ -152,7 +152,10 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
             if echo "$OUTPUT" | grep -q "Please use /login"; then
                 echo "✓ Login prompt detected - sending /login command" | tee -a "$LOG_FILE"
                 echo "login" > "$AUTH_STATUS_FILE"
-                tmux send-keys -t dev-farm "/login" C-m
+                # Send command and Enter separately (Copilot CLI requires this)
+                tmux send-keys -t dev-farm "/login"
+                sleep 0.5
+                tmux send-keys -t dev-farm C-m
                 sleep 3
                 OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                 
