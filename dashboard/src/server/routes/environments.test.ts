@@ -18,7 +18,7 @@ import { execToString } from '../../container-exec.js';
  */
 async function readCopilotDeviceAuth(container: Docker.Container): Promise<{ code: string; url: string } | null> {
   try {
-    const output = await execToString(container, 'cat /home/coder/workspace/.copilot-device-auth.json 2>/dev/null || echo ""');
+    const output = await execToString(container, 'cat /root/workspace/.copilot-device-auth.json 2>/dev/null || echo ""');
     if (!output || output.trim() === '') {
       return null;
     }
@@ -52,7 +52,7 @@ describe('readCopilotDeviceAuth', () => {
     });
     expect(execToString).toHaveBeenCalledWith(
       mockContainer,
-      'cat /home/coder/workspace/.copilot-device-auth.json 2>/dev/null || echo ""'
+      'cat /root/workspace/.copilot-device-auth.json 2>/dev/null || echo ""'
     );
   });
 

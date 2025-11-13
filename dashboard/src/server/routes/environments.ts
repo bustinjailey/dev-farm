@@ -87,7 +87,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
 
   async function readCopilotDeviceAuth(container: Docker.Container): Promise<{ code: string; url: string } | null> {
     try {
-      const output = await execToString(container, 'cat /home/coder/workspace/.copilot-device-auth.json 2>/dev/null || echo ""');
+      const output = await execToString(container, 'cat /root/workspace/.copilot-device-auth.json 2>/dev/null || echo ""');
       if (!output || output.trim() === '') {
         return null;
       }
