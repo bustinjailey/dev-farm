@@ -219,9 +219,15 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                 requiresAuth = false;
                 deviceAuthInfo = null;
               } else if (status === 'timeout') {
-                // Authentication timed out
-                requiresAuth = true;
-                deviceAuthInfo = { code: 'TIMEOUT', url: '' };
+                // Authentication timed out - clear old device code
+                lastKnownDeviceAuth.delete(envId);
+                requiresAuth = false;
+                deviceAuthInfo = null;
+                // Broadcast timeout event
+                sseChannel.broadcast('copilot-timeout', {
+                  env_id: envId,
+                  message: 'Authentication timeout - please delete and recreate the environment',
+                });
               } else {
                 // Broadcast granular status for setup progress
                 const lastStatus = lastKnownStatus.get(`${envId}:copilot-status`);

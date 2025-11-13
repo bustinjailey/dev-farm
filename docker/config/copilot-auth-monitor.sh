@@ -9,7 +9,7 @@ DEVICE_AUTH_FILE="/root/workspace/.copilot-device-auth.json"
 AUTH_STATUS_FILE="/root/workspace/.copilot-auth-status"
 LOG_FILE="/root/workspace/.terminal.log"
 CHECK_INTERVAL=5
-MAX_WAIT=300  # 5 minutes
+MAX_WAIT=900  # 15 minutes
 
 # Check if already authenticated - don't start monitor if so
 if [ -f "$AUTH_STATUS_FILE" ] && grep -q "authenticated" "$AUTH_STATUS_FILE" 2>/dev/null; then
