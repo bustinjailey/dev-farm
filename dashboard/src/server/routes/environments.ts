@@ -70,6 +70,7 @@ export interface EnvironmentFeature {
 export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docker): EnvironmentFeature {
   const lastKnownStatus = new Map<string, string>();
   const lastKnownDeviceAuth = new Map<string, { code: string; url: string }>();
+  const authenticatedEnvironments = new Set<string>();
   const aiSessions = new Map<string, { active: boolean; sessionId: string }>();
   const aiOutputCache = new Map<string, string>();
 
@@ -119,15 +120,20 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         let deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
 
         // For terminal mode: check if auth is still required and override status
-        if (env.mode === 'terminal' && (displayStatus === 'starting' || displayStatus === 'running')) {
+        // Only check if we think auth might be required (don't poll unnecessarily)
+        if (env.mode === 'terminal' && requiresAuth && (displayStatus === 'starting' || displayStatus === 'running')) {
           try {
             const authStatus = await execToString(
               container,
-              'cat /root/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
+              'cat /root/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"',
+              { workdir: '/root/workspace' }
             ).catch(() => 'unknown');
 
             const copilotStatus = authStatus.trim();
-            if (copilotStatus !== 'authenticated' && copilotStatus !== 'unknown') {
+            if (copilotStatus === 'authenticated') {
+              // Auth completed - stop checking
+              requiresAuth = false;
+            } else if (copilotStatus !== 'unknown') {
               requiresAuth = true;
               // Override status to "starting" if auth required but container shows running
               if (displayStatus === 'running') {
@@ -183,11 +189,13 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         if (displayStatus === 'starting' || displayStatus === 'running') {
           try {
             // Check for terminal mode Copilot device auth first
-            if (record.mode === 'terminal') {
+            // Only check if we don't already know it's authenticated
+            if (record.mode === 'terminal' && !authenticatedEnvironments.has(envId)) {
               // Check auth status file first
               const authStatus = await execToString(
                 container,
-                'cat /root/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
+                'cat /root/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"',
+                { workdir: '/root/workspace' }
               ).catch((err) => {
                 fastify.log.warn({ envId, err }, 'Failed to read auth status');
                 return 'unknown';
@@ -197,10 +205,12 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
               fastify.log.info({ envId, status, mode: record.mode }, 'Terminal mode: Copilot auth status check');
 
               if (status === 'authenticated') {
-                // Authentication completed - clear device auth state
+                // Authentication completed - mark as authenticated to stop future polling
+                authenticatedEnvironments.add(envId);
+                // Clear device auth state
                 if (lastKnownDeviceAuth.has(envId)) {
                   lastKnownDeviceAuth.delete(envId);
-                  fastify.log.info({ envId }, 'Copilot authenticated successfully');
+                  fastify.log.info({ envId }, 'Copilot authenticated - stopping status checks');
                   sseChannel.broadcast('copilot-ready', {
                     env_id: envId,
                     status: 'ready',

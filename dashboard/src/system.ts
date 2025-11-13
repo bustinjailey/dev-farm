@@ -260,6 +260,7 @@ export async function buildImage(docker: Docker, imageType: 'code-server' | 'ter
   if (imageType === 'code-server') {
     command = `docker build --no-cache -t dev-farm/code-server:latest -f ${HOST_REPO_PATH}/docker/Dockerfile.code-server ${HOST_REPO_PATH}/docker`;
   } else if (imageType === 'terminal') {
+    // Use docker compose to build terminal image (creates dev-farm/terminal:latest per docker-compose.yml)
     command = `docker compose -f ${HOST_REPO_PATH}/docker-compose.yml build --no-cache terminal-builder`;
   } else if (imageType === 'dashboard') {
     command = `docker build --no-cache -t dev-farm-dashboard:latest ${HOST_REPO_PATH}/dashboard`;

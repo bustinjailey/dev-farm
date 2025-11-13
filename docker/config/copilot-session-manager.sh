@@ -102,38 +102,15 @@ send_message() {
     # Strategy: Skip lines until we find content after the user's message,
     # then capture until we see the prompt (">") or output stabilizes
     
-    # Use Python for reliable text parsing with shell command filtering
+    # Use Python for reliable text parsing (no command filtering - user wants to see everything)
     echo "$full_output" | python3 -c "
 import sys
-import re
 
 full_text = sys.stdin.read()
 message = '''$message'''
 
 # Split by lines
 lines = full_text.split('\n')
-
-# Patterns to filter out (shell commands, file operations, etc.)
-filter_patterns = [
-    r'^cat\s+',           # cat commands
-    r'^ls\s+',            # ls commands  
-    r'^echo\s+',          # echo commands
-    r'^grep\s+',          # grep commands
-    r'^\$\s+',            # shell prompts
-    r'^~/.*\$',           # shell prompts with path
-    r'^root@',            # root prompts
-    r'^export\s+',        # export commands
-    r'^cd\s+',            # cd commands
-    r'^\s*#',             # comments
-]
-
-def is_shell_command(line):
-    \"\"\"Check if line looks like a shell command we should filter\"\"\"
-    stripped = line.strip()
-    for pattern in filter_patterns:
-        if re.match(pattern, stripped):
-            return True
-    return False
 
 # Find where user message appears (look from end to get most recent)
 last_msg_idx = -1
@@ -159,10 +136,6 @@ if last_msg_idx == -1:
         if message.strip() in stripped:
             continue
         
-        # Skip shell commands and prompts
-        if is_shell_command(line):
-            continue
-        
         # Capture non-empty content
         response_lines.append(line.rstrip())
         found_content = True
@@ -184,10 +157,6 @@ for i in range(last_msg_idx + 1, len(lines)):
     
     # Skip empty lines at start
     if not response_lines and not stripped:
-        continue
-    
-    # Skip shell commands
-    if is_shell_command(lines[i]):
         continue
     
     # Capture content
