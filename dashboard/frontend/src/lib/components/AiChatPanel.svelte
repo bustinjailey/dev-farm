@@ -63,8 +63,19 @@
       }
     };
 
+    // Listen for AI responses via SSE (real-time streaming)
+    const aiResponseHandler = (payload: any) => {
+      if (payload.env_id === envId && payload.response) {
+        // Update the last assistant message with the new response
+        addAssistantMessage(payload.response);
+        loading = false;
+        error = null;
+      }
+    };
+
     sseClient.on("copilot-ready", copilotReadyHandler);
     sseClient.on("copilot-device-code", copilotDeviceCodeHandler);
+    sseClient.on("ai-response", aiResponseHandler);
 
     // Check initial auth status from deviceAuth prop
     if (deviceAuth) {
@@ -74,6 +85,7 @@
     return () => {
       sseClient.off("copilot-ready", copilotReadyHandler);
       sseClient.off("copilot-device-code", copilotDeviceCodeHandler);
+      sseClient.off("ai-response", aiResponseHandler);
       if (copyTimer) clearTimeout(copyTimer);
     };
   });
@@ -97,21 +109,8 @@
     }
   });
 
-  // Monitor SSE updates for AI responses
-  $effect(() => {
-    if (!open) {
-      lastSseToken = null;
-      return;
-    }
-
-    const token: string | symbol = latestSse ?? EMPTY_SSE;
-    if (token === lastSseToken) {
-      return;
-    }
-
-    lastSseToken = token;
-    refreshOutput();
-  });
+  // Note: AI responses now arrive via SSE 'ai-response' event
+  // No need to poll for output - responses are pushed in real-time
 
   function addSystemMessage(content: string) {
     messages = [
@@ -161,21 +160,6 @@
     }
   }
 
-  async function refreshOutput() {
-    try {
-      const res = await fetchAiOutput(envId);
-      if (res.output) {
-        addAssistantMessage(res.output);
-        error = null;
-      }
-    } catch (err) {
-      // Only show error if we don't already have output
-      if (messages.filter((m) => m.role === "assistant").length === 0) {
-        error = (err as Error).message;
-      }
-    }
-  }
-
   async function submit() {
     if (!input.trim() || loading) return;
 
@@ -188,17 +172,17 @@
 
     try {
       const response = await sendAiMessage(envId, message);
-      // Use the response directly from the chat endpoint if available
+      // Response will arrive via SSE 'ai-response' event
+      // The loading state will be cleared by the SSE handler
       if (response.message) {
+        // If we get an immediate response, display it
         addAssistantMessage(response.message);
-      } else {
-        // Fallback to fetching output if message not in response
-        await refreshOutput();
+        loading = false;
       }
+      // Otherwise, wait for SSE event (loading stays true)
     } catch (err) {
       error = (err as Error).message;
       addSystemMessage(`❌ Error: ${(err as Error).message}`);
-    } finally {
       loading = false;
     }
   }

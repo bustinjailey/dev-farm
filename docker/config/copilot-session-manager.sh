@@ -108,76 +108,62 @@ send_message() {
     # Capture final response with smaller buffer to reduce noise
     local full_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -30 2>/dev/null)
     
-    # Parse output to extract only Copilot's response (not the echoed input)
-    # Strategy: Skip lines until we find content after the user's message,
-    # then capture until we see the prompt (">") or output stabilizes
+    # Parse output to extract ONLY Copilot's response
+    # Strategy: Find the user's message, then capture everything after it until the next prompt
+    # This eliminates echo, terminal artifacts, and other noise
     
-    # Use Python for reliable text parsing (no command filtering - user wants to see everything)
     echo "$full_output" | python3 -c "
 import sys
+import re
 
 full_text = sys.stdin.read()
 message = '''$message'''
 
-# Split by lines
-lines = full_text.split('\n')
+# Split into lines and clean
+lines = [line.rstrip() for line in full_text.split('\n')]
 
-# Find where user message appears (look from end to get most recent)
-last_msg_idx = -1
-for i in range(len(lines) - 1, -1, -1):
-    # Look for exact message match (not substring)
-    if lines[i].strip() == message.strip():
-        last_msg_idx = i
-        break
-
-if last_msg_idx == -1:
-    # If exact match not found, extract content after any Copilot prompt
-    response_lines = []
-    found_content = False
-    
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        
-        # Skip empty lines and prompt markers
-        if not stripped or stripped == '>':
-            continue
-            
-        # Skip the user's message if it appears anywhere
-        if message.strip() in stripped:
-            continue
-        
-        # Capture non-empty content
-        response_lines.append(line.rstrip())
-        found_content = True
-    
-    if found_content:
-        print('\n'.join(response_lines))
-    else:
-        print('Waiting for response...')
-    sys.exit(0)
-
-# Found the message - capture everything after it
+# Strategy: Find where the user typed the message (it will appear after '>')
+# Then capture everything until we see the next standalone '>' prompt
 response_lines = []
-for i in range(last_msg_idx + 1, len(lines)):
-    stripped = lines[i].strip()
-    
-    # Stop at next prompt
-    if stripped == '>':
-        break
-    
-    # Skip empty lines at start
-    if not response_lines and not stripped:
-        continue
-    
-    # Capture content
-    if stripped:
-        response_lines.append(lines[i].rstrip())
+found_user_input = False
+in_response = False
 
-# Output the response
+for i, line in enumerate(lines):
+    stripped = line.strip()
+    
+    # Look for the user's exact input (may appear after '>' or on its own line)
+    if not found_user_input:
+        # Check if this line contains the user's message
+        # It might be '> message' or just 'message' on its own line
+        if message.strip() in line:
+            found_user_input = True
+            in_response = True
+            continue
+    
+    # Once we've found the input, start capturing the response
+    if in_response:
+        # Stop at next prompt (standalone '>' line)
+        if re.match(r'^>\s*$', stripped):
+            break
+        
+        # Skip empty lines at the very start of the response
+        if not response_lines and not stripped:
+            continue
+        
+        # Capture this line as part of the response
+        # Keep the line even if empty (preserves formatting)
+        response_lines.append(line)
+
+# Clean up trailing empty lines
+while response_lines and not response_lines[-1].strip():
+    response_lines.pop()
+
+# Output the clean response
 if response_lines:
     print('\n'.join(response_lines))
 else:
-    print('Processing...')
+    # No response captured - might still be processing
+    print('Thinking...')
 "
 }
 

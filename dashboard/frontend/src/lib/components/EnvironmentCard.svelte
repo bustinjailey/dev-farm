@@ -110,7 +110,7 @@
 
   <div class="actions">
     {#if env.mode === "terminal"}
-      <!-- Terminal mode: show terminal controls with AI chat -->
+      <!-- Terminal mode: simplified controls (open, copilot, delete) -->
       {#if env.status === "running"}
         <a class="btn primary" href={env.url} target="_blank" rel="noopener">
           <span class="btn-text-full">Open Terminal</span>
@@ -122,24 +122,24 @@
           onclick={onToggleAi}
           data-testid="copilot-chat-button"
         >
-          🤖 Copilot Chat
+          🤖 {aiOpen ? "Hide Copilot" : "Copilot"}
         </button>
-        <button class="btn" disabled={actionBusy} onclick={onStop}>
-          ⏸ Stop
+        <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
+          🗑 Delete
         </button>
       {:else if env.status === "starting"}
         <button class="btn" disabled>Starting…</button>
+        <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
+          🗑 Delete
+        </button>
       {:else}
         <button class="btn primary" disabled={actionBusy} onclick={onStart}>
           ▶️ Start
         </button>
+        <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
+          🗑 Delete
+        </button>
       {/if}
-      <button class="btn" disabled={actionBusy} onclick={onOpenLogs}>
-        📝 Logs
-      </button>
-      <button class="btn danger" disabled={actionBusy} onclick={onDelete}>
-        🗑 Delete
-      </button>
     {:else}
       <!-- Non-terminal modes: show all buttons -->
       {#if env.status === "running"}

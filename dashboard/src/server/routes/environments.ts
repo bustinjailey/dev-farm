@@ -715,13 +715,16 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           }
         }
 
-        const existing = aiOutputCache.get(envId) ?? '';
-        const combined = `${existing}\n\n> ${message}\n${output}`.trim();
-        aiOutputCache.set(envId, combined);
+        // Store only the clean response (no echo, no cache accumulation)
+        aiOutputCache.set(envId, output);
+
+        // Broadcast the clean response via SSE for real-time updates
         sseChannel.broadcast('ai-response', {
           env_id: envId,
           response: output,
+          timestamp: new Date().toISOString(),
         });
+
         return { success: true, session_id: sessionId, message: output };
       } catch (error) {
         fastify.log.error({ envId, err: error }, 'Failed to send AI message');
