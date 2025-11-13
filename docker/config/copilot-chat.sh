@@ -19,9 +19,9 @@ fi
 AUTH_STATUS_FILE="/root/workspace/.copilot-auth-status"
 DEVICE_AUTH_FILE="/root/workspace/.copilot-device-auth.json"
 
-# Check authentication status
+# Check authentication status (silently)
 if [ -f "$AUTH_STATUS_FILE" ]; then
-    AUTH_STATUS=$(cat "$AUTH_STATUS_FILE")
+    AUTH_STATUS=$(cat "$AUTH_STATUS_FILE" 2>/dev/null)
     
     if [ "$AUTH_STATUS" = "pending" ] && [ -f "$DEVICE_AUTH_FILE" ]; then
         # Still waiting for authentication

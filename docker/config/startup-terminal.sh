@@ -274,18 +274,16 @@ elif [ "${DEV_MODE}" = "terminal" ]; then
     echo "Terminal-only mode - ready for CLI operations"
 fi
 
-# Create minimal welcome message (detailed help available in dashboard)
+# Create minimal welcome message file (users can cat it if needed)
 WELCOME_PATH="/root/workspace/WELCOME.txt"
 cat > "$WELCOME_PATH" <<'EOWELCOME'
 🚀 Dev Farm Terminal Environment Ready
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  • Copilot CLI available via dashboard AI chat panel
-  • GitHub CLI pre-authenticated
+  • Copilot CLI: Use dashboard AI chat or type "copilot"
+  • GitHub CLI pre-authenticated (use "gh" commands)
   • tmux session 'dev-farm' (Ctrl+A prefix)
+  • Type "cat WELCOME.txt" to see this message again
 EOWELCOME
-
-# Welcome message is only displayed if Copilot is authenticated
-# (see tmux session check below)
 
 # Initialize tmux session
 echo "Initializing tmux session..." | tee -a "$LOG_FILE"
@@ -320,15 +318,6 @@ TMUXCONF
 # Just verify it exists and is ready
 if tmux has-session -t dev-farm 2>/dev/null; then
     echo "✓ Terminal session ready" | tee -a "$LOG_FILE"
-    
-    # Only display welcome message if Copilot automation completed
-    # (Don't interrupt ongoing automation with clear/cat commands)
-    if [ -f "$AUTH_STATUS_FILE" ] && grep -q "authenticated" "$AUTH_STATUS_FILE" 2>/dev/null; then
-        tmux send-keys -t dev-farm "clear" C-m
-        tmux send-keys -t dev-farm "cat /root/workspace/WELCOME.txt" C-m
-        tmux send-keys -t dev-farm "echo ''" C-m
-    fi
-    
     TMUX_READY=true
 else
     # Fallback: create session if it somehow doesn't exist

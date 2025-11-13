@@ -1,6 +1,7 @@
 #!/bin/bash
 # Manages a persistent copilot session for dashboard chat
 # This avoids creating new sessions for each message, improving efficiency
+# Uses the same dev-farm session so users see the conversation in their terminal
 
 SESSION_NAME="dev-farm"
 LOG_FILE="/root/workspace/.terminal.log"
@@ -17,54 +18,13 @@ session_exists() {
 # Function to ensure session is ready
 ensure_session() {
     if session_exists; then
-        echo "Session already exists"
         return 0
     fi
     
     # The dev-farm session should already exist (created by startup.sh)
-    # It has workspace trust automation and device auth handling
-    # We should NOT create a new session here, as it would require manual trust confirmation
-    echo "⚠ dev-farm session does not exist - may not be initialized yet" | tee -a "$LOG_FILE"
-    echo "⚠ This session is created by startup.sh with automation" | tee -a "$LOG_FILE"
+    # If it doesn't exist, something went wrong during startup
+    echo "⚠ dev-farm session does not exist - startup may have failed" | tee -a "$LOG_FILE"
     return 1
-    
-    # LEGACY CODE (disabled - we now use the pre-created copilot-auth session):
-    # echo "Creating new copilot session..." | tee -a "$LOG_FILE"
-    # if ! tmux new-session -d -s "$SESSION_NAME" -c /root/workspace "copilot --allow-all-tools" 2>/dev/null; then
-    #     echo "Error: Failed to create copilot session" | tee -a "$LOG_FILE"
-    #     return 1
-    # fi
-    # sleep 2
-    
-    # Check if copilot is ready by capturing output
-    local ready=false
-    local max_attempts=15
-    for i in $(seq 1 $max_attempts); do
-        OUTPUT=$(tmux capture-pane -t "$SESSION_NAME" -p -S -20 2>/dev/null || echo "")
-        
-        # Check for ready state (welcome message or prompt)
-        if echo "$OUTPUT" | grep -qE "Welcome|How can I help|What can I do|^>"; then
-            ready=true
-            echo "✓ Copilot session ready" | tee -a "$LOG_FILE"
-            break
-        fi
-        
-        # Check if authentication is needed
-        if echo "$OUTPUT" | grep -qE "github.com/login/device|Enter one time code"; then
-            echo "⚠ Copilot needs authentication. Please complete GitHub device auth." | tee -a "$LOG_FILE"
-            return 1
-        fi
-        
-        sleep 1
-    done
-    
-    if [ "$ready" = "true" ]; then
-        return 0
-    else
-        echo "⚠ Copilot session created but may not be fully initialized" | tee -a "$LOG_FILE"
-        echo "⚠ Last output: $OUTPUT" | tee -a "$LOG_FILE"
-        return 1
-    fi
 }
 
 # Function to send message and capture response
@@ -92,9 +52,9 @@ send_message() {
     sleep 1
     
     # Determine timeout based on message complexity
-    local timeout=20
+    local timeout=15
     if echo "$message" | grep -qiE "explain|analyze|refactor|debug|create|build|write|code|function|class"; then
-        timeout=35
+        timeout=25
     fi
     
     # Wait for response with polling
@@ -135,17 +95,14 @@ send_message() {
         last_line_count=$current_line_count
     done
     
-    # Capture final response
-    local full_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -100 2>/dev/null)
+    # Capture final response with smaller buffer to reduce noise
+    local full_output=$(tmux capture-pane -t "$SESSION_NAME" -p -S -30 2>/dev/null)
     
     # Parse output to extract only Copilot's response (not the echoed input)
-    # The copilot CLI shows responses in a specific format
-    # We need to extract only the actual AI response, not the echoed user input
+    # Strategy: Skip lines until we find content after the user's message,
+    # then capture until we see the prompt (">") or output stabilizes
     
-    # Strategy: Find the last occurrence of the user's message, then capture everything after it
-    # until we hit the prompt marker (">")
-    
-    # Use a Python one-liner for more reliable text parsing
+    # Use Python for reliable text parsing with shell command filtering
     echo "$full_output" | python3 -c "
 import sys
 import re
@@ -153,57 +110,95 @@ import re
 full_text = sys.stdin.read()
 message = '''$message'''
 
-# Split by lines for processing
+# Split by lines
 lines = full_text.split('\n')
 
-# Find the LAST occurrence of the user message (it may appear multiple times due to echo)
+# Patterns to filter out (shell commands, file operations, etc.)
+filter_patterns = [
+    r'^cat\s+',           # cat commands
+    r'^ls\s+',            # ls commands  
+    r'^echo\s+',          # echo commands
+    r'^grep\s+',          # grep commands
+    r'^\$\s+',            # shell prompts
+    r'^~/.*\$',           # shell prompts with path
+    r'^root@',            # root prompts
+    r'^export\s+',        # export commands
+    r'^cd\s+',            # cd commands
+    r'^\s*#',             # comments
+]
+
+def is_shell_command(line):
+    \"\"\"Check if line looks like a shell command we should filter\"\"\"
+    stripped = line.strip()
+    for pattern in filter_patterns:
+        if re.match(pattern, stripped):
+            return True
+    return False
+
+# Find where user message appears (look from end to get most recent)
 last_msg_idx = -1
 for i in range(len(lines) - 1, -1, -1):
-    if message.strip() in lines[i]:
+    # Look for exact message match (not substring)
+    if lines[i].strip() == message.strip():
         last_msg_idx = i
         break
 
 if last_msg_idx == -1:
-    # Message not found, try to extract any copilot response
-    # Look for lines that don't start with '>' and aren't empty
+    # If exact match not found, extract content after any Copilot prompt
     response_lines = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not stripped.startswith('>'):
-            response_lines.append(line)
+    found_content = False
     
-    if response_lines:
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        # Skip empty lines and prompt markers
+        if not stripped or stripped == '>':
+            continue
+            
+        # Skip the user's message if it appears anywhere
+        if message.strip() in stripped:
+            continue
+        
+        # Skip shell commands and prompts
+        if is_shell_command(line):
+            continue
+        
+        # Capture non-empty content
+        response_lines.append(line.rstrip())
+        found_content = True
+    
+    if found_content:
         print('\n'.join(response_lines))
     else:
-        print('No response from Copilot')
+        print('Waiting for response...')
     sys.exit(0)
 
-# Start capturing from the line AFTER the last message occurrence
+# Found the message - capture everything after it
 response_lines = []
-capturing = False
-
 for i in range(last_msg_idx + 1, len(lines)):
-    line = lines[i]
-    stripped = line.strip()
+    stripped = lines[i].strip()
     
-    # Skip empty lines immediately after the message
-    if not capturing and not stripped:
-        continue
-    
-    # Stop if we hit a prompt indicator (but only after capturing started)
-    if stripped == '>' and capturing:
+    # Stop at next prompt
+    if stripped == '>':
         break
     
-    # Start capturing non-empty content (removed substring filter to fix echo bug)
+    # Skip empty lines at start
+    if not response_lines and not stripped:
+        continue
+    
+    # Skip shell commands
+    if is_shell_command(lines[i]):
+        continue
+    
+    # Capture content
     if stripped:
-        capturing = True
-        response_lines.append(line.rstrip())
+        response_lines.append(lines[i].rstrip())
 
 # Output the response
 if response_lines:
     print('\n'.join(response_lines))
 else:
-    print('Copilot is processing your request...')
+    print('Processing...')
 "
 }
 

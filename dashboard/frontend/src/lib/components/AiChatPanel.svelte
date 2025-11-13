@@ -1,37 +1,37 @@
 <script lang="ts">
-  import { sendAiMessage, fetchAiOutput } from '../api';
-  import { sseClient } from '../sse';
-  import { onMount, onDestroy } from 'svelte';
+  import { sendAiMessage, fetchAiOutput } from "../api";
+  import { sseClient } from "../sse";
+  import { onMount, onDestroy } from "svelte";
 
-  let { 
-    envId, 
-    open = false, 
+  let {
+    envId,
+    open = false,
     latestSse = null,
     deviceAuth = null,
-  }: { 
-    envId: string; 
-    open?: boolean; 
+  }: {
+    envId: string;
+    open?: boolean;
     latestSse?: string | null;
     deviceAuth?: { code: string; url: string } | null;
   } = $props();
 
   // Message structure for conversation
   interface Message {
-    role: 'user' | 'assistant' | 'system';
+    role: "user" | "assistant" | "system";
     content: string;
     timestamp: number;
   }
 
-  let input = $state('');
+  let input = $state("");
   let messages = $state<Message[]>([]);
   let loading = $state(false);
   let error = $state<string | null>(null);
-  let authStatus = $state<'unknown' | 'pending' | 'authenticated'>('unknown');
+  let authStatus = $state<"unknown" | "pending" | "authenticated">("unknown");
   let copilotReady = $state(false);
-  let copyState = $state<'idle' | 'copied' | 'failed'>('idle');
+  let copyState = $state<"idle" | "copied" | "failed">("idle");
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
   let messagesContainer: HTMLDivElement | null = null;
-  const EMPTY_SSE = Symbol('empty-sse');
+  const EMPTY_SSE = Symbol("empty-sse");
   let lastSseToken: string | symbol | null = null;
 
   // Load conversation from localStorage on mount
@@ -41,7 +41,7 @@
       try {
         messages = JSON.parse(stored);
       } catch (e) {
-        console.error('Failed to load conversation history', e);
+        console.error("Failed to load conversation history", e);
       }
     }
 
@@ -49,29 +49,31 @@
     const copilotReadyHandler = (payload: any) => {
       if (payload.env_id === envId) {
         copilotReady = true;
-        authStatus = 'authenticated';
-        addSystemMessage('✅ GitHub Copilot is ready!');
+        authStatus = "authenticated";
+        addSystemMessage("✅ GitHub Copilot is ready!");
       }
     };
 
     const copilotDeviceCodeHandler = (payload: any) => {
       if (payload.env_id === envId) {
-        authStatus = 'pending';
-        addSystemMessage('⏳ Authentication required. Please complete GitHub authentication.');
+        authStatus = "pending";
+        addSystemMessage(
+          "⏳ Authentication required. Please complete GitHub authentication."
+        );
       }
     };
 
-    sseClient.on('copilot-ready', copilotReadyHandler);
-    sseClient.on('copilot-device-code', copilotDeviceCodeHandler);
+    sseClient.on("copilot-ready", copilotReadyHandler);
+    sseClient.on("copilot-device-code", copilotDeviceCodeHandler);
 
     // Check initial auth status from deviceAuth prop
     if (deviceAuth) {
-      authStatus = 'pending';
+      authStatus = "pending";
     }
 
     return () => {
-      sseClient.off('copilot-ready', copilotReadyHandler);
-      sseClient.off('copilot-device-code', copilotDeviceCodeHandler);
+      sseClient.off("copilot-ready", copilotReadyHandler);
+      sseClient.off("copilot-device-code", copilotDeviceCodeHandler);
       if (copyTimer) clearTimeout(copyTimer);
     };
   });
@@ -89,7 +91,7 @@
       setTimeout(() => {
         messagesContainer?.scrollTo({
           top: messagesContainer.scrollHeight,
-          behavior: 'smooth'
+          behavior: "smooth",
         });
       }, 100);
     }
@@ -112,38 +114,50 @@
   });
 
   function addSystemMessage(content: string) {
-    messages = [...messages, {
-      role: 'system',
-      content,
-      timestamp: Date.now()
-    }];
+    messages = [
+      ...messages,
+      {
+        role: "system",
+        content,
+        timestamp: Date.now(),
+      },
+    ];
   }
 
   function addUserMessage(content: string) {
-    messages = [...messages, {
-      role: 'user',
-      content,
-      timestamp: Date.now()
-    }];
+    messages = [
+      ...messages,
+      {
+        role: "user",
+        content,
+        timestamp: Date.now(),
+      },
+    ];
   }
 
   function addAssistantMessage(content: string) {
     // Check if last message is from assistant, if so update it, else add new
-    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
+    if (
+      messages.length > 0 &&
+      messages[messages.length - 1].role === "assistant"
+    ) {
       messages = [
         ...messages.slice(0, -1),
         {
-          role: 'assistant',
+          role: "assistant",
           content,
-          timestamp: Date.now()
-        }
+          timestamp: Date.now(),
+        },
       ];
     } else {
-      messages = [...messages, {
-        role: 'assistant',
-        content,
-        timestamp: Date.now()
-      }];
+      messages = [
+        ...messages,
+        {
+          role: "assistant",
+          content,
+          timestamp: Date.now(),
+        },
+      ];
     }
   }
 
@@ -156,7 +170,7 @@
       }
     } catch (err) {
       // Only show error if we don't already have output
-      if (messages.filter(m => m.role === 'assistant').length === 0) {
+      if (messages.filter((m) => m.role === "assistant").length === 0) {
         error = (err as Error).message;
       }
     }
@@ -164,9 +178,9 @@
 
   async function submit() {
     if (!input.trim() || loading) return;
-    
+
     const message = input.trim();
-    input = '';
+    input = "";
     loading = true;
     error = null;
 
@@ -185,35 +199,35 @@
 
   async function copyDeviceCode() {
     if (!deviceAuth) return;
-    
+
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(deviceAuth.code);
-        copyState = 'copied';
+        copyState = "copied";
       } else {
-        throw new Error('Clipboard unavailable');
+        throw new Error("Clipboard unavailable");
       }
     } catch (err) {
-      copyState = 'failed';
+      copyState = "failed";
       // Fallback for mobile browsers without clipboard API
-      window.prompt('Copy this code to GitHub:', deviceAuth.code);
+      window.prompt("Copy this code to GitHub:", deviceAuth.code);
     } finally {
       if (copyTimer) clearTimeout(copyTimer);
       copyTimer = setTimeout(() => {
-        copyState = 'idle';
+        copyState = "idle";
       }, 2500);
     }
   }
 
   function clearConversation() {
-    if (confirm('Clear conversation history?')) {
+    if (confirm("Clear conversation history?")) {
       messages = [];
       localStorage.removeItem(`ai-chat-${envId}`);
     }
   }
 
   function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       submit();
     }
@@ -226,35 +240,41 @@
       <div class="header-content">
         <h3>AI Assistant (GitHub Copilot CLI)</h3>
         {#if copilotReady}
-          <span class="status-badge ready">●  Ready</span>
-        {:else if authStatus === 'pending'}
-          <span class="status-badge pending">●  Auth Required</span>
+          <span class="status-badge ready">● Ready</span>
+        {:else if authStatus === "pending"}
+          <span class="status-badge pending">● Auth Required</span>
         {:else}
-          <span class="status-badge unknown">●  Starting...</span>
+          <span class="status-badge unknown">● Starting...</span>
         {/if}
       </div>
-      <button class="clear-button" on:click={clearConversation} title="Clear conversation">
+      <button
+        class="clear-button"
+        on:click={clearConversation}
+        title="Clear conversation"
+      >
         🗑️
       </button>
     </header>
 
     <!-- Auth Banner (shown when authentication required) -->
-    {#if authStatus === 'pending' && deviceAuth}
+    {#if authStatus === "pending" && deviceAuth}
       <div class="auth-banner">
         <div class="auth-content">
           <p class="auth-title">🔐 GitHub Authentication Required</p>
-          <p class="auth-instruction">Complete authentication to use Copilot:</p>
-          
+          <p class="auth-instruction">
+            Complete authentication to use Copilot:
+          </p>
+
           <div class="device-code-container">
             <code class="device-code">{deviceAuth.code}</code>
-            <button 
-              class="copy-button {copyState}" 
+            <button
+              class="copy-button {copyState}"
               on:click={copyDeviceCode}
               aria-label="Copy code"
             >
-              {#if copyState === 'copied'}
+              {#if copyState === "copied"}
                 ✓ Copied
-              {:else if copyState === 'failed'}
+              {:else if copyState === "failed"}
                 ✗ Failed
               {:else}
                 📋 Copy
@@ -262,16 +282,18 @@
             </button>
           </div>
 
-          <a 
-            href={deviceAuth.url} 
-            target="_blank" 
+          <a
+            href={deviceAuth.url}
+            target="_blank"
             rel="noopener noreferrer"
             class="auth-link"
           >
             Open GitHub to Authenticate →
           </a>
-          
-          <p class="auth-note">After authenticating, this panel will update automatically.</p>
+
+          <p class="auth-note">
+            After authenticating, this panel will update automatically.
+          </p>
         </div>
       </div>
     {/if}
@@ -297,16 +319,19 @@
           <div class="message {message.role}">
             <div class="message-header">
               <span class="message-role">
-                {#if message.role === 'user'}
+                {#if message.role === "user"}
                   You
-                {:else if message.role === 'assistant'}
+                {:else if message.role === "assistant"}
                   Copilot
                 {:else}
                   System
                 {/if}
               </span>
               <span class="message-time">
-                {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(message.timestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </span>
             </div>
             <div class="message-content">
@@ -331,17 +356,17 @@
 
     <!-- Input Area (Fixed at bottom) -->
     <div class="input-area">
-      <textarea 
-        bind:value={input} 
+      <textarea
+        bind:value={input}
         on:keydown={handleKeyDown}
-        rows="2" 
+        rows="2"
         placeholder="Ask Copilot..."
         disabled={loading}
         class:disabled={loading}
       ></textarea>
-      <button 
-        class="send-button" 
-        on:click={submit} 
+      <button
+        class="send-button"
+        on:click={submit}
         disabled={loading || !input.trim()}
         aria-label="Send message"
       >
@@ -352,8 +377,10 @@
         {/if}
       </button>
     </div>
-    
-    <small class="hint">Use Ctrl+Enter to send • Messages are saved per environment</small>
+
+    <small class="hint"
+      >Use Ctrl+Enter to send • Messages are saved per environment</small
+    >
   </section>
 {/if}
 
@@ -366,7 +393,7 @@
     box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
     display: flex;
     flex-direction: column;
-    max-height: 600px;
+    max-height: 70vh;
     overflow: hidden;
   }
 
@@ -584,8 +611,8 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    min-height: 200px;
-    max-height: 400px;
+    min-height: 300px;
+    max-height: calc(70vh - 250px);
   }
 
   .empty-state {
@@ -684,15 +711,25 @@
   }
 
   .loading-dots::after {
-    content: '';
+    content: "";
     animation: dots 1.5s steps(4, end) infinite;
   }
 
   @keyframes dots {
-    0%, 20% { content: ''; }
-    40% { content: '.'; }
-    60% { content: '..'; }
-    80%, 100% { content: '...'; }
+    0%,
+    20% {
+      content: "";
+    }
+    40% {
+      content: ".";
+    }
+    60% {
+      content: "..";
+    }
+    80%,
+    100% {
+      content: "...";
+    }
   }
 
   /* Input Area */
@@ -712,9 +749,12 @@
     padding: 0.75rem 1rem;
     font-size: 1rem;
     font-family: inherit;
-    resize: none;
+    resize: vertical;
+    min-height: 50px;
+    max-height: 200px;
     transition: border-color 0.2s;
     background: white;
+    line-height: 1.5;
   }
 
   textarea:focus {
@@ -770,7 +810,7 @@
   /* Mobile Optimizations */
   @media (max-width: 768px) {
     .panel {
-      max-height: calc(100vh - 120px);
+      max-height: 85vh;
       margin: 0.5rem;
       border-radius: 12px;
     }
@@ -781,32 +821,35 @@
     }
 
     .header-content {
-      flex-direction: column;
-      align-items: flex-start;
+      flex-direction: row;
+      align-items: center;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
     h3 {
-      font-size: 1rem;
+      font-size: 0.95rem;
     }
 
     .status-badge {
-      font-size: 0.75rem;
-      padding: 0.2rem 0.6rem;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
     }
 
     .messages {
-      max-height: calc(100vh - 320px);
+      max-height: calc(85vh - 280px);
+      min-height: 250px;
       padding: 0.75rem;
     }
 
     .message {
-      max-width: 90%;
+      max-width: 92%;
       padding: 0.6rem 0.8rem;
+      font-size: 0.95rem;
     }
 
     .device-code {
-      font-size: 1rem;
+      font-size: 0.95rem;
       padding: 0.6rem 0.8rem;
     }
 
@@ -818,16 +861,17 @@
     textarea {
       font-size: 16px; /* Prevents zoom on iOS */
       padding: 0.6rem 0.8rem;
+      min-height: 60px;
     }
 
     .send-button {
       min-width: 56px;
-      min-height: 48px;
+      min-height: 60px;
       padding: 0 1rem;
     }
 
     .hint {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       padding: 0 0.75rem 0.75rem 0.75rem;
     }
 
