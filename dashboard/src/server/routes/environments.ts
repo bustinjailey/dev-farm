@@ -448,11 +448,10 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       const mounts: Docker.MountSettings[] = [];
       if (mode === 'workspace' || mode === 'git' || mode === 'terminal') {
         mounts.push(
-          { Target: '/home/coder/workspace', Source: `devfarm-${envId}`, Type: 'volume', ReadOnly: false },
-          { Target: '/home/coder/.vscode-server-insiders', Source: `devfarm-${envId}-vscode`, Type: 'volume', ReadOnly: false }
+          { Target: '/root/workspace', Source: `devfarm-${envId}`, Type: 'volume', ReadOnly: false }
         );
       } else if (mode === 'ssh') {
-        mounts.push({ Target: '/home/coder/.vscode-server-insiders', Source: `devfarm-${envId}-vscode`, Type: 'volume', ReadOnly: false });
+        mounts.push({ Target: '/root/.vscode-server-insiders', Source: `devfarm-${envId}-vscode`, Type: 'volume', ReadOnly: false });
       }
 
       const container = await docker.createContainer({
@@ -691,8 +690,8 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         // Use different commands based on environment mode
         if (record.mode === 'terminal') {
           // Terminal mode: Use the new copilot CLI via wrapper script
-          output = await execToString(container, `/home/coder/copilot-chat.sh ${JSON.stringify(message)}`, {
-            workdir: '/home/coder/workspace',
+          output = await execToString(container, `/root/copilot-chat.sh ${JSON.stringify(message)}`, {
+            workdir: '/root/workspace',
           });
         } else {
           // Other modes: Use gh copilot for now (may need update later)
