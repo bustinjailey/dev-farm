@@ -235,19 +235,26 @@ export async function getEnvironmentHierarchy(docker: Docker | null) {
 export async function listImages(docker: Docker): Promise<
   { name: string; tag: string; size: number; created: string }[]
 > {
-  const images = await docker.listImages({ filters: { reference: ['dev-farm*'] } });
+  // Get all images (no filter - Docker reference filter doesn't support wildcards well)
+  const images = await docker.listImages();
   const results: { name: string; tag: string; size: number; created: string }[] = [];
 
   for (const image of images) {
-    for (const tag of image.RepoTags ?? ['<none>:<none>']) {
-      const [name, tagName] = tag.split(':');
-      results.push({
-        name,
-        tag: tagName ?? 'latest',
-        size: image.Size,
-        created: new Date((image.Created ?? 0) * 1000).toISOString(),
-      });
-    }
+    // Check if image has any dev-farm tags
+    const devFarmTags = (image.RepoTags ?? []).filter((tag) => tag.startsWith('dev-farm'));
+    if (devFarmTags.length === 0) continue;
+
+    // Get the most recent/preferred tag (prefer dev-farm/ over dev-farm-)
+    const preferredTag =
+      devFarmTags.find((t) => t.includes('dev-farm/')) ?? devFarmTags[0] ?? '<none>:<none>';
+
+    const [name, tagName] = preferredTag.split(':');
+    results.push({
+      name,
+      tag: tagName ?? 'latest',
+      size: image.Size,
+      created: new Date((image.Created ?? 0) * 1000).toISOString(),
+    });
   }
 
   return results;
