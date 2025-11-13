@@ -731,7 +731,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       await ensureTmuxServer(container);
 
       try {
-        await execToString(container, 'tmux kill-session -t devfarm-ai 2>/dev/null');
+        await execToString(container, 'tmux kill-session -t dev-farm 2>/dev/null');
         aiSessions.set(envId, { active: false, sessionId: randomUUID() });
         return { success: true };
       } catch (error) {
@@ -750,7 +750,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       await ensureTmuxServer(container);
 
       try {
-        const output = await execToString(container, 'tmux capture-pane -t devfarm-ai -p -S -50');
+        const output = await execToString(container, 'tmux capture-pane -t dev-farm -p -S -50');
         const copilotOutput = aiOutputCache.get(envId) ?? '';
         return {
           output: output || copilotOutput,
