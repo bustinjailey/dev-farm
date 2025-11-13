@@ -5,9 +5,9 @@
 
 set -e
 
-DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
-AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
-LOG_FILE="/home/coder/workspace/.terminal.log"
+DEVICE_AUTH_FILE="/root/workspace/.copilot-device-auth.json"
+AUTH_STATUS_FILE="/root/workspace/.copilot-auth-status"
+LOG_FILE="/root/workspace/.terminal.log"
 CHECK_INTERVAL=5
 MAX_WAIT=300  # 5 minutes
 
@@ -30,8 +30,8 @@ while true; do
     fi
     
     # Test if copilot is authenticated
-    export PNPM_HOME=/home/coder/.local/share/pnpm
-    export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
+    export PNPM_HOME=/root/.local/share/pnpm
+    export PATH="$PNPM_HOME:/root/.npm-global/bin:$PATH"
     
     if command -v copilot >/dev/null 2>&1; then
         # Check if the main dev-farm session shows copilot is authenticated

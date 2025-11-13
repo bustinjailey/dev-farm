@@ -6,8 +6,8 @@
 set -e
 
 # Ensure npm global bin and pnpm home are in PATH
-export PNPM_HOME=/home/coder/.local/share/pnpm
-export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
+export PNPM_HOME=/root/.local/share/pnpm
+export PATH="$PNPM_HOME:/root/.npm-global/bin:$PATH"
 
 # Check if copilot is installed
 if ! command -v copilot >/dev/null 2>&1; then
@@ -16,8 +16,8 @@ if ! command -v copilot >/dev/null 2>&1; then
 fi
 
 # Check authentication status
-AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
-DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
+AUTH_STATUS_FILE="/root/workspace/.copilot-auth-status"
+DEVICE_AUTH_FILE="/root/workspace/.copilot-device-auth.json"
 
 # Check authentication status
 if [ -f "$AUTH_STATUS_FILE" ]; then
@@ -49,4 +49,4 @@ if [ $# -eq 0 ]; then
 fi
 
 # Use session manager for persistent session
-/home/coder/copilot-session-manager.sh send "$1"
+/root/copilot-session-manager.sh send "$1"

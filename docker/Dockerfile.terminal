@@ -50,36 +50,23 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Note: aichat removed - installation was unreliable and GitHub Copilot CLI provides similar functionality
 # GitHub Copilot CLI extension is installed at runtime via startup-terminal.sh
 
-# Create a non-root user 'coder'
-RUN useradd -m -s /bin/zsh coder \
-  && echo 'coder ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/coder \
-  && chmod 0440 /etc/sudoers.d/coder \
-  && usermod -aG sudo coder
+# Create workspace directory
+RUN mkdir -p /root/workspace
 
-# Create workspace directories
-RUN mkdir -p /workspace && chown -R coder:coder /workspace \
-  && mkdir -p /home/coder/workspace && chown -R coder:coder /home/coder/workspace
-
-USER coder
-
-# Set the home directory for the non-root user
-ENV HOME=/home/coder
-WORKDIR /home/coder
+# Set working directory
+WORKDIR /root
 
 # Copy package.json for terminal server dependencies
-COPY --chown=coder:coder config/package.json /home/coder/package.json
+COPY config/package.json /root/package.json
 
 # Install terminal server dependencies
 # Use npm instead of pnpm for node-pty to avoid pnpm 10.x build script restrictions
-USER coder
-RUN cd /home/coder && \
+RUN cd /root && \
   npm install && \
   echo '=== Checking node-pty build ===' && \
-  ls -la /home/coder/node_modules/node-pty/build/
+  ls -la /root/node_modules/node-pty/build/
 
-USER root
-
-WORKDIR /home/coder/workspace
+WORKDIR /root/workspace
 
 # Install Oh My Zsh for better terminal experience
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -94,13 +81,13 @@ RUN echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc && \
   echo 'echo ""' >> ~/.zshrc
 
 # Create startup script, terminal server, copilot chat wrapper, auth monitor, and session manager
-COPY --chown=coder:coder config/startup-terminal.sh /home/coder/startup.sh
-COPY --chown=coder:coder config/terminal-server.js /home/coder/terminal-server.js
-COPY --chown=coder:coder config/terminal.html /home/coder/terminal.html
-COPY --chown=coder:coder config/copilot-chat.sh /home/coder/copilot-chat.sh
-COPY --chown=coder:coder config/copilot-auth-monitor.sh /home/coder/copilot-auth-monitor.sh
-COPY --chown=coder:coder config/copilot-session-manager.sh /home/coder/copilot-session-manager.sh
-RUN chmod +x /home/coder/startup.sh /home/coder/terminal-server.js /home/coder/copilot-chat.sh /home/coder/copilot-auth-monitor.sh /home/coder/copilot-session-manager.sh
+COPY config/startup-terminal.sh /root/startup.sh
+COPY config/terminal-server.js /root/terminal-server.js
+COPY config/terminal.html /root/terminal.html
+COPY config/copilot-chat.sh /root/copilot-chat.sh
+COPY config/copilot-auth-monitor.sh /root/copilot-auth-monitor.sh
+COPY config/copilot-session-manager.sh /root/copilot-session-manager.sh
+RUN chmod +x /root/startup.sh /root/terminal-server.js /root/copilot-chat.sh /root/copilot-auth-monitor.sh /root/copilot-session-manager.sh
 
 # Health check for custom terminal server (uses PORT env var set at runtime)
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
@@ -108,4 +95,4 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
 
 # Override the entrypoint to use our startup script
 ENTRYPOINT []
-CMD ["/bin/bash", "/home/coder/startup.sh"]
+CMD ["/bin/bash", "/root/startup.sh"]

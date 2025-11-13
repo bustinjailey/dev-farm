@@ -9,13 +9,12 @@ export LANGUAGE=en_US:en
 # Disable core dumps to prevent large core.* files in workspace
 ulimit -c 0
 
-### Ensure workspace directory exists and is owned by coder
+### Ensure workspace directory exists
 echo "Preparing workspace directory..."
-mkdir -p /home/coder/workspace || true
-chown -R coder:coder /home/coder/workspace 2>/dev/null || true
+mkdir -p /root/workspace || true
 
 # Create .gitignore for workspace to exclude core dumps and other unwanted files
-cat > /home/coder/workspace/.gitignore <<'GITIGNORE'
+cat > /root/workspace/.gitignore <<'GITIGNORE'
 # Core dumps and debug files
 core.*
 *.core
@@ -27,10 +26,8 @@ Thumbs.db
 GITIGNORE
 
 # Log helper - store in workspace for easy access
-LOG_FILE="/home/coder/workspace/.terminal.log"
-# Create log file with proper ownership
+LOG_FILE="/root/workspace/.terminal.log"
 touch "$LOG_FILE"
-chown coder:coder "$LOG_FILE"
 {
     echo "==== Terminal Environment startup $(date -Is) ===="
 } >> "$LOG_FILE" 2>/dev/null || true
@@ -89,15 +86,15 @@ fi
 echo "Installing GitHub Copilot CLI..." | tee -a "$LOG_FILE"
 
 # Ensure pnpm global bin is in PATH
-export PNPM_HOME=/home/coder/.local/share/pnpm
+export PNPM_HOME=/root/.local/share/pnpm
 mkdir -p "$PNPM_HOME"
 export PATH="$PNPM_HOME:$PATH"
 
 # Add to shell profiles for persistence
-for shell_rc in /home/coder/.zshrc /home/coder/.bashrc; do
+for shell_rc in /root/.zshrc /root/.bashrc; do
     if [ -f "$shell_rc" ]; then
-        if ! grep -q 'NPM_CONFIG_PREFIX' "$shell_rc"; then
-            echo 'export PNPM_HOME=/home/coder/.local/share/pnpm' >> "$shell_rc"
+        if ! grep -q 'PNPM_HOME' "$shell_rc"; then
+            echo 'export PNPM_HOME=/root/.local/share/pnpm' >> "$shell_rc"
             echo 'export PATH="$PNPM_HOME:$PATH"' >> "$shell_rc"
         fi
     fi
@@ -110,38 +107,37 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
         echo "✓ Copilot CLI installed" | tee -a "$LOG_FILE"
         
         # Create state files for device auth info
-        DEVICE_AUTH_FILE="/home/coder/workspace/.copilot-device-auth.json"
-        AUTH_STATUS_FILE="/home/coder/workspace/.copilot-auth-status"
+        DEVICE_AUTH_FILE="/root/workspace/.copilot-device-auth.json"
+        AUTH_STATUS_FILE="/root/workspace/.copilot-auth-status"
         
-        # Create auth status file with proper ownership
+        # Create auth status file
         touch "$AUTH_STATUS_FILE"
-        chown coder:coder "$AUTH_STATUS_FILE"
         
         # Set initial status
         echo "📝 Configuring Copilot automation..." | tee -a "$LOG_FILE"
         echo "configuring" > "$AUTH_STATUS_FILE"
         
-        # Create tmux session as coder user (not root) so AI chat can access it
-        if su - coder -c "tmux new-session -d -s dev-farm -c /home/coder/workspace" 2>/dev/null; then
+        # Create tmux session for Copilot CLI
+        if tmux new-session -d -s dev-farm -c /root/workspace 2>/dev/null; then
             # Start copilot with --allow-all-tools flag
-            su - coder -c "tmux send-keys -t dev-farm 'export PATH=$PNPM_HOME:\$PATH' C-m"
+            tmux send-keys -t dev-farm "export PATH=$PNPM_HOME:\$PATH" C-m
             sleep 2
-            su - coder -c "tmux send-keys -t dev-farm 'copilot --allow-all-tools' C-m"
+            tmux send-keys -t dev-farm "copilot --allow-all-tools" C-m
             sleep 5
             
             # Capture output to check for workspace trust prompt
-            OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
+            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
             
             # Check if we need to confirm workspace trust
             if echo "$OUTPUT" | grep -q "Confirm folder trust"; then
                 echo "✓ Workspace trust prompt detected - sending option 2" | tee -a "$LOG_FILE"
                 echo "workspace-trust" > "$AUTH_STATUS_FILE"
-                su - coder -c "tmux send-keys -t dev-farm '2'"
+                tmux send-keys -t dev-farm "2"
                 
                 # Wait for login prompt with retries (can take several seconds after trust)
                 for i in {1..10}; do
                     sleep 2
-                    OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
+                    OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                     if echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|How can I help"; then
                         echo "✓ Workspace trust processed (attempt $i)" | tee -a "$LOG_FILE"
                         # Wait extra time for CLI to fully initialize before sending commands
@@ -156,24 +152,24 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 echo "✓ Login prompt detected - sending /login command" | tee -a "$LOG_FILE"
                 echo "login" > "$AUTH_STATUS_FILE"
                 # Send command and Enter separately (Copilot CLI requires this)
-                su - coder -c "tmux send-keys -t dev-farm '/login'"
+                tmux send-keys -t dev-farm "/login"
                 sleep 0.5
-                su - coder -c "tmux send-keys -t dev-farm C-m"
+                tmux send-keys -t dev-farm C-m
                 sleep 0.5
-                OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
+                OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                 
                 # After /login, check for account selection
                 if echo "$OUTPUT" | grep -q "What account do you want to log into?"; then
                     echo "✓ Account selection prompt detected - selecting GitHub.com" | tee -a "$LOG_FILE"
                     echo "account-selection" > "$AUTH_STATUS_FILE"
-                    su - coder -c "tmux send-keys -t dev-farm '1'"
+                    tmux send-keys -t dev-farm "1"
                     sleep 0.5
-                    OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
+                    OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
                 fi
             fi
             
             # Check final state
-            OUTPUT=$(su - coder -c "tmux capture-pane -t dev-farm -p -S -50")
+            OUTPUT=$(tmux capture-pane -t dev-farm -p -S -50)
             
             # Parse device code if present
             if echo "$OUTPUT" | grep -q "github.com/login/device"; then
@@ -186,9 +182,8 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
                 if [ -n "$DEVICE_CODE" ]; then
                     echo "✓ Device code obtained: $DEVICE_CODE" | tee -a "$LOG_FILE"
                     echo "awaiting-auth" > "$AUTH_STATUS_FILE"
-                    # Create device auth file with proper ownership
+                    # Create device auth file
                     touch "$DEVICE_AUTH_FILE"
-                    chown coder:coder "$DEVICE_AUTH_FILE"
                     cat > "$DEVICE_AUTH_FILE" <<EOF
 {
   "code": "$DEVICE_CODE",
@@ -198,11 +193,11 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
 EOF
                     # Dismiss the "Press any key" prompt by sending Enter
                     sleep 0.5
-                    su - coder -c "tmux send-keys -t dev-farm '' C-m"
+                    tmux send-keys -t dev-farm "" C-m
                     sleep 1
                     
                     # Start background auth monitor as coder user with proper log permissions
-                    su - coder -c "nohup /home/coder/copilot-auth-monitor.sh >> /home/coder/workspace/.terminal.log 2>&1 &"
+                    nohup /root/copilot-auth-monitor.sh >> /root/workspace/.terminal.log 2>&1 &
                 fi
             elif echo "$OUTPUT" | grep -q "Please use /login"; then
                 # Still showing login prompt, not authenticated yet
@@ -241,7 +236,7 @@ if [ "${DEV_MODE}" = "git" ]; then
     # Git repository mode - clone the repository into subdirectory
     if [ -n "${GIT_URL}" ]; then
         echo "Cloning repository: ${GIT_URL}"
-        REPO_DIR="/home/coder/workspace/repo"
+        REPO_DIR="/root/workspace/repo"
         
         # Create repo directory
         mkdir -p "${REPO_DIR}"
@@ -252,7 +247,7 @@ if [ "${DEV_MODE}" = "git" ]; then
         echo "Repository cloned successfully to ${REPO_DIR}"
         
         # Create info file about the cloned repo
-        cat > /home/coder/workspace/REPO_INFO.md <<EOF
+        cat > /root/workspace/REPO_INFO.md <<EOF
 # 📦 Git Repository Cloned
 
 Successfully cloned repository from **${GIT_URL}**
@@ -277,7 +272,7 @@ elif [ "${DEV_MODE}" = "terminal" ]; then
 fi
 
 # Create minimal welcome message (detailed help available in dashboard)
-WELCOME_PATH="/home/coder/workspace/WELCOME.txt"
+WELCOME_PATH="/root/workspace/WELCOME.txt"
 cat > "$WELCOME_PATH" <<'EOWELCOME'
 🚀 Dev Farm Terminal Environment Ready
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -293,7 +288,7 @@ EOWELCOME
 echo "Initializing tmux session..." | tee -a "$LOG_FILE"
 
 # Create tmux configuration
-cat > /home/coder/.tmux.conf <<'TMUXCONF'
+cat > /root/.tmux.conf <<'TMUXCONF'
 # Dev Farm tmux configuration
 # Set prefix to Ctrl+a (more ergonomic than Ctrl+b)
 unbind C-b
@@ -327,14 +322,14 @@ if tmux has-session -t dev-farm 2>/dev/null; then
     # (Don't interrupt ongoing automation with clear/cat commands)
     if [ -f "$AUTH_STATUS_FILE" ] && grep -q "authenticated" "$AUTH_STATUS_FILE" 2>/dev/null; then
         tmux send-keys -t dev-farm "clear" C-m
-        tmux send-keys -t dev-farm "cat /home/coder/workspace/WELCOME.txt" C-m
+        tmux send-keys -t dev-farm "cat /root/workspace/WELCOME.txt" C-m
         tmux send-keys -t dev-farm "echo ''" C-m
     fi
     
     TMUX_READY=true
 else
     # Fallback: create session if it somehow doesn't exist
-    if tmux new-session -d -s dev-farm -c /home/coder/workspace 2>/dev/null; then
+    if tmux new-session -d -s dev-farm -c /root/workspace 2>/dev/null; then
         echo "✓ Created fallback terminal session" | tee -a "$LOG_FILE"
         TMUX_READY=true
     else
@@ -357,14 +352,13 @@ if [ -z "$PORT" ]; then
 fi
 
 echo "Terminal server will listen on port: $PORT" | tee -a "$LOG_FILE"
-export HOME=/home/coder
+export HOME=/root
 export SHELL=/bin/zsh
 
 # Create public directory for terminal server static files
-mkdir -p /home/coder/terminal-public
-cp /home/coder/terminal.html /home/coder/terminal-public/index.html
+mkdir -p /root/terminal-public
+cp /root/terminal.html /root/terminal-public/index.html
 
-# Start terminal server as coder user so tmux attach works properly
-# The server will spawn tmux session automatically via node-pty
-cd /home/coder/terminal-public
-exec su - coder -c "cd /home/coder/terminal-public && /usr/bin/node /home/coder/terminal-server.js"
+# Run terminal server as root in foreground (Docker needs a foreground process)
+cd /root/terminal-public
+exec /usr/bin/node /root/terminal-server.js

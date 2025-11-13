@@ -82,7 +82,7 @@ app.ws("/terminal", (ws, req) => {
     // Session doesn't exist, create new one
     try {
       execSync(
-        "tmux new-session -d -s dev-farm -c /home/coder/workspace /bin/zsh"
+        "tmux new-session -d -s dev-farm -c /root/workspace /bin/zsh"
       );
       termShell = "tmux";
       termArgs = ["-2", "attach-session", "-t", "dev-farm"];
@@ -96,7 +96,7 @@ app.ws("/terminal", (ws, req) => {
     name: "xterm-256color",
     cols: cols,
     rows: rows,
-    cwd: process.env.HOME || "/home/coder/workspace",
+    cwd: process.env.HOME || "/root/workspace",
     env: {
       ...process.env,
       LANG: "en_US.UTF-8",

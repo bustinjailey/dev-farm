@@ -3,11 +3,11 @@
 # This avoids creating new sessions for each message, improving efficiency
 
 SESSION_NAME="dev-farm"
-LOG_FILE="/home/coder/workspace/.terminal.log"
+LOG_FILE="/root/workspace/.terminal.log"
 
 # Ensure npm global bin and pnpm home are in PATH
-export PNPM_HOME=/home/coder/.local/share/pnpm
-export PATH="$PNPM_HOME:/home/coder/.npm-global/bin:$PATH"
+export PNPM_HOME=/root/.local/share/pnpm
+export PATH="$PNPM_HOME:/root/.npm-global/bin:$PATH"
 
 # Function to check if session exists and is responsive
 session_exists() {
@@ -30,7 +30,7 @@ ensure_session() {
     
     # LEGACY CODE (disabled - we now use the pre-created copilot-auth session):
     # echo "Creating new copilot session..." | tee -a "$LOG_FILE"
-    # if ! tmux new-session -d -s "$SESSION_NAME" -c /home/coder/workspace "copilot --allow-all-tools" 2>/dev/null; then
+    # if ! tmux new-session -d -s "$SESSION_NAME" -c /root/workspace "copilot --allow-all-tools" 2>/dev/null; then
     #     echo "Error: Failed to create copilot session" | tee -a "$LOG_FILE"
     #     return 1
     # fi
