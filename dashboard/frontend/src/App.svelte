@@ -607,7 +607,7 @@
       sseClient.on("system-status", systemStatusHandler);
       sseClient.on("cache-bust", cacheBustHandler);
       sseClient.on("image-built", imageBuiltHandler);
-      
+
       // Poll system status every 30 seconds to check for updates
       const systemStatusPollTimer = setInterval(() => {
         loadSystemStatus();
