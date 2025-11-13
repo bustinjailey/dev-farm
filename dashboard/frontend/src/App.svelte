@@ -591,6 +591,11 @@
         }, 1000);
       };
 
+      const imageBuiltHandler = () => {
+        // Refresh build times when any image is rebuilt
+        loadImages();
+      };
+
       sseClient.on("registry-update", registryHandler);
       sseClient.on("env-status", statusHandler);
       sseClient.on("ai-response", aiHandler);
@@ -601,6 +606,12 @@
       sseClient.on("copilot-status", copilotStatusHandler);
       sseClient.on("system-status", systemStatusHandler);
       sseClient.on("cache-bust", cacheBustHandler);
+      sseClient.on("image-built", imageBuiltHandler);
+      
+      // Poll system status every 30 seconds to check for updates
+      const systemStatusPollTimer = setInterval(() => {
+        loadSystemStatus();
+      }, 30000);
 
       return () => {
         sseClient.off("registry-update", registryHandler);
@@ -612,6 +623,8 @@
         sseClient.off("copilot-ready", copilotReadyHandler);
         sseClient.off("system-status", systemStatusHandler);
         sseClient.off("cache-bust", cacheBustHandler);
+        sseClient.off("image-built", imageBuiltHandler);
+        clearInterval(systemStatusPollTimer);
         sseClient.disconnect();
       };
     } catch (err) {

@@ -75,6 +75,15 @@ export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): 
     }
 
     const result = await buildImage(docker, image_type as 'code-server' | 'terminal' | 'dashboard');
+    
+    // Broadcast SSE event after build completes so UI updates immediately
+    if (result.success) {
+      sseChannel.broadcast('image-built', { 
+        image_type,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     return reply.send({ success: result.success, output: result.output, exit_code: result.exitCode });
   });
 
