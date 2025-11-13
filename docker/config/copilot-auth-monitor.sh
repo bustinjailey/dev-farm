@@ -48,9 +48,9 @@ while true; do
             fi
             
             # Check if authentication completed (user sees actual prompt, not just welcome banner)
-            # Must have prompt indicator AND no auth prompts
-            if echo "$OUTPUT" | grep -qE "How can I help|What can I do"; then
-                if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|store the token"; then
+            # Look for success message or interactive prompt
+            if echo "$OUTPUT" | grep -qE "Signed in successfully|How can I help|What can I do|Enter @ to mention files"; then
+                if ! echo "$OUTPUT" | grep -qE "Please use /login|github.com/login/device|Waiting for authorization"; then
                     echo "✅ Copilot authentication completed!" | tee -a "$LOG_FILE"
                     
                     # Mark as authenticated
