@@ -116,7 +116,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         const workspacePath = getWorkspacePath(env.mode);
         const summaryUrl = env.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
 
-        let requiresAuth = lastKnownDeviceAuth.has(envId);
+        let requiresAuth = lastKnownDeviceAuth.has(envId) && !authenticatedEnvironments.has(envId);
         let deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
 
         // For terminal mode: check if auth is still required and override status
@@ -219,15 +219,9 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
                 requiresAuth = false;
                 deviceAuthInfo = null;
               } else if (status === 'timeout') {
-                // Authentication timed out - clear old device code
-                lastKnownDeviceAuth.delete(envId);
-                requiresAuth = false;
-                deviceAuthInfo = null;
-                // Broadcast timeout event
-                sseChannel.broadcast('copilot-timeout', {
-                  env_id: envId,
-                  message: 'Authentication timeout - please delete and recreate the environment',
-                });
+                // Authentication timed out
+                requiresAuth = true;
+                deviceAuthInfo = { code: 'TIMEOUT', url: '' };
               } else {
                 // Broadcast granular status for setup progress
                 const lastStatus = lastKnownStatus.get(`${envId}:copilot-status`);
