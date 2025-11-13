@@ -116,7 +116,7 @@ app.ws("/terminal", (ws, req) => {
     "workspace",
     ".copilot-device-auth.json"
   );
-  
+
   // Watch for device auth file changes
   let authFileWatcher = null;
   const checkAndDisplayAuthBanner = () => {
@@ -125,16 +125,17 @@ app.ws("/terminal", (ws, req) => {
         const authData = JSON.parse(fs.readFileSync(deviceAuthPath, "utf8"));
         if (authData.code && authData.url) {
           // Send banner as terminal output
-          const banner = `\r\n\x1b[1;36m╔═══════════════════════════════════════════════════════════════╗\x1b[0m\r\n` +
-                        `\x1b[1;36m║\x1b[0m \x1b[1;33m🔐 GitHub Copilot Authentication Required\x1b[0m                   \x1b[1;36m║\x1b[0m\r\n` +
-                        `\x1b[1;36m╠═══════════════════════════════════════════════════════════════╣\x1b[0m\r\n` +
-                        `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
-                        `\x1b[1;36m║\x1b[0m  \x1b[1mPlease visit:\x1b[0m \x1b[4;34m${authData.url}\x1b[0m               \x1b[1;36m║\x1b[0m\r\n` +
-                        `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
-                        `\x1b[1;36m║\x1b[0m  \x1b[1mEnter code:\x1b[0m \x1b[1;32m${authData.code}\x1b[0m                                   \x1b[1;36m║\x1b[0m\r\n` +
-                        `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
-                        `\x1b[1;36m╚═══════════════════════════════════════════════════════════════╝\x1b[0m\r\n\r\n`;
-          
+          const banner =
+            `\r\n\x1b[1;36m╔═══════════════════════════════════════════════════════════════╗\x1b[0m\r\n` +
+            `\x1b[1;36m║\x1b[0m \x1b[1;33m🔐 GitHub Copilot Authentication Required\x1b[0m                   \x1b[1;36m║\x1b[0m\r\n` +
+            `\x1b[1;36m╠═══════════════════════════════════════════════════════════════╣\x1b[0m\r\n` +
+            `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
+            `\x1b[1;36m║\x1b[0m  \x1b[1mPlease visit:\x1b[0m \x1b[4;34m${authData.url}\x1b[0m               \x1b[1;36m║\x1b[0m\r\n` +
+            `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
+            `\x1b[1;36m║\x1b[0m  \x1b[1mEnter code:\x1b[0m \x1b[1;32m${authData.code}\x1b[0m                                   \x1b[1;36m║\x1b[0m\r\n` +
+            `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
+            `\x1b[1;36m╚═══════════════════════════════════════════════════════════════╝\x1b[0m\r\n\r\n`;
+
           try {
             ws.send(JSON.stringify({ type: "output", data: banner }));
             console.log("Sent device auth banner to client");
