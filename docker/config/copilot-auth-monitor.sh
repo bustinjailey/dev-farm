@@ -11,6 +11,12 @@ LOG_FILE="/root/workspace/.terminal.log"
 CHECK_INTERVAL=5
 MAX_WAIT=300  # 5 minutes
 
+# Check if already authenticated - don't start monitor if so
+if [ -f "$AUTH_STATUS_FILE" ] && grep -q "authenticated" "$AUTH_STATUS_FILE" 2>/dev/null; then
+    echo "ℹ️  Copilot already authenticated - monitor not needed" | tee -a "$LOG_FILE"
+    exit 0
+fi
+
 echo "Starting Copilot authentication monitor..." | tee -a "$LOG_FILE"
 
 # Initialize status as pending

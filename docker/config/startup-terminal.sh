@@ -196,8 +196,11 @@ EOF
                     tmux send-keys -t dev-farm "" C-m
                     sleep 1
                     
-                    # Start background auth monitor as coder user with proper log permissions
-                    nohup /root/copilot-auth-monitor.sh >> /root/workspace/.terminal.log 2>&1 &
+                    # Start background auth monitor (only if not already authenticated)
+                    if ! grep -q "authenticated" "$AUTH_STATUS_FILE" 2>/dev/null; then
+                        nohup /root/copilot-auth-monitor.sh >> /root/workspace/.terminal.log 2>&1 &
+                        echo "✓ Started authentication monitor" | tee -a "$LOG_FILE"
+                    fi
                 fi
             elif echo "$OUTPUT" | grep -q "Please use /login"; then
                 # Still showing login prompt, not authenticated yet
