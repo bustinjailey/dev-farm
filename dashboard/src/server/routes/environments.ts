@@ -116,7 +116,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         const workspacePath = getWorkspacePath(env.mode);
         const summaryUrl = env.mode === 'terminal' ? buildTerminalUrl(envId) : buildTunnelUrl(envId, workspacePath);
 
-        let requiresAuth = lastKnownDeviceAuth.has(envId) && !authenticatedEnvironments.has(envId);
+        let requiresAuth = lastKnownDeviceAuth.has(envId);
         let deviceAuth = requiresAuth ? lastKnownDeviceAuth.get(envId) ?? null : null;
 
         // For terminal mode: check if auth is still required and override status
