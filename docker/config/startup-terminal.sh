@@ -364,7 +364,7 @@ export SHELL=/bin/zsh
 mkdir -p /home/coder/terminal-public
 cp /home/coder/terminal.html /home/coder/terminal-public/index.html
 
-# Start terminal server
+# Start terminal server as coder user so tmux attach works properly
 # The server will spawn tmux session automatically via node-pty
 cd /home/coder/terminal-public
-exec /usr/bin/node /home/coder/terminal-server.js
+exec su - coder -c "cd /home/coder/terminal-public && /usr/bin/node /home/coder/terminal-server.js"
