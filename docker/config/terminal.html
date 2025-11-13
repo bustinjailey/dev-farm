@@ -628,9 +628,6 @@
                         cols: term.cols,
                         rows: term.rows
                     }));
-
-                    // Check auth status after connection
-                    checkAuthStatus();
                 };
 
                 ws.onmessage = (event) => {
@@ -678,46 +675,16 @@
             // Connect to backend
             connect();
 
-            // Auth status management
-            const authStatus = document.getElementById('auth-status');
-            const authStatusText = document.getElementById('auth-status-text');
+            // Auth status is now managed via SSE events from the backend
+            // (No longer polling by typing commands into terminal - that pollutes session history)
 
-            function checkAuthStatus() {
-                // Try to read auth status file
-                sendCommand('cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"');
-
-                // Also update UI based on file existence
-                setTimeout(() => {
-                    sendCommand('if [ -f /home/coder/workspace/.copilot-auth-status ]; then cat /home/coder/workspace/.copilot-auth-status; else echo "unknown"; fi', true);
-                }, 1000);
-            }
-
-            function sendCommand(command, silent = false) {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    if (!silent) {
-                        term.write('\r\n');
-                    }
-                    ws.send(JSON.stringify({ type: 'input', data: command + '\n' }));
-                }
-            }
-
-            // Parse terminal output to detect auth status
+            // Parse terminal output to detect auth status (legacy - could be removed)
             let outputBuffer = '';
             term.onData((data) => {
                 outputBuffer += data;
 
-                // Check for auth status in output
-                if (outputBuffer.includes('authenticated')) {
-                    authStatus.classList.remove('hidden');
-                    authStatus.classList.add('ready');
-                    authStatusText.textContent = 'Ready';
-                    outputBuffer = '';
-                } else if (outputBuffer.includes('pending')) {
-                    authStatus.classList.remove('hidden');
-                    authStatus.classList.remove('ready');
-                    authStatusText.textContent = 'Pending';
-                    outputBuffer = '';
-                } else if (outputBuffer.length > 1000) {
+                // Truncate buffer if it gets too long
+                if (outputBuffer.length > 1000) {
                     // Clear buffer if too large
                     outputBuffer = outputBuffer.slice(-500);
                 }
