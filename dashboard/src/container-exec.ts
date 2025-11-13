@@ -11,7 +11,7 @@ export async function execInContainer(
   command: string | string[],
   options: ExecOptions = {}
 ): Promise<{ output?: unknown }> {
-  const { user = 'coder', workdir, env } = options;
+  const { user = 'root', workdir, env } = options;
 
   const cmd = Array.isArray(command) ? command : ['bash', '-lc', command];
 

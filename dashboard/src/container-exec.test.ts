@@ -59,7 +59,7 @@ describe('execInContainer', () => {
     );
   });
 
-  it('uses default user "coder" when not specified', async () => {
+  it('uses default user "root" when not specified', async () => {
     const container = new MockContainer() as unknown as Docker.Container;
     const execSpy = vi.spyOn(container, 'exec');
 
@@ -67,7 +67,7 @@ describe('execInContainer', () => {
 
     expect(execSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        User: 'coder',
+        User: 'root',
       })
     );
   });

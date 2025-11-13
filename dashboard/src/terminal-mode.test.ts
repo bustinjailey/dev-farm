@@ -85,7 +85,7 @@ describe('Terminal Mode Configuration', () => {
 
     // Check for PNPM global path setup
     expect(script).toContain('PNPM_HOME');
-    expect(script).toContain('/home/coder/.local/share/pnpm');
+    expect(script).toContain('/root/.local/share/pnpm');
 
     // Check for device flow automation (simplified in new architecture)
     expect(script).toContain('copilot-device-auth.json');
@@ -123,7 +123,7 @@ describe('Terminal Mode Backend Integration', () => {
     expect(routes).toContain("record.mode === 'terminal'");
 
     // Check for copilot-chat.sh usage
-    expect(routes).toContain('/home/coder/copilot-chat.sh');
+    expect(routes).toContain('/root/copilot-chat.sh');
 
     // Check for fallback to gh copilot
     expect(routes).toContain('gh copilot');
