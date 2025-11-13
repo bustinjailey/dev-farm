@@ -240,10 +240,11 @@ export async function listImages(docker: Docker): Promise<
   const results: { name: string; tag: string; size: number; created: string }[] = [];
 
   for (const image of images) {
+    const repoTags = image.RepoTags ?? [];
+
     // Check if image has any dev-farm tags (match both dev-farm/ and dev-farm-)
-    const devFarmTags = (image.RepoTags ?? []).filter(
-      (tag) => tag.startsWith('dev-farm/') || tag.startsWith('dev-farm-')
-    );
+    const devFarmTags = repoTags.filter((tag) => tag.startsWith('dev-farm/') || tag.startsWith('dev-farm-'));
+
     if (devFarmTags.length === 0) continue;
 
     // Get the most recent/preferred tag (prefer dev-farm/ over dev-farm-)
