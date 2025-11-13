@@ -44,7 +44,7 @@ export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): 
     try {
       const images = await listImages(docker);
       const buildTimes: Record<string, string> = {};
-      
+
       // Map image names to their build times
       for (const image of images) {
         if (image.name === 'dev-farm-dashboard' || image.name === 'dev-farm/dashboard') {
@@ -55,10 +55,10 @@ export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): 
           buildTimes['code-server'] = image.created;
         }
       }
-      
+
       return reply.send({ buildTimes });
     } catch (error) {
-      fastify.log.error({ error }, 'Failed to get image build times');
+      fastify.log.error({ error }, 'Failed to get image last build times');
       return reply.code(500).send({ error: 'Failed to retrieve build times' });
     }
   });

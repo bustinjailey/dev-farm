@@ -231,7 +231,7 @@
       orphansInfo = await fetchOrphans();
       imagesInfo = await fetchImages();
       // Also fetch build times
-      const response = await fetch('/api/images/build-times');
+      const response = await fetch("/api/images/build-times");
       if (response.ok) {
         const data = await response.json();
         buildTimes = data.buildTimes;
@@ -253,7 +253,7 @@
     try {
       imagesInfo = await fetchImages();
       // Also fetch build times
-      const response = await fetch('/api/images/build-times');
+      const response = await fetch("/api/images/build-times");
       if (response.ok) {
         const data = await response.json();
         buildTimes = data.buildTimes;

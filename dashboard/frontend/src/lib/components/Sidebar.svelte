@@ -17,7 +17,7 @@
     onViewUpdateProgress: () => void;
     onCleanupOrphans: () => void;
     onRecoverRegistry: () => void;
-    onImageBuild: (type: 'code-server' | 'terminal' | 'dashboard') => void;
+    onImageBuild: (type: "code-server" | "terminal" | "dashboard") => void;
   }
 
   let {
@@ -42,15 +42,15 @@
   }: Props = $props();
 
   function formatBuildTime(isoString: string | undefined): string {
-    if (!isoString) return 'Unknown';
+    if (!isoString) return "Unknown";
     const date = new Date(isoString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
-    if (diffMins < 1) return 'Just now';
+
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -62,102 +62,141 @@
   }
 </script>
 
-<aside class="sidebar" class:collapsed={collapsed}>
+<aside class="sidebar" class:collapsed>
   <div class="sidebar-inner">
-    <button class="toggle" onclick={toggleCollapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-      {collapsed ? '▶' : '◀'}
+    <button
+      class="toggle"
+      onclick={toggleCollapsed}
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+    >
+      {collapsed ? "▶" : "◀"}
     </button>
 
     {#if !collapsed}
       <div class="sidebar-content">
-      <!-- GitHub Status -->
-      <div class="status-card">
-        <header>
-          <h3>GitHub</h3>
-          <span class="badge {githubStatusInfo?.authenticated ? 'success' : 'warn'}">
-            {githubStatusInfo?.authenticated ? githubStatusInfo.username : 'Not Connected'}
-          </span>
-        </header>
-        <p>
-          {#if githubStatusInfo?.authenticated}
-            Token scopes: {githubStatusInfo.scopes?.join(', ') || 'unknown'}
-          {:else}
-            {githubStatusInfo?.message || 'Connect your GitHub account.'}
+        <!-- GitHub Status -->
+        <div class="status-card">
+          <header>
+            <h3>GitHub</h3>
+            <span
+              class="badge {githubStatusInfo?.authenticated
+                ? 'success'
+                : 'warn'}"
+            >
+              {githubStatusInfo?.authenticated
+                ? githubStatusInfo.username
+                : "Not Connected"}
+            </span>
+          </header>
+          <p>
+            {#if githubStatusInfo?.authenticated}
+              Token scopes: {githubStatusInfo.scopes?.join(", ") || "unknown"}
+            {:else}
+              {githubStatusInfo?.message || "Connect your GitHub account."}
+            {/if}
+          </p>
+          <div class="card-actions">
+            <button onclick={onGithubManage}>Manage</button>
+            <button class="secondary" onclick={onGithubDisconnect}
+              >Disconnect</button
+            >
+          </div>
+        </div>
+
+        <!-- System Version -->
+        <div class="status-card">
+          <header>
+            <h3>System Version</h3>
+            <span
+              class="badge {updateInProgress
+                ? 'warn'
+                : systemStatus?.updates_available
+                  ? 'warn'
+                  : 'success'}"
+              class:clickable={updateInProgress}
+              onclick={updateInProgress ? onViewUpdateProgress : undefined}
+              role={updateInProgress ? "button" : undefined}
+              tabindex={updateInProgress ? 0 : undefined}
+              title={updateInProgress
+                ? "Click to view update progress"
+                : undefined}
+            >
+              {updateInProgress
+                ? "Updating..."
+                : systemStatus?.updates_available
+                  ? `${systemStatus.commits_behind} behind`
+                  : "Up to date"}
+            </span>
+          </header>
+          <p>Current: {systemStatus?.current_sha || "N/A"}</p>
+          <p>Latest: {systemStatus?.latest_sha || "N/A"}</p>
+          <div class="card-actions">
+            <button
+              onclick={onStartUpdate}
+              disabled={updateInProgress || !systemStatus?.updates_available}
+            >
+              {updateInProgress ? "Update Running..." : "Start Update"}
+            </button>
+          </div>
+          {#if systemActionMessage}
+            <small>{systemActionMessage}</small>
           {/if}
-        </p>
-        <div class="card-actions">
-          <button onclick={onGithubManage}>Manage</button>
-          <button class="secondary" onclick={onGithubDisconnect}>Disconnect</button>
         </div>
-      </div>
 
-      <!-- System Version -->
-      <div class="status-card">
-        <header>
-          <h3>System Version</h3>
-          <span 
-            class="badge {updateInProgress ? 'warn' : systemStatus?.updates_available ? 'warn' : 'success'}" 
-            class:clickable={updateInProgress}
-            onclick={updateInProgress ? onViewUpdateProgress : undefined}
-            role={updateInProgress ? 'button' : undefined}
-            tabindex={updateInProgress ? 0 : undefined}
-            title={updateInProgress ? 'Click to view update progress' : undefined}
-          >
-            {updateInProgress ? 'Updating...' : systemStatus?.updates_available ? `${systemStatus.commits_behind} behind` : 'Up to date'}
-          </span>
-        </header>
-        <p>Current: {systemStatus?.current_sha || 'N/A'}</p>
-        <p>Latest: {systemStatus?.latest_sha || 'N/A'}</p>
-        <div class="card-actions">
-          <button onclick={onStartUpdate} disabled={updateInProgress || !systemStatus?.updates_available}>
-            {updateInProgress ? 'Update Running...' : 'Start Update'}
-          </button>
-        </div>
-        {#if systemActionMessage}
-          <small>{systemActionMessage}</small>
-        {/if}
-      </div>
-
-      <!-- Maintenance -->
-      <div class="status-card">
-        <header>
-          <h3>Maintenance</h3>
-        </header>
-        <p>Tracked: {orphansInfo?.tracked ?? 0}</p>
-        <p>Orphans: {orphansInfo?.orphans?.length ?? 0}</p>
-        <div class="card-actions">
-          <button onclick={onCleanupOrphans} disabled={orphansBusy}>Clean Up</button>
-          <button class="secondary" onclick={onRecoverRegistry} disabled={orphansBusy}>
-            Recover Registry
-          </button>
-        </div>
-        {#if imagesInfo?.images}
-          <div class="build-times">
-            <h4>Image Build Times</h4>
-            <div class="build-time-list">
-              {#each ['dashboard', 'terminal', 'code-server'] as type}
-                <div class="build-time-item">
-                  <span class="image-name">{type}:</span>
-                  <span class="image-time" title={buildTimes?.[type] || 'Unknown'}>
-                    {formatBuildTime(buildTimes?.[type])}
-                  </span>
-                </div>
+        <!-- Maintenance -->
+        <div class="status-card">
+          <header>
+            <h3>Maintenance</h3>
+          </header>
+          <p>Tracked: {orphansInfo?.tracked ?? 0}</p>
+          <p>Orphans: {orphansInfo?.orphans?.length ?? 0}</p>
+          <div class="card-actions">
+            <button onclick={onCleanupOrphans} disabled={orphansBusy}
+              >Clean Up</button
+            >
+            <button
+              class="secondary"
+              onclick={onRecoverRegistry}
+              disabled={orphansBusy}
+            >
+              Recover Registry
+            </button>
+          </div>
+          {#if imagesInfo?.images}
+            <div class="build-times">
+              <h4>Images Last Built</h4>
+              <div class="build-time-list">
+                {#each ["dashboard", "terminal", "code-server"] as type}
+                  <div class="build-time-item">
+                    <span class="image-name">{type}:</span>
+                    <span
+                      class="image-time"
+                      title={buildTimes?.[type] || "Unknown"}
+                    >
+                      {formatBuildTime(buildTimes?.[type])}
+                    </span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+            <div class="image-buttons">
+              {#each ["code-server", "terminal", "dashboard"] as type}
+                <button
+                  onclick={() => onImageBuild(type as any)}
+                  disabled={imageBusy[type as any]}
+                >
+                  Rebuild {type}
+                </button>
               {/each}
             </div>
-          </div>
-          <div class="image-buttons">
-            {#each ['code-server', 'terminal', 'dashboard'] as type}
-              <button onclick={() => onImageBuild(type as any)} disabled={imageBusy[type as any]}>
-                Rebuild {type}
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
+          {/if}
         </div>
-      {/if}
+      </div>
+    {/if}
   </div>
-</aside><style>
+</aside>
+
+<style>
   .sidebar {
     position: sticky;
     top: 0;
@@ -167,7 +206,9 @@
     backdrop-filter: blur(10px);
     border-right: 1px solid rgba(79, 70, 229, 0.1);
     box-shadow: 4px 0 24px rgba(79, 70, 229, 0.08);
-    transition: width 0.3s ease, min-width 0.3s ease;
+    transition:
+      width 0.3s ease,
+      min-width 0.3s ease;
     width: 320px;
     min-width: 320px;
   }
@@ -200,7 +241,9 @@
     font-size: 1rem;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
     line-height: 1;
   }
 
@@ -390,7 +433,7 @@
   .image-time {
     color: #1e293b;
     font-weight: 600;
-    font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+    font-family: "SF Mono", "Monaco", "Cascadia Code", "Roboto Mono", monospace;
     font-size: 0.8125rem;
   }
 
