@@ -187,8 +187,14 @@
     addUserMessage(message);
 
     try {
-      await sendAiMessage(envId, message);
-      await refreshOutput();
+      const response = await sendAiMessage(envId, message);
+      // Use the response directly from the chat endpoint if available
+      if (response.message) {
+        addAssistantMessage(response.message);
+      } else {
+        // Fallback to fetching output if message not in response
+        await refreshOutput();
+      }
     } catch (err) {
       error = (err as Error).message;
       addSystemMessage(`❌ Error: ${(err as Error).message}`);

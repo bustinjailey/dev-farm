@@ -722,7 +722,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           env_id: envId,
           response: output,
         });
-        return { success: true, session_id: sessionId };
+        return { success: true, session_id: sessionId, message: output };
       } catch (error) {
         fastify.log.error({ envId, err: error }, 'Failed to send AI message');
         return reply.code(500).send({ error: (error as Error).message });
@@ -755,19 +755,13 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         return reply.code(404).send({ error: 'Environment not found' });
       }
 
-      const container = docker.getContainer(record.containerId);
-      await ensureTmuxServer(container);
-
-      try {
-        const output = await execToString(container, 'tmux capture-pane -t dev-farm -p -S -50');
-        const copilotOutput = aiOutputCache.get(envId) ?? '';
-        return {
-          output: output || copilotOutput,
-          timestamp: new Date().toISOString(),
-        };
-      } catch (error) {
-        return reply.code(200).send({ output: aiOutputCache.get(envId) ?? '', error: (error as Error).message });
-      }
+      // Return cached AI responses, not raw terminal output
+      // The cache is populated by the /ai/chat endpoint when copilot-chat.sh executes
+      const copilotOutput = aiOutputCache.get(envId) ?? '';
+      return {
+        output: copilotOutput,
+        timestamp: new Date().toISOString(),
+      };
     });
 
     fastify.get('/api/environments/:envId/terminal-preview', async (request, reply) => {
