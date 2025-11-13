@@ -6,6 +6,7 @@
     systemStatus: any;
     orphansInfo: any;
     imagesInfo: any;
+    buildTimes: Record<string, string> | null;
     imageBusy: Record<string, boolean>;
     orphansBusy: boolean;
     systemActionMessage: string | null;
@@ -26,6 +27,7 @@
     systemStatus,
     orphansInfo,
     imagesInfo,
+    buildTimes,
     imageBusy,
     orphansBusy,
     systemActionMessage,
@@ -38,6 +40,22 @@
     onRecoverRegistry,
     onImageBuild,
   }: Props = $props();
+
+  function formatBuildTime(isoString: string | undefined): string {
+    if (!isoString) return 'Unknown';
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  }
 
   function toggleCollapsed() {
     collapsed = !collapsed;
@@ -114,6 +132,19 @@
           </button>
         </div>
         {#if imagesInfo?.images}
+          <div class="build-times">
+            <h4>Image Build Times</h4>
+            <div class="build-time-list">
+              {#each ['dashboard', 'terminal', 'code-server'] as type}
+                <div class="build-time-item">
+                  <span class="image-name">{type}:</span>
+                  <span class="image-time" title={buildTimes?.[type] || 'Unknown'}>
+                    {formatBuildTime(buildTimes?.[type])}
+                  </span>
+                </div>
+              {/each}
+            </div>
+          </div>
           <div class="image-buttons">
             {#each ['code-server', 'terminal', 'dashboard'] as type}
               <button onclick={() => onImageBuild(type as any)} disabled={imageBusy[type as any]}>
@@ -320,6 +351,47 @@
     opacity: 0.6;
     cursor: not-allowed;
     pointer-events: none;
+  }
+
+  .build-times {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: rgba(79, 70, 229, 0.05);
+    border-radius: 8px;
+  }
+
+  .build-times h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+  }
+
+  .build-time-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .build-time-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+  }
+
+  .image-name {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .image-time {
+    color: #1e293b;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+    font-size: 0.8125rem;
   }
 
   @media (max-width: 1024px) {

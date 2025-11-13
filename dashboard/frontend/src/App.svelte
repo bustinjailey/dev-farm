@@ -57,6 +57,7 @@
   let repoBrowserOpen = $state(false);
   let pendingGitUrl = $state("");
   let imagesInfo = $state<any>(null);
+  let buildTimes = $state<Record<string, string> | null>(null);
   let imageBusy = $state<Record<string, boolean>>({});
   let orphansBusy = $state(false);
   let systemActionMessage = $state<string | null>(null);
@@ -229,6 +230,12 @@
       systemStatus = await fetchSystemStatus();
       orphansInfo = await fetchOrphans();
       imagesInfo = await fetchImages();
+      // Also fetch build times
+      const response = await fetch('/api/images/build-times');
+      if (response.ok) {
+        const data = await response.json();
+        buildTimes = data.buildTimes;
+      }
     } catch (err) {
       console.error("Failed to load system status", err);
     }
@@ -245,6 +252,12 @@
   async function loadImages() {
     try {
       imagesInfo = await fetchImages();
+      // Also fetch build times
+      const response = await fetch('/api/images/build-times');
+      if (response.ok) {
+        const data = await response.json();
+        buildTimes = data.buildTimes;
+      }
     } catch (err) {
       console.error("Failed to load images", err);
     }
@@ -657,6 +670,7 @@
     {systemActionMessage}
     {orphansInfo}
     {imagesInfo}
+    {buildTimes}
     {orphansBusy}
     {imageBusy}
     updateInProgress={isUpdateInProgress()}

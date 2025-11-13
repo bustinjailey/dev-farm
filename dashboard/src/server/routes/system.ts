@@ -40,6 +40,29 @@ export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): 
     return reply.send({ images });
   });
 
+  fastify.get('/api/images/build-times', async (_request, reply) => {
+    try {
+      const images = await listImages(docker);
+      const buildTimes: Record<string, string> = {};
+      
+      // Map image names to their build times
+      for (const image of images) {
+        if (image.name === 'dev-farm-dashboard' || image.name === 'dev-farm/dashboard') {
+          buildTimes.dashboard = image.created;
+        } else if (image.name === 'dev-farm-terminal' || image.name === 'dev-farm/terminal') {
+          buildTimes.terminal = image.created;
+        } else if (image.name === 'dev-farm/code-server') {
+          buildTimes['code-server'] = image.created;
+        }
+      }
+      
+      return reply.send({ buildTimes });
+    } catch (error) {
+      fastify.log.error({ error }, 'Failed to get image build times');
+      return reply.code(500).send({ error: 'Failed to retrieve build times' });
+    }
+  });
+
   fastify.post('/api/images/build', async (request, reply) => {
     const { image_type } = (request.body as { image_type?: string }) ?? {};
     const validTypes = ['code-server', 'terminal', 'dashboard'];
