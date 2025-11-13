@@ -196,6 +196,11 @@ if pnpm add -g @github/copilot 2>&1 | tee -a "$LOG_FILE"; then
   "timestamp": "$(date -Iseconds)"
 }
 EOF
+                    # Dismiss the "Press any key" prompt by sending Enter
+                    sleep 0.5
+                    su - coder -c "tmux send-keys -t dev-farm '' C-m"
+                    sleep 1
+                    
                     # Start background auth monitor as coder user with proper log permissions
                     su - coder -c "nohup /home/coder/copilot-auth-monitor.sh >> /home/coder/workspace/.terminal.log 2>&1 &"
                 fi
