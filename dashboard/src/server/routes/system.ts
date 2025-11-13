@@ -45,14 +45,15 @@ export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): 
       const images = await listImages(docker);
       const buildTimes: Record<string, string> = {};
 
-      // Map image names to their build times
+      // Map image names to their build times using exact matches
+      // This prevents old legacy images (dev-farm-terminal) from overwriting new ones (dev-farm/terminal)
       for (const image of images) {
         const name = image.name.toLowerCase();
-        if (name.includes('dashboard')) {
+        if (name === 'dev-farm-dashboard') {
           buildTimes.dashboard = image.created;
-        } else if (name.includes('terminal')) {
+        } else if (name === 'dev-farm/terminal') {
           buildTimes.terminal = image.created;
-        } else if (name.includes('code-server')) {
+        } else if (name === 'dev-farm/code-server') {
           buildTimes['code-server'] = image.created;
         }
       }

@@ -45,8 +45,18 @@ send_message() {
     # Capture current pane content before sending (to establish baseline)
     local before_lines=$(tmux capture-pane -t "$SESSION_NAME" -p 2>/dev/null | wc -l)
     
-    # Send the message
-    tmux send-keys -t "$SESSION_NAME" "$message" C-m 2>/dev/null
+    # Ensure we're in the input prompt by pressing Escape first (exits any mode)
+    # then clear any existing input
+    tmux send-keys -t "$SESSION_NAME" Escape C-u 2>/dev/null
+    sleep 0.2
+    
+    # Type the message character by character to ensure it's properly entered
+    # This is more reliable than sending the whole string at once
+    tmux send-keys -t "$SESSION_NAME" -l "$message" 2>/dev/null
+    sleep 0.2
+    
+    # Send Enter key to submit
+    tmux send-keys -t "$SESSION_NAME" Enter 2>/dev/null
     
     # Give initial time for copilot to start processing
     sleep 1
