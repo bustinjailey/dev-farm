@@ -1,6 +1,7 @@
 services:
   dashboard:
     build: ./dashboard
+    image: dev-farm/dashboard:latest
     container_name: devfarm-dashboard
     network_mode: host
     volumes:

@@ -49,7 +49,7 @@ export function registerSystemRoutes(fastify: FastifyInstance, docker: Docker): 
       // This prevents old legacy images (dev-farm-terminal) from overwriting new ones (dev-farm/terminal)
       for (const image of images) {
         const name = image.name.toLowerCase();
-        if (name === 'dev-farm-dashboard') {
+        if (name === 'dev-farm/dashboard') {
           buildTimes.dashboard = image.created;
         } else if (name === 'dev-farm/terminal') {
           buildTimes.terminal = image.created;
