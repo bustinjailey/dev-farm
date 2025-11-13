@@ -123,7 +123,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           try {
             const authStatus = await execToString(
               container,
-              'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
+              'cat /root/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
             ).catch(() => 'unknown');
 
             const copilotStatus = authStatus.trim();
@@ -187,7 +187,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
               // Check auth status file first
               const authStatus = await execToString(
                 container,
-                'cat /home/coder/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
+                'cat /root/workspace/.copilot-auth-status 2>/dev/null || echo "unknown"'
               ).catch((err) => {
                 fastify.log.warn({ envId, err }, 'Failed to read auth status');
                 return 'unknown';
