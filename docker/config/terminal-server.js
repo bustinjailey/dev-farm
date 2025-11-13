@@ -11,6 +11,7 @@ const pty = require("node-pty");
 const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs");
 
 const app = express();
 expressWs(app);
@@ -81,9 +82,7 @@ app.ws("/terminal", (ws, req) => {
   } catch (error) {
     // Session doesn't exist, create new one
     try {
-      execSync(
-        "tmux new-session -d -s dev-farm -c /root/workspace /bin/zsh"
-      );
+      execSync("tmux new-session -d -s dev-farm -c /root/workspace /bin/zsh");
       termShell = "tmux";
       termArgs = ["-2", "attach-session", "-t", "dev-farm"];
       console.log("Created and attaching to new tmux session: dev-farm");
@@ -110,6 +109,61 @@ app.ws("/terminal", (ws, req) => {
   logs.set(sessionId, "");
 
   console.log(`Terminal ${sessionId} spawned with PID: ${term.pid}`);
+
+  // Check for device auth file and display banner if authentication is pending
+  const deviceAuthPath = path.join(
+    process.env.HOME || "/root",
+    "workspace",
+    ".copilot-device-auth.json"
+  );
+  
+  // Watch for device auth file changes
+  let authFileWatcher = null;
+  const checkAndDisplayAuthBanner = () => {
+    try {
+      if (fs.existsSync(deviceAuthPath)) {
+        const authData = JSON.parse(fs.readFileSync(deviceAuthPath, "utf8"));
+        if (authData.code && authData.url) {
+          // Send banner as terminal output
+          const banner = `\r\n\x1b[1;36m╔═══════════════════════════════════════════════════════════════╗\x1b[0m\r\n` +
+                        `\x1b[1;36m║\x1b[0m \x1b[1;33m🔐 GitHub Copilot Authentication Required\x1b[0m                   \x1b[1;36m║\x1b[0m\r\n` +
+                        `\x1b[1;36m╠═══════════════════════════════════════════════════════════════╣\x1b[0m\r\n` +
+                        `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
+                        `\x1b[1;36m║\x1b[0m  \x1b[1mPlease visit:\x1b[0m \x1b[4;34m${authData.url}\x1b[0m               \x1b[1;36m║\x1b[0m\r\n` +
+                        `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
+                        `\x1b[1;36m║\x1b[0m  \x1b[1mEnter code:\x1b[0m \x1b[1;32m${authData.code}\x1b[0m                                   \x1b[1;36m║\x1b[0m\r\n` +
+                        `\x1b[1;36m║\x1b[0m                                                               \x1b[1;36m║\x1b[0m\r\n` +
+                        `\x1b[1;36m╚═══════════════════════════════════════════════════════════════╝\x1b[0m\r\n\r\n`;
+          
+          try {
+            ws.send(JSON.stringify({ type: "output", data: banner }));
+            console.log("Sent device auth banner to client");
+          } catch (err) {
+            console.error("Error sending banner:", err.message);
+          }
+        }
+      }
+    } catch (error) {
+      // Ignore errors reading auth file
+    }
+  };
+
+  // Display banner immediately if file exists
+  checkAndDisplayAuthBanner();
+
+  // Watch for auth file changes (creation or updates)
+  try {
+    const watchDir = path.dirname(deviceAuthPath);
+    if (fs.existsSync(watchDir)) {
+      authFileWatcher = fs.watch(watchDir, (eventType, filename) => {
+        if (filename === ".copilot-device-auth.json") {
+          checkAndDisplayAuthBanner();
+        }
+      });
+    }
+  } catch (error) {
+    console.log("Could not watch auth file:", error.message);
+  }
 
   // Send data from pty to WebSocket client
   term.onData((data) => {
@@ -174,6 +228,9 @@ app.ws("/terminal", (ws, req) => {
   // Handle WebSocket close
   ws.on("close", () => {
     console.log(`WebSocket closed for terminal ${sessionId}`);
+    if (authFileWatcher) {
+      authFileWatcher.close();
+    }
     if (term && !term.killed) {
       term.kill();
     }
@@ -184,6 +241,9 @@ app.ws("/terminal", (ws, req) => {
   // Handle WebSocket error
   ws.on("error", (error) => {
     console.error(`WebSocket error for terminal ${sessionId}:`, error.message);
+    if (authFileWatcher) {
+      authFileWatcher.close();
+    }
     if (term && !term.killed) {
       term.kill();
     }
