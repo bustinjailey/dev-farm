@@ -368,7 +368,8 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       const displayName = userProvidedName || generateFunName();
       const envId = userProvidedName ? kebabify(userProvidedName) : kebabify(displayName);
       const mode = (typeof body.mode === 'string' && body.mode) || 'workspace';
-      const flavor = (typeof body.flavor === 'string' && body.flavor) || 'default';
+      // Flavor only applies to VS Code modes (not terminal)
+      const flavor = mode === 'terminal' ? 'default' : ((typeof body.flavor === 'string' && body.flavor) || 'default');
       const connectionMode = (typeof body.connection_mode === 'string' && body.connection_mode) || 'web';
 
       const registry = await loadRegistry();

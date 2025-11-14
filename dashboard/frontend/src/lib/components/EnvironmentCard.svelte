@@ -51,7 +51,9 @@
     <div>
       <h2>{env.name}</h2>
       <small>
-        {env.mode} mode{env.flavor === 'mobile-optimized' ? ' • 📱 Mobile' : ''} • {env.status}
+        {env.mode} mode{env.mode !== "terminal" && env.flavor === "mobile-optimized"
+          ? " • 📱 Mobile"
+          : ""} • {env.status}
         {#if copilotStatus}
           {#if copilotStatus === "configuring"}
             • Setting up Copilot...
@@ -142,20 +144,27 @@
       {/if}
     {:else}
       <!-- Non-terminal modes: show all buttons -->
+      {#if env.status === "running" && !env.requiresAuth && !deviceAuth}
+        <a class="btn primary" href={env.url} target="_blank" rel="noopener"
+          >Open Tunnel</a
+        >
+      {:else if env.status === "running"}
+        <button
+          class="btn primary"
+          disabled
+          title="Complete GitHub authentication first"
+        >
+          🔒 Open Tunnel (Auth Required)
+        </button>
+      {:else if env.status === "starting"}
+        <button class="btn" disabled>Starting…</button>
+      {:else}
+        <button class="btn primary" disabled={actionBusy} onclick={onStart}>
+          ▶️ Start
+        </button>
+      {/if}
+
       {#if env.status === "running"}
-        {#if env.requiresAuth || deviceAuth}
-          <button
-            class="btn primary"
-            disabled
-            title="Complete GitHub authentication first"
-          >
-            🔒 Open Tunnel (Auth Required)
-          </button>
-        {:else}
-          <a class="btn primary" href={env.url} target="_blank" rel="noopener"
-            >Open Tunnel</a
-          >
-        {/if}
         <button
           class="btn secondary"
           type="button"
@@ -170,12 +179,6 @@
         {/if}
         <button class="btn" disabled={actionBusy} onclick={onStop}>
           ⏸ Stop
-        </button>
-      {:else if env.status === "starting"}
-        <button class="btn" disabled>Starting…</button>
-      {:else}
-        <button class="btn primary" disabled={actionBusy} onclick={onStart}>
-          ▶️ Start
         </button>
       {/if}
 

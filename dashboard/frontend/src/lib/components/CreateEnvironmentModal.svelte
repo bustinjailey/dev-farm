@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { CreateEnvironmentPayload } from '../api';
+  import { createEventDispatcher } from "svelte";
+  import type { CreateEnvironmentPayload } from "../api";
 
-  let { open = false, gitUrl = $bindable('') }: { open?: boolean; gitUrl?: string } = $props();
+  let {
+    open = false,
+    gitUrl = $bindable(""),
+  }: { open?: boolean; gitUrl?: string } = $props();
 
   const dispatch = createEventDispatcher<{
     submit: CreateEnvironmentPayload;
@@ -10,52 +13,53 @@
     browseRepo: void;
   }>();
 
-  let name = $state('');
-  let mode = $state<CreateEnvironmentPayload['mode']>('terminal');
-  let flavor = $state<'default' | 'mobile-optimized'>('mobile-optimized');
-  let sshHost = $state('');
-  let sshUser = $state('root');
-  let sshPassword = $state('');
-  let sshPath = $state('/home');
-  let nameError = $state('');
+  let name = $state("");
+  let mode = $state<CreateEnvironmentPayload["mode"]>("workspace");
+  let flavor = $state<"default" | "mobile-optimized">("mobile-optimized");
+  let sshHost = $state("");
+  let sshUser = $state("root");
+  let sshPassword = $state("");
+  let sshPath = $state("/home");
+  let nameError = $state("");
 
   // Reset form when modal opens
   $effect(() => {
     if (open) {
-      name = '';
-      mode = 'terminal';
-      flavor = 'mobile-optimized';
-      sshHost = '';
-      sshUser = 'root';
-      sshPassword = '';
-      sshPath = '/home';
-      nameError = '';
+      name = "";
+      mode = "workspace";
+      flavor = "mobile-optimized";
+      sshHost = "";
+      sshUser = "root";
+      sshPassword = "";
+      sshPath = "/home";
+      nameError = "";
     }
   });
 
   $effect(() => {
     if (name.length > 20) {
-      nameError = 'Name cannot exceed 20 characters (VS Code tunnel limitation)';
+      nameError =
+        "Name cannot exceed 20 characters (VS Code tunnel limitation)";
     } else {
-      nameError = '';
+      nameError = "";
     }
   });
 
   function resetForm() {
-    name = '';
-    mode = 'terminal';
-    flavor = 'mobile-optimized';
-    gitUrl = '';
-    sshHost = '';
-    sshUser = 'root';
-    sshPassword = '';
-    sshPath = '/home';
-    nameError = '';
+    name = "";
+    mode = "workspace";
+    flavor = "mobile-optimized";
+    gitUrl = "";
+    sshHost = "";
+    sshUser = "root";
+    sshPassword = "";
+    sshPath = "/home";
+    nameError = "";
   }
 
   function close() {
     resetForm();
-    dispatch('close');
+    dispatch("close");
   }
 
   function submitForm() {
@@ -66,25 +70,29 @@
     const payload: CreateEnvironmentPayload = {
       name,
       mode,
-      flavor,
     };
 
-    if (mode === 'git') {
-      payload.git_url = gitUrl.trim();
-    } else if (mode === 'ssh') {
-      payload.ssh_host = sshHost.trim();
-      payload.ssh_user = sshUser.trim() || 'root';
-      payload.ssh_password = sshPassword;
-      payload.ssh_path = sshPath.trim() || '/home';
+    // Only include flavor for modes that use VS Code UI (not terminal)
+    if (mode !== "terminal") {
+      payload.flavor = flavor;
     }
 
-    dispatch('submit', payload);
+    if (mode === "git") {
+      payload.git_url = gitUrl.trim();
+    } else if (mode === "ssh") {
+      payload.ssh_host = sshHost.trim();
+      payload.ssh_user = sshUser.trim() || "root";
+      payload.ssh_password = sshPassword;
+      payload.ssh_path = sshPath.trim() || "/home";
+    }
+
+    dispatch("submit", payload);
     // Reset form after successful submission
     resetForm();
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       close();
     }
   }
@@ -127,25 +135,36 @@
           </select>
         </label>
 
-        <label>
-          <span>UI Flavor</span>
-          <select bind:value={flavor}>
-            <option value="mobile-optimized">Mobile Optimized (Cline-focused)</option>
-            <option value="default">Default (Desktop)</option>
-          </select>
-        </label>
+        {#if mode !== "terminal"}
+          <label>
+            <span>UI Flavor</span>
+            <select bind:value={flavor}>
+              <option value="mobile-optimized"
+                >Mobile Optimized (Cline-focused)</option
+              >
+              <option value="default">Default (Desktop)</option>
+            </select>
+          </label>
+        {/if}
 
-        {#if mode === 'git'}
+        {#if mode === "git"}
           <label>
             <span>Git URL</span>
             <div class="repo-row">
-              <input bind:value={gitUrl} placeholder="https://github.com/user/repo" />
-              <button type="button" class="browse" on:click={() => dispatch('browseRepo')}>
+              <input
+                bind:value={gitUrl}
+                placeholder="https://github.com/user/repo"
+              />
+              <button
+                type="button"
+                class="browse"
+                on:click={() => dispatch("browseRepo")}
+              >
                 📚 Browse
               </button>
             </div>
           </label>
-        {:else if mode === 'ssh'}
+        {:else if mode === "ssh"}
           <div class="grid">
             <label>
               <span>SSH Host</span>
@@ -168,7 +187,9 @@
       </section>
       <footer>
         <button class="secondary" on:click={close}>Cancel</button>
-        <button class="primary" on:click={submitForm} disabled={!!nameError}>Create</button>
+        <button class="primary" on:click={submitForm} disabled={!!nameError}
+          >Create</button
+        >
       </footer>
     </div>
   </div>
