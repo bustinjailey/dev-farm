@@ -110,8 +110,15 @@ echo "Applying machine-level settings from template..."
 /usr/bin/python3 - <<'PYEOF'
 import json, os
 
-# Read workspace settings template
-tpl_path = "/home/coder/.devfarm/workspace-settings.json"
+# Determine which settings template to use based on FLAVOR env var
+flavor = os.environ.get('FLAVOR', 'default')
+if flavor == 'mobile-optimized':
+    tpl_path = "/home/coder/.devfarm/workspace-settings-mobile.json"
+    print(f"Using mobile-optimized settings template")
+else:
+    tpl_path = "/home/coder/.devfarm/workspace-settings.json"
+    print(f"Using default settings template")
+
 if not os.path.exists(tpl_path):
     print("No workspace settings template found")
     exit(0)

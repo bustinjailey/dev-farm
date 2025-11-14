@@ -1,0 +1,58 @@
+{
+  "workbench.colorTheme": "Default Dark Modern",
+  "editor.fontSize": 16,
+  "editor.fontFamily": "Consolas, 'Courier New', monospace",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": true,
+  "editor.inlineSuggest.enabled": true,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.shellIntegration.enabled": true,
+  "terminal.integrated.profiles.linux": {
+    "persistent-bash": {
+      "path": "/home/coder/.local/bin/tmux-persistent",
+      "icon": "terminal-tmux"
+    },
+    "bash": {
+      "path": "/bin/bash"
+    }
+  },
+  "terminal.integrated.defaultProfile.linux": "persistent-bash",
+  "terminal.integrated.persistentSessionReviveProcess": "onExitAndWindowClose",
+  "github.copilot.chat.persistentSessions": true,
+  "workbench.editor.limit.enabled": false,
+  "workbench.editor.limit.perEditorGroup": false,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "explorer.confirmDelete": false,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "workbench.editor.showTabs": "multiple",
+  "workbench.startupEditor": "none",
+  "editor.smoothScrolling": true,
+  "terminal.integrated.smoothScrolling": true,
+  "workbench.editor.restoreViewState": false,
+  "workbench.editor.enablePreview": false,
+  "github.copilot.enable": {
+    "*": true
+  },
+  "github.copilot.advanced": {},
+  "editor.minimap.enabled": false,
+  "breadcrumbs.enabled": false,
+  "workbench.activityBar.location": "hidden",
+  "workbench.statusBar.visible": false,
+  "workbench.sideBar.location": "right",
+  "window.menuBarVisibility": "toggle",
+  "workbench.secondarySideBar.defaultVisibility": "visible",
+  "workbench.panel.defaultLocation": "bottom",
+  "window.density.editorTabHeight": "compact",
+  "workbench.commandPalette.preserveInput": true,
+  "window.zoomLevel": 0,
+  "editor.lineNumbers": "on",
+  "editor.glyphMargin": false,
+  "editor.folding": true,
+  "workbench.tree.indent": 12,
+  "workbench.layoutControl.enabled": true,
+  "workbench.tips.enabled": false
+}

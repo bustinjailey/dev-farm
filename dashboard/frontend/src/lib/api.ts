@@ -16,6 +16,7 @@ export async function listEnvironments(): Promise<EnvironmentSummary[]> {
 export interface CreateEnvironmentPayload {
   name: string;
   mode: string;
+  flavor?: 'default' | 'mobile-optimized';
   git_url?: string;
   ssh_host?: string;
   ssh_user?: string;

@@ -158,6 +158,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
           desktopCommand: buildDesktopCommand(envId, workspacePath),
           workspacePath,
           mode: env.mode,
+          flavor: env.flavor,
           requiresAuth,
           deviceAuth,
           created: env.created,
@@ -367,6 +368,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       const displayName = userProvidedName || generateFunName();
       const envId = userProvidedName ? kebabify(userProvidedName) : kebabify(displayName);
       const mode = (typeof body.mode === 'string' && body.mode) || 'workspace';
+      const flavor = (typeof body.flavor === 'string' && body.flavor) || 'default';
       const connectionMode = (typeof body.connection_mode === 'string' && body.connection_mode) || 'web';
 
       const registry = await loadRegistry();
@@ -396,6 +398,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
       const envVars: Record<string, string> = {
         DEV_MODE: mode,
         CONNECTION_MODE: connectionMode,
+        FLAVOR: flavor,
         WORKSPACE_NAME: displayName,
         DEVFARM_ENV_ID: envId,
         ENV_NAME: envId,
@@ -492,6 +495,7 @@ export function createEnvironmentFeature(fastify: FastifyInstance, docker: Docke
         port,
         created: new Date().toISOString(),
         mode: mode as EnvironmentRecord['mode'],
+        flavor: flavor as EnvironmentRecord['flavor'],
         sshHost: mode === 'ssh' ? sshHost : null,
         sshUser: mode === 'ssh' ? sshUser : null,
         sshPath: mode === 'ssh' ? sshPath : null,

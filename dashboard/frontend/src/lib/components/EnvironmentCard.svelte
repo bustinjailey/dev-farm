@@ -51,7 +51,7 @@
     <div>
       <h2>{env.name}</h2>
       <small>
-        {env.mode} mode • {env.status}
+        {env.mode} mode{env.flavor === 'mobile-optimized' ? ' • 📱 Mobile' : ''} • {env.status}
         {#if copilotStatus}
           {#if copilotStatus === "configuring"}
             • Setting up Copilot...

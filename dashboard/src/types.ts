@@ -1,4 +1,5 @@
 export type EnvironmentMode = 'workspace' | 'git' | 'ssh' | 'terminal';
+export type EnvironmentFlavor = 'default' | 'mobile-optimized';
 
 export interface EnvironmentRecord {
   name: string;
@@ -9,6 +10,7 @@ export interface EnvironmentRecord {
   created: string;
   lastStarted?: string;
   mode: EnvironmentMode;
+  flavor?: EnvironmentFlavor;
   sshHost?: string | null;
   sshUser?: string | null;
   sshPath?: string | null;
@@ -58,6 +60,7 @@ export interface EnvironmentSummary {
   desktopCommand: string;
   workspacePath: string;
   mode: EnvironmentMode;
+  flavor?: EnvironmentFlavor;
   requiresAuth?: boolean;
   deviceAuth?: { code: string; url: string } | null;
   created?: string;

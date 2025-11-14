@@ -12,6 +12,7 @@
 
   let name = $state('');
   let mode = $state<CreateEnvironmentPayload['mode']>('terminal');
+  let flavor = $state<'default' | 'mobile-optimized'>('mobile-optimized');
   let sshHost = $state('');
   let sshUser = $state('root');
   let sshPassword = $state('');
@@ -23,6 +24,7 @@
     if (open) {
       name = '';
       mode = 'terminal';
+      flavor = 'mobile-optimized';
       sshHost = '';
       sshUser = 'root';
       sshPassword = '';
@@ -42,6 +44,7 @@
   function resetForm() {
     name = '';
     mode = 'terminal';
+    flavor = 'mobile-optimized';
     gitUrl = '';
     sshHost = '';
     sshUser = 'root';
@@ -63,6 +66,7 @@
     const payload: CreateEnvironmentPayload = {
       name,
       mode,
+      flavor,
     };
 
     if (mode === 'git') {
@@ -120,6 +124,14 @@
             <option value="git">Git Repository</option>
             <option value="ssh">Remote SSH</option>
             <option value="terminal">Terminal</option>
+          </select>
+        </label>
+
+        <label>
+          <span>UI Flavor</span>
+          <select bind:value={flavor}>
+            <option value="mobile-optimized">Mobile Optimized (Cline-focused)</option>
+            <option value="default">Default (Desktop)</option>
           </select>
         </label>
 

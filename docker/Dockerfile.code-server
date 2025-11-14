@@ -104,6 +104,7 @@ RUN mkdir -p /home/coder/.vscode-server-insiders/data \
 # Include templates for runtime initialization (unified MCP config for all AI tools)
 RUN mkdir -p /home/coder/.devfarm
 COPY --chown=coder:coder config/workspace-settings.json /home/coder/.devfarm/workspace-settings.json
+COPY --chown=coder:coder config/workspace-settings-mobile.json /home/coder/.devfarm/workspace-settings-mobile.json
 COPY --chown=coder:coder config/mcp-copilot.json /home/coder/.devfarm/mcp-copilot.json
 COPY --chown=coder:coder config/auto-approval-settings.json /home/coder/.devfarm/auto-approval-settings.json
 
